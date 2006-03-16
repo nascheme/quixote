@@ -1,8 +1,6 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/_fcgi.py $
-$Id: _fcgi.py 26782 2005-05-11 20:32:01Z nascheme $
-Derived from Robin Dunn's FastCGI module,
-available at http://alldunn.com/python/#fcgi.
-"""
+# Derived from Robin Dunn's FastCGI module,
+# available at http://alldunn.com/python/#fcgi.
+
 #------------------------------------------------------------------------
 #               Copyright (c) 1998 by Total Control Software
 #                         All Rights Reserved

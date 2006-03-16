@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/session.py $
-$Id: session.py 26524 2005-04-08 10:22:34Z dbinger $
-
-Quixote session management.  There are two levels to Quixote's
+"""Quixote session management.  There are two levels to Quixote's
 session management system:
   - SessionManager
   - Session

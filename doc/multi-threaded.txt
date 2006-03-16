@@ -34,6 +34,3 @@ re-entrant.  Here's a starting point::
 
 Using ThreadedPublisher, you now have one current request per thread,
 rather than one for the entire process.
-
-
-$Id: multi-threaded.txt 20217 2003-01-16 20:51:53Z akuchlin $

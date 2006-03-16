@@ -1,7 +1,4 @@
 """
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/config.py $
-$Id: config.py 27190 2005-08-11 15:12:15Z dbinger $
-
 Quixote configuration information.  This module provides both the
 default configuration values, and some code that Quixote uses for
 dealing with configuration info.  You should not edit the configuration

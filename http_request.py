@@ -1,6 +1,4 @@
 """quixote.http_request
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/http_request.py $
-$Id: http_request.py 27293 2005-09-04 05:46:31Z nascheme $
 
 Provides the HTTPRequest class and related code for parsing HTTP
 requests, such as the Upload class.

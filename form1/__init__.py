@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/form1/__init__.py $
-$Id: __init__.py 25664 2004-11-22 20:35:07Z nascheme $
-
-The web interface framework, consisting of Form and Widget base classes
+"""The web interface framework, consisting of Form and Widget base classes
 (and a bunch of standard widget classes recognized by Form).
 Application developers will typically create a Form subclass for each
 form in their application; each form object will contain a number

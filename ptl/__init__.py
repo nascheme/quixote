@@ -1,7 +1,4 @@
 '''
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/ptl/__init__.py $
-$Id: __init__.py 26357 2005-03-16 14:56:23Z dbinger $
-
 PTL: Python Template Language
 =============================
 

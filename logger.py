@@ -1,6 +1,3 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/logger.py $
-$Id: logger.py 27259 2005-08-30 18:30:30Z dbinger $
-"""
 import sys
 import os
 import codecs

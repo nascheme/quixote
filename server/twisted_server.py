@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/twisted_server.py $
-$Id: twisted_server.py 27684 2005-11-10 15:25:17Z dbinger $
-
-An HTTP server for Twisted that publishes a Quixote application.
+"""An HTTP server for Twisted that publishes a Quixote application.
 """
 
 import urllib

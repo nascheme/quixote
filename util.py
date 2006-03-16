@@ -1,6 +1,4 @@
 """quixote.util
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/util.py $
-$Id: util.py 26523 2005-04-08 10:20:19Z dbinger $
 
 Contains various useful functions and classes:
 

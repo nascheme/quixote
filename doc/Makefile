@@ -1,8 +1,6 @@
 #
 # Makefile to convert Quixote docs to HTML
 #
-# $Id: Makefile 20217 2003-01-16 20:51:53Z akuchlin $
-#
 
 TXT_FILES = $(wildcard *.txt)
 HTML_FILES = $(filter-out ZPL%,$(TXT_FILES:%.txt=%.html))

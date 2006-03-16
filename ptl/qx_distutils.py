@@ -1,8 +1,4 @@
-"""
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/ptl/qx_distutils.py $
-$Id: qx_distutils.py 26357 2005-03-16 14:56:23Z dbinger $
-
-Provides a version of the Distutils "build_py" command that knows about
+"""Provides a version of the Distutils "build_py" command that knows about
 PTL files.
 """
 

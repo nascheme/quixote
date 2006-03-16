@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/util.py $
-$Id: util.py 26427 2005-03-30 18:03:32Z dbinger $
-
-Miscellaneous utility functions shared by servers.
+"""Miscellaneous utility functions shared by servers.
 """
 
 from optparse import OptionParser

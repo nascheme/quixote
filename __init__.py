@@ -1,6 +1,4 @@
 """quixote
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/__init__.py $
-$Id: __init__.py 27720 2005-12-12 21:13:41Z dbinger $
 
 A highly Pythonic web application framework.
 """

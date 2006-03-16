@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/publish.py $
-$Id: publish.py 27684 2005-11-10 15:25:17Z dbinger $
-
-Logic for publishing modules and objects on the Web.
+"""Logic for publishing modules and objects on the Web.
 """
 
 import sys, traceback, StringIO

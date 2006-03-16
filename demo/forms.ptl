@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/demo/forms.ptl $
-$Id: forms.ptl 26192 2005-02-18 11:24:43Z dbinger $
-
-Demonstrate the Quixote form class.
+"""Demonstrate the Quixote form class.
 """
 import time
 from quixote.form import Form, StringWidget, PasswordWidget, \

@@ -1,6 +1,4 @@
 """quixote.errors
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/errors.py $
-$Id: errors.py 26782 2005-05-11 20:32:01Z nascheme $
 
 Exception classes used by Quixote
 """

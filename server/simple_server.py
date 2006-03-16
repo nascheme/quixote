@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/simple_server.py $
-$Id: simple_server.py 27684 2005-11-10 15:25:17Z dbinger $
-
-A simple, single threaded, synchronous HTTP server.
+"""A simple, single threaded, synchronous HTTP server.
 """
 import sys
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer

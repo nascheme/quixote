@@ -1,7 +1,4 @@
 """
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/mod_python_handler.py $
-$Id: mod_python_handler.py 27684 2005-11-10 15:25:17Z dbinger $
-
 This needs testing.
 
 mod_python configuration

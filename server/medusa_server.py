@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/medusa_server.py $
-$Id: medusa_server.py 27684 2005-11-10 15:25:17Z dbinger $
-
-An HTTP handler for Medusa that publishes a Quixote application.
+"""An HTTP handler for Medusa that publishes a Quixote application.
 """
 
 import asyncore, rfc822, socket, urllib

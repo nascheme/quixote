@@ -1,8 +1,4 @@
-"""
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/ptl/ptl_import.py $
-$Id: ptl_import.py 27263 2005-08-31 16:09:13Z dbinger $
-
-Import hooks; when installed, these hooks allow importing .ptl files
+"""Import hooks; when installed, these hooks allow importing .ptl files
 as if they were Python modules.
 
 Note: there's some unpleasant incompatibility between ZODB's import

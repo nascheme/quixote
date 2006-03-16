@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/demo/altdemo.py $
-$Id: altdemo.py 26377 2005-03-16 23:32:15Z dbinger $
-
-An alternative Quixote demo.  This version is contained in a single module
+"""An alternative Quixote demo.  This version is contained in a single module
 and does not use PTL.  The easiest way to run this demo is to use the
 simple HTTP server included with Quixote.  For example:
 

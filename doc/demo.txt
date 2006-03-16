@@ -217,5 +217,3 @@ You can't get very far writing web applications without writing forms.
 The root demo includes, at http://localhost:8080/extras/form, a page
 that demonstrates basic usage of the Form class and widgets defined in
 the quixote.form package.  
-
-$Id: demo.txt 25695 2004-11-30 20:53:44Z dbinger $

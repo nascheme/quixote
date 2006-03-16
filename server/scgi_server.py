@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/scgi_server.py $
-$Id: scgi_server.py 27684 2005-11-10 15:25:17Z dbinger $
-
-A SCGI server that uses Quixote to publish dynamic content.
+"""A SCGI server that uses Quixote to publish dynamic content.
 """
 
 from scgi import scgi_server

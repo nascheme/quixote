@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/fastcgi_server.py $
-$Id: fastcgi_server.py 27684 2005-11-10 15:25:17Z dbinger $
-
-Server for Quixote applications that use FastCGI.  It should work
+"""Server for Quixote applications that use FastCGI.  It should work
 for CGI too but the cgi_server module is preferred as it is more
 portable.
 """

@@ -164,6 +164,3 @@ to the keys of this dictionary::
 
 This approach works nicely when there are many methods and the
 ``if...elif...else`` statement would be unworkably long.
-
-
-$Id: web-services.txt 25695 2004-11-30 20:53:44Z dbinger $

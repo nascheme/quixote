@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/setup.py $
-#$Id: setup.py 27720 2005-12-12 21:13:41Z dbinger $
 
 # Setup script for Quixote
 

@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/publish1.py $
-$Id: publish1.py 25664 2004-11-22 20:35:07Z nascheme $
-
-Provides a publisher object that behaves like the Quixote 1 Publisher.
+"""Provides a publisher object that behaves like the Quixote 1 Publisher.
 Specifically, arbitrary namespaces may be exported and the HTTPRequest
 object is passed as the first argument to exported functions.  Also,
 the _q_lookup(), _q_resolve(), and _q_access() methods work as they did

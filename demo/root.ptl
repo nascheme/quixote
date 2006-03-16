@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/demo/root.ptl $
-$Id: root.ptl 25577 2004-11-11 18:58:30Z dbinger $
-
-The root directory for the Quixote demo.
+"""The root directory for the Quixote demo.
 """
 from quixote import get_response
 from quixote.directory import Directory

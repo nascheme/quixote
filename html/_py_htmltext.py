@@ -2,9 +2,6 @@
 TemplateIO.
 """
 
-#$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/html/_py_htmltext.py $
-#$Id: _py_htmltext.py 27294 2005-09-04 06:00:01Z nascheme $
-
 def _escape_string(s):
     if not isinstance(s, basestring):
         raise TypeError, 'string object required'

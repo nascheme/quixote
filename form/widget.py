@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/form/widget.py $
-$Id: widget.py 27293 2005-09-04 05:46:31Z nascheme $
-
-Provides the basic web widget classes: Widget itself, plus StringWidget,
+"""Provides the basic web widget classes: Widget itself, plus StringWidget,
 TextWidget, CheckboxWidget, etc.
 """
 

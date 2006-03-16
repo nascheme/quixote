@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/server/cgi_server.py $
-$Id: cgi_server.py 27684 2005-11-10 15:25:17Z dbinger $
-"""
 
 import sys
 import os

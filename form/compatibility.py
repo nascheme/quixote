@@ -1,7 +1,4 @@
-'''$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/form/compatibility.py $
-$Id: compatibility.py 26061 2005-02-11 02:48:16Z dbinger $
-
-A Form subclass that provides close to the same API as the old form
+'''A Form subclass that provides close to the same API as the old form
 class (useful for transitioning existing forms).
 '''
 

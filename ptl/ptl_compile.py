@@ -1,9 +1,5 @@
 #!/www/python/bin/python
-"""
-$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/ptl/ptl_compile.py $
-$Id: ptl_compile.py 26903 2005-06-06 11:11:49Z dbinger $
-
-Compile a PTL template.
+"""Compile a PTL template.
 
 First template function names are mangled, noting the template type.
 Next, the file is parsed into a parse tree.  This tree is converted into

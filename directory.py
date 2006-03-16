@@ -1,7 +1,4 @@
-"""$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/directory.py $
-$Id: directory.py 26606 2005-04-18 21:55:37Z rmasse $
-
-Logic for traversing directory objects and generating output.
+"""Logic for traversing directory objects and generating output.
 """
 import quixote
 from quixote.errors import TraversalError

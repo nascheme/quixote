@@ -1,6 +1,4 @@
 """quixote.http_response
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/http_response.py $
-$Id: http_response.py 27524 2005-10-06 19:56:57Z dbinger $
 
 Provides the HTTPResponse class.
 """

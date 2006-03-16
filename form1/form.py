@@ -1,7 +1,4 @@
-"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/form1/form.py $
-$Id: form.py 25664 2004-11-22 20:35:07Z nascheme $
-
-Provides the Form class and bureaucracy for registering widget classes.
+"""Provides the Form class and bureaucracy for registering widget classes.
 (The standard widget classes are registered automatically.)
 """
 

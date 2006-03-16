@@ -1,6 +1,4 @@
 """quixote.sendmail
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/sendmail.py $
-$Id: sendmail.py 27540 2005-10-12 13:15:58Z dbinger $
 
 Tools for sending mail from Quixote applications.
 """

@@ -1,6 +1,4 @@
 """Various functions for dealing with HTML.
-$HeadURL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/html/__init__.py $
-$Id: __init__.py 26631 2005-04-20 21:13:38Z dbinger $
 
 These functions are fairly simple but it is critical that they be
 used correctly.  Many security problems are caused by escaping errors
