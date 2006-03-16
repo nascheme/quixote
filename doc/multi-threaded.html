@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Multi-Threaded Quixote Applications</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="multi-threaded-quixote-applications">
+<h1 class="title">Multi-Threaded Quixote Applications</h1>
+<p>Starting with Quixote 0.6, it's possible to write multi-threaded Quixote
+applications.  In previous versions, Quixote stored the current
+HTTPRequest object in a global variable, meaning that processing
+multiple requests in the same process simultaneously was impossible.</p>
+<p>However, the Publisher class as shipped still can't handle multiple
+simultaneous requests; you'll need to subclass Publisher to make it
+re-entrant.  Here's a starting point:</p>
+<pre class="literal-block">
+import thread
+from quixote.publish import Publisher
+
+[...]
+
+class ThreadedPublisher (Publisher):
+    def __init__ (self, root_namespace, config=None):
+        Publisher.__init__(self, root_namespace, config)
+        self._request_dict = {}
+
+    def _set_request(self, request):
+        self._request_dict[thread.get_ident()] = request
+
+    def _clear_request(self):
+        try:
+            del self._request_dict[thread.get_ident()]
+        except KeyError:
+            pass
+
+    def get_request(self):
+        return self._request_dict.get(thread.get_ident())
+</pre>
+<p>Using ThreadedPublisher, you now have one current request per thread,
+rather than one for the entire process.</p>
+<p>$Id: multi-threaded.txt 20217 2003-01-16 20:51:53Z akuchlin $</p>
+</div>
+</body>
+</html>

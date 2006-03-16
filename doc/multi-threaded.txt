@@ -1,0 +1,39 @@
+Multi-Threaded Quixote Applications
+===================================
+
+Starting with Quixote 0.6, it's possible to write multi-threaded Quixote
+applications.  In previous versions, Quixote stored the current
+HTTPRequest object in a global variable, meaning that processing
+multiple requests in the same process simultaneously was impossible.
+
+However, the Publisher class as shipped still can't handle multiple
+simultaneous requests; you'll need to subclass Publisher to make it
+re-entrant.  Here's a starting point::
+
+  import thread
+  from quixote.publish import Publisher
+
+  [...]
+
+  class ThreadedPublisher (Publisher):
+      def __init__ (self, root_namespace, config=None):
+          Publisher.__init__(self, root_namespace, config)
+          self._request_dict = {}
+
+      def _set_request(self, request):
+          self._request_dict[thread.get_ident()] = request
+
+      def _clear_request(self):
+          try:
+              del self._request_dict[thread.get_ident()]
+          except KeyError:
+              pass
+
+      def get_request(self):
+          return self._request_dict.get(thread.get_ident())
+
+Using ThreadedPublisher, you now have one current request per thread,
+rather than one for the entire process.
+
+
+$Id: multi-threaded.txt 20217 2003-01-16 20:51:53Z akuchlin $

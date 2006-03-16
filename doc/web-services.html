@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Implementing Web Services with Quixote</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="implementing-web-services-with-quixote">
+<h1 class="title">Implementing Web Services with Quixote</h1>
+<p>This document will show you how to implement Web services using
+Quixote.</p>
+<div class="section" id="an-xml-rpc-service">
+<h1><a name="an-xml-rpc-service">An XML-RPC Service</a></h1>
+<p>XML-RPC is the simplest protocol commonly used to expose a Web
+service.  In XML-RPC, there are a few basic data types such as
+integers, floats, strings, and dates, and a few aggregate types such
+as arrays and structs.  The xmlrpclib module, part of the Python 2.2
+standard library and available separately from
+<a class="reference" href="http://www.pythonware.com/products/xmlrpc/">http://www.pythonware.com/products/xmlrpc/</a>, converts between Python's
+standard data types and the XML-RPC data types.</p>
+<table class="table" frame="border" rules="all">
+<colgroup>
+<col width="40%" />
+<col width="60%" />
+</colgroup>
+<tbody valign="top">
+<tr><td>XML-RPC Type</td>
+<td>Python Type or Class</td>
+</tr>
+<tr><td>&lt;int&gt;</td>
+<td>int</td>
+</tr>
+<tr><td>&lt;double&gt;</td>
+<td>float</td>
+</tr>
+<tr><td>&lt;string&gt;</td>
+<td>string</td>
+</tr>
+<tr><td>&lt;array&gt;</td>
+<td>list</td>
+</tr>
+<tr><td>&lt;struct&gt;</td>
+<td>dict</td>
+</tr>
+<tr><td>&lt;boolean&gt;</td>
+<td>xmlrpclib.Boolean</td>
+</tr>
+<tr><td>&lt;base64&gt;</td>
+<td>xmlrpclib.Binary</td>
+</tr>
+<tr><td>&lt;dateTime&gt;</td>
+<td>xmlrpclib.DateTime</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="making-xml-rpc-calls">
+<h1><a name="making-xml-rpc-calls">Making XML-RPC Calls</a></h1>
+<p>Making an XML-RPC call using xmlrpclib is easy.  An XML-RPC server
+lives at a particular URL, so the first step is to create an
+xmlrpclib.ServerProxy object pointing at that URL.</p>
+<pre class="literal-block">
+&gt;&gt;&gt; import xmlrpclib
+&gt;&gt;&gt; s = xmlrpclib.ServerProxy(
+             'http://www.stuffeddog.com/speller/speller-rpc.cgi')
+</pre>
+<p>Now you can simply make a call to the spell-checking service offered
+by this server:</p>
+<pre class="literal-block">
+&gt;&gt;&gt; s.speller.spellCheck('my speling isnt gud', {})
+[{'word': 'speling', 'suggestions': ['apeling', 'spelding',
+  'spelling', 'sperling', 'spewing', 'spiling'], 'location': 4},
+{'word': 'isnt', 'suggestions': [``isn't'', 'ist'], 'location': 12}]
+&gt;&gt;&gt; 
+</pre>
+<p>This call results in the following XML being sent:</p>
+<pre class="literal-block">
+&lt;?xml version='1.0'?&gt;
+&lt;methodCall&gt;
+     &lt;methodName&gt;speller.spellCheck&lt;/methodName&gt;
+     &lt;params&gt;
+         &lt;param&gt;
+                &lt;value&gt;&lt;string&gt;my speling isnt gud&lt;/string&gt;&lt;/value&gt;
+         &lt;/param&gt;
+         &lt;param&gt;
+                 &lt;value&gt;&lt;struct&gt;&lt;/struct&gt;&lt;/value&gt;
+         &lt;/param&gt;
+     &lt;/params&gt;
+&lt;/methodCall&gt;
+</pre>
+</div>
+<div class="section" id="writing-a-quixote-service">
+<h1><a name="writing-a-quixote-service">Writing a Quixote Service</a></h1>
+<p>In the quixote.util module, Quixote provides a function,
+<tt class="literal"><span class="pre">xmlrpc(request,</span> <span class="pre">func)</span></tt>, that processes the body of an XML-RPC
+request.  <tt class="literal"><span class="pre">request</span></tt> is the HTTPRequest object that Quixote passes to
+every function it invokes.  <tt class="literal"><span class="pre">func</span></tt> is a user-supplied function that
+receives the name of the XML-RPC method being called and a tuple
+containing the method's parameters.  If there's a bug in the function
+you supply and it raises an exception, the <tt class="literal"><span class="pre">xmlrpc()</span></tt> function will
+catch the exception and return a <tt class="literal"><span class="pre">Fault</span></tt> to the remote caller.</p>
+<p>Here's an example of implementing a simple XML-RPC handler with a
+single method, <tt class="literal"><span class="pre">get_time()</span></tt>, that simply returns the current
+time.  The first task is to expose a URL for accessing the service.</p>
+<pre class="literal-block">
+from quixote.directory import Directory
+from quixote.util import xmlrpc
+from quixote import get_request
+
+class RPCDirectory(Directory):
+
+    _q_exports = ['rpc']
+
+    def rpc (self):
+        return xmlrpc(get_request(), rpc_process)
+
+def rpc_process (meth, params):
+    ...
+</pre>
+<p>When the above code is placed in the __init__.py file for the Python
+package corresponding to your Quixote application, it exposes the URL
+<tt class="literal"><span class="pre">http://&lt;hostname&gt;/rpc</span></tt> as the access point for the XML-RPC service.</p>
+<p>Next, we need to fill in the contents of the <tt class="literal"><span class="pre">rpc_process()</span></tt>
+function:</p>
+<pre class="literal-block">
+import time
+
+def rpc_process (meth, params):
+    if meth == 'get_time':
+        # params is ignored
+        now = time.gmtime(time.time())
+        return xmlrpclib.DateTime(now)
+    else:
+        raise RuntimeError, &quot;Unknown XML-RPC method: %r&quot; % meth
+</pre>
+<p><tt class="literal"><span class="pre">rpc_process()</span></tt> receives the method name and the parameters, and its
+job is to run the right code for the method, returning a result that
+will be marshalled into XML-RPC.  The body of <tt class="literal"><span class="pre">rpc_process()</span></tt> will
+therefore usually be an <tt class="literal"><span class="pre">if</span></tt> statement that checks the name of the
+method, and calls another function to do the actual work.  In this case,
+<tt class="literal"><span class="pre">get_time()</span></tt> is very simple so the two lines of code it requires are
+simply included in the body of <tt class="literal"><span class="pre">rpc_process()</span></tt>.</p>
+<p>If the method name doesn't belong to a supported method, execution
+will fall through to the <tt class="literal"><span class="pre">else</span></tt> clause, which will raise a
+RuntimeError exception.  Quixote's <tt class="literal"><span class="pre">xmlrpc()</span></tt> will catch this
+exception and report it to the caller as an XML-RPC fault, with the
+error code set to 1.</p>
+<p>As you add additional XML-RPC services, the <tt class="literal"><span class="pre">if</span></tt> statement in
+<tt class="literal"><span class="pre">rpc_process()</span></tt> will grow more branches.  You might be tempted to pass
+the method name to <tt class="literal"><span class="pre">getattr()</span></tt> to select a method from a module or
+class.  That would work, too, and avoids having a continually growing
+set of branches, but you should be careful with this and be sure that
+there are no private methods that a remote caller could access.  I
+generally prefer to have the <tt class="literal"><span class="pre">if...</span> <span class="pre">elif...</span> <span class="pre">elif...</span> <span class="pre">else</span></tt> blocks, for
+three reasons: 1) adding another branch isn't much work, 2) it's
+explicit about the supported method names, and 3) there won't be any
+security holes in doing so.</p>
+<p>An alternative approach is to have a dictionary mapping method names
+to the corresponding functions and restrict the legal method names 
+to the keys of this dictionary:</p>
+<pre class="literal-block">
+def echo (*params):
+    # Just returns the parameters it's passed
+    return params
+
+def get_time ():
+    now = time.gmtime(time.time())
+    return xmlrpclib.DateTime(now)
+
+methods = {'echo' : echo, 
+           'get_time' : get_time}
+
+def rpc_process (meth, params):
+    func = methods.get[meth]
+    if methods.has_key(meth):
+        # params is ignored
+        now = time.gmtime(time.time())
+        return xmlrpclib.DateTime(now)
+    else:
+        raise RuntimeError, &quot;Unknown XML-RPC method: %r&quot; % meth
+</pre>
+<p>This approach works nicely when there are many methods and the
+<tt class="literal"><span class="pre">if...elif...else</span></tt> statement would be unworkably long.</p>
+<p>$Id: web-services.txt 25695 2004-11-30 20:53:44Z dbinger $</p>
+</div>
+</div>
+</body>
+</html>

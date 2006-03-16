@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Examples of serving static files</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="examples-of-serving-static-files">
+<h1 class="title">Examples of serving static files</h1>
+<p>The <tt class="literal"><span class="pre">quixote.util</span></tt> module includes classes for making files and
+directories available as Quixote resources.  Here are some examples.</p>
+<div class="section" id="publishing-a-single-file">
+<h1><a name="publishing-a-single-file">Publishing a Single File</a></h1>
+<p>The <tt class="literal"><span class="pre">StaticFile</span></tt> class makes an individual filesystem file (possibly
+a symbolic link) available.  You can also specify the MIME type and
+encoding of the file; if you don't specify this, the MIME type will be
+guessed using the standard Python <tt class="literal"><span class="pre">mimetypes.guess_type()</span></tt> function.
+The default action is to not follow symbolic links, but this behaviour
+can be changed using the <tt class="literal"><span class="pre">follow_symlinks</span></tt> parameter.</p>
+<p>The following example publishes a file with the URL <tt class="literal"><span class="pre">.../stylesheet_css</span></tt>:</p>
+<pre class="literal-block">
+# 'stylesheet_css' must be in the _q_exports list
+_q_exports = [ ..., 'stylesheet_css', ...]
+
+stylesheet_css = StaticFile(
+        &quot;/htdocs/legacy_app/stylesheet.css&quot;,
+        follow_symlinks=1, mime_type=&quot;text/css&quot;)
+</pre>
+<p>If you want the URL of the file to have a <tt class="literal"><span class="pre">.css</span></tt> extension, you use
+the external to internal name mapping feature of <tt class="literal"><span class="pre">_q_exports</span></tt>.  For
+example:</p>
+<pre class="literal-block">
+_q_exports = [ ..., ('stylesheet.css', 'stylesheet_css'), ...]
+</pre>
+</div>
+<div class="section" id="publishing-a-directory">
+<h1><a name="publishing-a-directory">Publishing a Directory</a></h1>
+<p>Publishing a directory is similar.  The <tt class="literal"><span class="pre">StaticDirectory</span></tt> class
+makes a complete filesystem directory available.  Again, the default
+behaviour is to not follow symlinks.  You can also request that the
+<tt class="literal"><span class="pre">StaticDirectory</span></tt> object cache information about the files in
+memory so that it doesn't try to guess the MIME type on every hit.</p>
+<p>This example publishes the <tt class="literal"><span class="pre">notes/</span></tt> directory:</p>
+<pre class="literal-block">
+_q_exports = [ ..., 'notes', ...]
+
+notes = StaticDirectory(&quot;/htdocs/legacy_app/notes&quot;)
+</pre>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/demo/extras.ptl $
+$Id: extras.ptl 25683 2004-11-30 19:48:13Z dbinger $
+"""
+import os
+from quixote.directory import Directory, Resolving
+from quixote.util import StaticDirectory
+from quixote.demo.integers import IntegerUI
+
+class ExtraDirectory(Resolving, Directory):
+
+    _q_exports = ["", "form", "src"]
+
+    def _q_index [html] (self):
+        """
+        <html>
+        <head><title>Quixote Demo Extras</title></head>
+        <body>
+        <h1>Extras</h1>
+        <p>
+        Here are some more features of this demo:
+          <ul>
+            <li><a href="12/">12/</a>:
+                A Python object published through <code>_q_lookup()</code>.
+            <li><a href="12/factorial">12/factorial</a>:
+                A method on a published Python object.
+            <li><a href="form">form</a>:
+                A Quixote form in action.
+            <li><a href="src/">src/</a>:
+                A static directory published through Quixote.
+          </ul>
+        """
+
+
+    def _q_resolve(self, component):
+        # _q_resolve() is a hook that can be used to import only
+        # when it's actually accessed.  This can be used to make
+        # start-up of your application faster, because it doesn't have
+        # to import every single module when it starts running.
+        if component == 'form':
+            from quixote.demo.forms import form_demo
+            return form_demo
+
+    def _q_lookup(self, component):
+        return IntegerUI(component)
+
+    def upload(self):
+        return 'upload demo unfinished'
+
+    import quixote
+    src = StaticDirectory(os.path.dirname(quixote.__file__),
+                          list_directory=True)

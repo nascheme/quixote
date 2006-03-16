@@ -1,0 +1,358 @@
+Converting form1 forms to use the form2 library
+===============================================
+
+Note:  
+-----
+The packages names have changed in Quixote 2.
+
+Quixote form1 forms are now in the package quixote.form1.
+(In Quixote 1, they were in quixote.form.)
+
+Quixote form2 forms are now in the package quixote.form.
+(In Quixote 1, they were in quixote.form2.)
+
+
+Introduction
+------------
+
+These are some notes and examples for converting Quixote form1 forms,
+that is forms derived from ``quixote.form1.Form``, to the newer form2
+forms.
+
+Form2 forms are more flexible than their form1 counterparts in that they
+do not require you to use the ``Form`` class as a base to get form
+functionality as form1 forms did.  Form2 forms can be instantiated
+directly and then manipulated as instances.  You may also continue to
+use inheritance for your form2 classes to get form functionality,
+particularly if the structured separation of ``process``, ``render``,
+and ``action`` is desirable.  
+
+There are many ways to get from form1 code ported to form2.  At one
+end of the spectrum is to rewrite the form class using a functional
+programing style.  This method is arguably best since the functional
+style makes the flow of control clearer.
+
+The other end of the spectrum and normally the easiest way to port 
+form1 forms to form2 is to use the ``compatibility`` module provided
+in the form2 package.  The compatibility module's Form class provides
+much of the same highly structured machinery (via a ``handle`` master
+method) that the form1 framework uses.  
+
+Converting form1 forms using using the compatibility module
+-----------------------------------------------------------
+
+Here's the short list of things to do to convert form1 forms to 
+form2 using compatibility.
+
+  1. Import the Form base class from ``quixote.form.compatibility``
+     rather than from quixote.form1.
+
+  2. Getting and setting errors is slightly different.  In your form's 
+     process method, where errors are typically set, form2
+     has a new interface for marking a widget as having an error.
+
+        Form1 API::
+     
+          self.error['widget_name'] = 'the error message'
+
+        Form2 API::
+
+          self.set_error('widget_name', 'the error message') 
+
+     If you want to find out if the form already has errors, change
+     the form1 style of direct references to the ``self.errors``
+     dictionary to a call to the ``has_errors`` method.
+
+        Form1 API::
+
+           if not self.error:
+              do some more error checking...
+ 
+        Form2 API::
+
+           if not self.has_errors():
+              do some more error checking...
+
+  3. Form2 select widgets no longer take ``allowed_values`` or
+     ``descriptions`` arguments.  If you are adding type of form2 select
+     widget, you must provide the ``options`` argument instead.  Options
+     are the way you define the list of things that are selectable and
+     what is returned when they are selected.  the options list can be
+     specified in in one of three ways::
+
+             options: [objects:any]
+         or
+             options: [(object:any, description:any)]
+         or
+             options: [(object:any, description:any, key:any)]
+
+     An easy way to construct options if you already have
+     allowed_values and descriptions is to use the built-in function
+     ``zip`` to define options::
+
+             options=zip(allowed_values, descriptions)
+
+    Note, however, that often it is simpler to to construct the
+    ``options`` list directly.
+
+  4. You almost certainly want to include some kind of cascading style
+     sheet (since form2 forms render with minimal markup).  There is a
+     basic set of CSS rules in ``quixote.form.css``.
+
+
+Here's the longer list of things you may need to tweak in order for
+form2 compatibility forms to work with your form1 code.
+ 
+  *  ``widget_type`` widget class attribute is gone.  This means when
+     adding widgets other than widgets defined in ``quixote.form.widget``,
+     you must import the widget class into your module and pass the 
+     widget class as the first argument to the ``add_widget`` method
+     rather than using the ``widget_type`` string.
+
+  *  The ``action_url`` argument to the form's render method is now
+     a keyword argument.
+
+  *  If you use ``OptionSelectWidget``, there is no longer a 
+     ``get_current_option`` method.  You can get the current value
+     in the normal way.
+
+  *  ``ListWidget`` has been renamed to ``WidgetList``.
+
+  *  There is no longer a ``CollapsibleListWidget`` class.  If you need
+     this functionality, consider writing a 'deletable composite widget'
+     to wrap your ``WidgetList`` widgets in it::
+
+       class DeletableWidget(CompositeWidget):
+
+         def __init__(self, name, value=None,
+                      element_type=StringWidget,
+                      element_kwargs={}, **kwargs):
+            CompositeWidget.__init__(self, name, value=value, **kwargs)
+            self.add(HiddenWidget, 'deleted', value='0')
+              if self.get('deleted') != '1':
+                 self.add(element_type, 'element', value=value,
+                          **element_kwargs)
+                 self.add(SubmitWidget, 'delete', value='Delete')
+                 if self.get('delete'):
+                    self.get_widget('deleted').set_value('1')
+
+         def _parse(self, request):
+            if self.get('deleted') == '1':
+               self.value = None
+            else:
+               self.value = self.get('element')
+
+         def render(self):
+            if self.get('deleted') == '1':
+               return self.get_widget('deleted').render()
+            else:
+               return CompositeWidget.render(self)
+
+
+Congratulations, now that you've gotten your form1 forms working in form2,
+you may wish to simplify this code using some of the new features available
+in form2 forms.  Here's a list of things you may wish to consider:
+
+  *  In your process method, you don't really need to get a ``form_data``
+     dictionary by calling ``Form.process`` to ensure your widgets are
+     parsed.  Instead, the parsed value of any widget is easy to obtain
+     using the widget's ``get_value`` method or the form's
+     ``__getitem__`` method.  So, instead of::
+
+       form_data = Form.process(self, request)
+       val = form_data['my_widget']
+
+     You can use::
+
+       val = self['my_widget']
+
+     If the widget may or may not be in the form, you can use ``get``::
+
+       val = self.get('my_widget')
+
+
+  *  It's normally not necessary to provide the ``action_url`` argument
+     to the form's ``render`` method.
+
+  *  You don't need to save references to your widgets in your form
+     class.  You may have a particular reason for wanting to do that,
+     but any widget added to the form using ``add`` (or ``add_widget`` in
+     the compatibility module) can be retrieved using the form's 
+     ``get_widget`` method.
+
+
+Converting form1 forms to form2 by functional rewrite
+-----------------------------------------------------
+
+The best way to get started on a functional version of a form2 rewrite
+is to look at a trivial example form first written using the form1 
+inheritance model followed by it's form2 functional equivalent.
+
+First the form1 form::
+
+        class MyForm1Form(Form):
+            def __init__(self, request, obj):
+                Form.__init__(self)
+        
+                if obj is None:
+                    self.obj = Obj()
+                    self.add_submit_button('add', 'Add')
+                else:
+                    self.obj = obj
+                    self.add_submit_button('update', 'Update')
+        
+                self.add_cancel_button('Cancel', request.get_path(1) + '/')
+        
+                self.add_widget('single_select', 'obj_type',
+                                title='Object Type',
+                                value=self.obj.get_type(),
+                                allowed_values=list(obj.VALID_TYPES),
+                                descriptions=['type1', 'type2', 'type3'])
+                self.add_widget('float', 'cost',
+                                title='Cost',
+                                value=obj.get_cost())
+        
+            def render [html] (self, request, action_url):
+                title = 'Obj %s: Edit Object' % self.obj
+                header(title)
+                Form.render(self, request, action_url)
+                footer(title)
+        
+            def process(self, request):
+                form_data = Form.process(self, request)
+        
+                if not self.error:
+                    if form_data['cost'] is None:
+                        self.error['cost'] = 'A cost is required.'
+                    elif form_data['cost'] < 0:
+                        self.error['cost'] = 'The amount must be positive'
+                return form_data
+        
+            def action(self, request, submit, form_data):
+                self.obj.set_type(form_data['obj_type'])
+                self.obj.set_cost(form_data['cost'])
+                if submit == 'add':
+                    db = get_database()
+                    db.add(self.obj)
+                else:
+                    assert submit == 'update'
+                return request.redirect(request.get_path(1) + '/')
+        
+Here's the same form using form2 where the function operates on a Form
+instance it keeps a reference to it as a local variable::
+
+        def obj_form(request, obj):
+            form = Form() # quixote.form.Form
+            if obj is None:
+                obj = Obj()
+                form.add_submit('add', 'Add')
+            else:
+                form.add_submit('update', 'Update')
+            form.add_submit('cancel', 'Cancel')
+        
+            form.add_single_select('obj_type',
+                                   title='Object Type',
+                                   value=obj.get_type(),
+                                   options=zip(obj.VALID_TYPES, 
+                                               ['type1', 'type2', 'type3']))
+            form.add_float('cost',
+                           title='Cost',
+                           value=obj.get_cost(),
+                           required=1)
+        
+            def render [html] ():
+                title = 'Obj %s: Edit Object' % obj
+                header(title)
+                form.render()
+                footer(title)
+
+            def process():
+               if form['cost'] < 0:
+                  self.set_error('cost', 'The amount must be positive')
+
+            def action(submit):
+              obj.set_type(form['obj_type'])
+              obj.set_cost(form['cost'])
+              if submit == 'add':
+                  db = get_database()
+                  db.add(self.obj)
+              else:
+                  assert submit == 'update'
+
+            exit_path = request.get_path(1) + '/'
+            submit = form.get_submit()
+            if submit == 'cancel':
+                return request.redirect(exit_path)
+        
+            if not form.is_submitted() or form.has_errors():
+                return render()
+            process()
+            if form.has_errors():
+                return render()
+           
+            action(submit)
+            return request.redirect(exit_path)
+
+
+As you can see in the example, the function still has all of the same
+parts of it's form1 equivalent.
+
+   1. It determines if it's to create a new object or edit an existing one
+   2. It adds submit buttons and widgets
+   3. It has a function that knows how to render the form
+   4. It has a function that knows how to do error processing on the form
+   5. It has a function that knows how to register permanent changes to
+      objects when the form is submitted successfully.
+
+In the form2 example, we have used inner functions to separate out these
+parts.  This, of course, is optional, but it does help readability once
+the form gets more complicated and has the additional advantage of
+mapping directly with it's form1 counterparts.
+
+Form2 functional forms do not have the ``handle`` master-method that
+is called after the form is initialized.  Instead, we deal with this
+functionality manually.  Here are some things that the ``handle``
+portion of your form might need to implement illustrated in the 
+order that often makes sense.
+
+  1. Get the value of any submit buttons using ``form.get_submit``
+  2. If the form has not been submitted yet, return ``render()``.
+  3. See if the cancel button was pressed, if so return a redirect.
+  4. Call your ``process`` inner function to do any widget-level error
+     checks.  The form may already have set some errors, so you
+     may wish to check for that before trying additional error checks.
+  5. See if the form was submitted by an unknown submit button.
+     This will be the case if the form was submitted via a JavaScript
+     action, which is the case when an option select widget is selected.
+     The value of ``get_submit`` is ``True`` in this case and if it is,
+     you want to clear any errors and re-render the form.
+  6. If the form has not been submitted or if the form has errors,
+     you simply want to render the form.
+  7. Check for your named submit buttons which you expect for
+     successful form posting e.g. ``add`` or ``update``.  If one of 
+     these is pressed, call you action inner function.
+  8. Finally, return a redirect to the expected page following a
+     form submission.
+
+These steps are illustrated by the following snippet of code and to a
+large degree in the above functional form2 code example.  Often this
+``handle`` block of code can be simplified.  For example, if you do not
+expect form submissions from unregistered submit buttons, you can
+eliminate the test for that.  Similarly, if your form does not do any
+widget-specific error checking, there's no reason to have an error
+checking ``process`` function or the call to it::
+
+      exit_path = request.get_path(1) + '/'
+      submit = form.get_submit()
+      if not submit:
+          return render()
+      if submit == 'cancel':
+          return request.redirect(exit_path)
+      if submit == True:
+          form.clear_errors()
+          return render()
+      process()
+      if form.has_errors():
+          return render()
+      action(submit)
+      return request.redirect(exit_path)

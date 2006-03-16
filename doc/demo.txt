@@ -1,0 +1,221 @@
+Running the Quixote Demos
+=========================
+
+Quixote comes with some demonstration applications in the demo directory.
+After quixote is installed (see INSTALL.txt for instructions),
+you can run the demos using the scripts located in the server directory.
+
+Each server script is written for a specific method of connecting a
+quixote publisher to a web server, and you will ultimately want to
+choose the one that matches your needs. More information about the
+different server scripts may be found in the scripts themselves and in
+web-server.txt.  To start, though, the easiest way to view the demos
+is as follows: in a terminal window, run server/simple_server.py, and
+in a browser, open http://localhost:8080.
+
+The simple_server.py script prints a usage message if you run it with
+a '--help' command line argument.  You can run different demos by 
+using the '--factory' option to identify a callable that creates the
+publisher you want to use.  In particular, you might try these demos:
+
+  simple_server.py --factory quixote.demo.mini_demo.create_publisher
+
+or
+
+  simple_server.py --factory quixote.demo.altdemo.create_publisher
+
+
+
+Understanding the mini_demo
+---------------------------
+
+Start the mini demo by running the command:
+  simple_server.py --factory quixote.demo.mini_demo.create_publisher
+
+In a browser, load http://localhost:8080.  In your browser, you should
+see "Welcome ..." page.  In your terminal window, you will see a
+"localhost - - ..." line for each request.  These are access log
+messages from the web server.
+
+Look at the source code in demo/mini_demo.py.  Near the bottom you
+will find the create_publisher() function.  The create_publisher()
+function creates a Publisher instance whose root directory is an
+instance of the RootDirectory class defined just above.  When a
+request arrives, the Publisher calls the _q_traverse() method on the
+root directory.  In this case, the RootDirectory is using the standard
+_q_traverse() implementation, inherited from Directory.
+
+Look, preferably in another window, at the source code for
+_q_traverse() in directory.py.  The path argument provided to
+_q_traverse() is a list of string components of the path part of the
+URL, obtained by splitting the request location at each '/' and
+dropping the first element (which is always '') For example, if the
+path part of the URL is '/', the path argument to _q_traverse() is
+[''].  If the path part of the URL is '/a', the path argument to
+_q_traverse() is ['a'].  If the path part of the URL is '/a/', the
+path argument to _q_traverse() is ['a', ''].
+
+Looking at the code of _q_traverse(), observe that it starts by
+splitting off the first component of the path and calling
+_q_translate() to see if there is a designated attribute name
+corresponding to this component.  For the '/' page, the component is
+'', and _q_translate() returns the attribute name '_q_index'.  The
+_q_traverse() function goes on to lookup the _q_index method and
+return the result of calling it.
+
+Looking back at mini_demo.py, you can see that the RootDirectory class
+includes a _q_index() method, and this method does return the HTML for
+http://localhost:8080/
+
+As mentioned above, the _q_translate() identifies a "designated"
+attribute name for a given component.  The default implementation uses
+self._q_exports to define this designation.  In particular, if the
+component is in self._q_exports, then it is returned as the attribute
+name, except in the special case of '', which is translated to the
+special attribute name '_q_index'.
+
+When you click on the link on the top page, you get
+http://localhost:8080/hello.  In this case, the path argument to the
+_q_traverse() call is ['hello'], and the return value is the result of
+calling the hello() method.
+
+Feeling bold?  (Just kidding, this won't hurt at all.)  Try opening
+http://localhost:8080/bogus.  This is what happens when _q_traverse()
+raises a TraversalError.  A TraversalError is no big deal, but how
+does quixote handle more exceptional exceptions?  To see, you can
+introduce one by editing mini_demo.py.  Try inserting the line "raise
+'ouch'" into the hello() method.  Kill the demo server (Control-c) and
+start a new one with the same command as before.  Now load the
+http://localhost:8080/hello page.  You should see a plain text python
+traceback followed by some information extracted from the HTTP
+request.  This information is always printed to the error log on an
+exception.  Here, it is also displayed in the browser because the
+create_publisher() function made a publisher using the 'plain' value
+for the display_exceptions keyword argument.  If you omit that keyword
+argument from the Publisher constructor, the browser will get an
+"Internal Server Error" message instead of the full traceback.  If you
+provide the value 'html', the browser displays a prettier version of
+the traceback.
+
+One more thing to try here.  Replace your 'raise "ouch"' line in the hello() method with 'print "ouch"'.  If you restart the server and load the /hello page,
+you will see that print statements go the the error log (in this case, your
+terminal window).  This can be useful.
+
+
+Understanding the root demo
+---------------------------
+
+Start the root demo by running the command:
+  simple_server.py --factory quixote.demo.create_publisher
+
+In a browser, open http://localhost:8080 as before.
+Click around at will.
+
+This is the default demo, but it is more complicated than the
+mini_demo described above.  The create_publisher() function in
+quixote.demo.__init__.py creates a publisher whose root directory is
+an instance of quixote.demo.root.RootDirectory.  Note that the source
+code is a file named "root.ptl".  The suffix of "ptl" indicates that
+it is a PTL file, and the import must follow a call to
+quixote.enable_ptl() or else the source file will not be found or
+compiled.  The quixote.demo.__init__.py file takes care of that.
+
+Take a look at the source code in root.ptl.  You will see code that
+looks like regular python, except that some function definitions have
+"[html]" between the function name and the parameter list.  These
+functions are ptl templates.  For details about PTL, see the PTL.txt
+file.  
+
+This RootDirectory class is similar to the one in mini_demo.py, in
+that it has a _q_index() method and '' appears in the _q_exports list.
+One new feature here is the presence of a tuple in the _q_exports
+list.  Most of the time, the elements of the _q_exports lists are just
+strings that name attributes that should be available as URL
+components.  This pattern does not work, however, when the particular
+URL component you want to use includes characters (like '.') that
+can't appear in Python attribute names.  To work around these cases,
+the _q_exports list may contain tuples such as ("favicon.ico",
+"favicon_ico") to designate "favicon_ico" as the attribute name
+corresponding the the "favicon.ico" URL component.
+
+Looking at the RootDirectoryMethods, including plain(), css() and
+favon_ico(), you will see examples where, in addition to returning a
+string containing the body of the HTTP response, the function also
+makes side-effect modifications to the response object itself, to set
+the content type and the expiration time for the response.
+Most of the time, these direct modifications to the response are 
+not needed.  When they are, though, the get_response() function 
+gives you direct access to the response instance.
+
+The RootDirectory here also sets an 'extras' attribute to be an
+instance of ExtraDirectory, imported from the quixote.demo.extras
+module.  Note that 'extras' also appears in the _q_exports list.  This
+is the ordinary way to extend your URL space through another '/'.
+For example, the URL path '/extras/' will result in a call to
+the ExtraDirectory instance's _q_index() method.
+
+The _q_lookup() method
+----------------------
+
+Now take a look at the ExtraDirectory class in extras.ptl.  This class
+exhibits some more advanced publishing features.  If you look back at
+the default _q_traverse() implementation (in directory.py), you will
+see that the _q_traverse does not give up if _q_translate() returns
+None, indicating that the path component has no designated
+corresponding attribute name.  In this case, _q_traverse() tries
+calling self._q_lookup() to see if the object of interest can be found
+in a different way.  Note that _q_lookup() takes the component as an
+argument and must return either (if there is more path to traverse) a
+Directory instance, or else (if the component is the last in the path)
+a callable or a string.  
+
+In this particular case, the ExtrasDirectory._q_lookup() call returns
+an instance of IntegerUI (a subclass of Directory).  The interest
+here, unlike the ExtrasDirectory() instance itself, is created
+on-the-fly during the traversal, especially for this particular
+component.  Try loading http://localhost:8080/extras/12/ to see how
+this behaves.
+
+Note that the correct URL to get to the IntegerUI(12)._q_index() call
+ends with a '/'.  This can sometimes be confusing to people who expect
+http://localhost:8080/extras/12 to yield the same page as
+http://localhost:8080/extras/12/.  If given the path ['extras', '12'],
+the default _q_traverse() ends up *calling* the instance of IntegerUI.
+The Directory.__call__() (see directory.py) determines the result: if
+no form values were submitted and adding a slash would produce a page,
+the call returns the result of calling quixote.redirect().  The
+redirect() call here causes the server to issue a permanent redirect
+response to the path with the slash added.  When this automatic
+redirect is used, a message is printed to the error log.  If the
+conditions for a redirect are not met, the call falls back to raising
+a TraversalError.  [Note, if you don't like this redirect behavior,
+override, replace, or delete Directory.__call__]
+
+The _q_lookup() pattern is useful when you want to allow URL
+components that you either don't know or don't want to list in
+_q_exports ahead of time.
+
+The _q_resolve() method
+-----------------------
+
+Note that the ExtraDirectory class inherits from Resolving (in
+addition to Directory).  The Resolving mixin modifies the
+_q_traverse() so that, when a component has an attribute name
+designated by _q_translate(), but the Directory instance does not
+actually *have* that attribute, the _q_resolve() method is called to
+"resolve" the trouble.  Typically, the _q_resolve() imports or
+constructs what *should* be the value of the designated attribute.
+The modified _q_translate() sets the attribute value so that the
+_q_resolve() won't be called again for the same attribute.  The
+_q_resolve() pattern is useful when you want to delay the work of
+constructing the values for exported attributes.
+
+Forms
+-----
+
+You can't get very far writing web applications without writing forms.
+The root demo includes, at http://localhost:8080/extras/form, a page
+that demonstrates basic usage of the Form class and widgets defined in
+the quixote.form package.  
+
+$Id: demo.txt 25695 2004-11-30 20:53:44Z dbinger $

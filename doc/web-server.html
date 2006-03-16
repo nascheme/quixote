@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Web Server Configuration for Quixote</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="web-server-configuration-for-quixote">
+<h1 class="title">Web Server Configuration for Quixote</h1>
+<p>For a simple Quixote installation, there are two things you have to get
+right:</p>
+<ul class="simple">
+<li>installation of the Quixote modules to Python's library (the
+trick here is that the <tt class="literal"><span class="pre">quixote</span></tt> package must be visible to the user
+that CGI scripts run as, not necessarily to you as an interactive
+command-line user)</li>
+<li>configuration of your web server to run Quixote driver scripts</li>
+</ul>
+<p>This document is concerned with the second of these.</p>
+<div class="section" id="which-web-servers">
+<h1><a name="which-web-servers">Which web servers?</a></h1>
+<p>We are only familiar with Apache, and we develop Quixote for use under
+Apache.  However, Quixote doesn't rely on any Apache-specific tricks;
+if you can execute CGI scripts, then you can run Quixote applications
+(although they'll run a lot faster with mod_scgi or FastCGI).  If you
+can redirect arbitrary URLs to a CGI script and preserve parts of the
+URL as an add-on to the script name (with <tt class="literal"><span class="pre">PATH_INFO</span></tt>), then you can
+run Quixote applications in the ideal manner, ie. with superfluous
+implementation details hidden from the user.</p>
+</div>
+<div class="section" id="which-operating-systems">
+<h1><a name="which-operating-systems">Which operating systems?</a></h1>
+<p>We are mainly familiar with Unix, and develop and deploy Quixote under
+Linux.  However, we've had several reports of people using Quixote under
+Windows, more-or-less successfully.  There are still a few Unix-isms in
+the code, but they are being rooted out in favor of portability.</p>
+<p>Remember that your system is only as secure as its weakest link.
+Quixote can't help you write secure web applications on an inherently
+insecure operating system.</p>
+</div>
+<div class="section" id="basic-cgi-configuration">
+<h1><a name="basic-cgi-configuration">Basic CGI configuration</a></h1>
+<p>Throughout this document, I'm going to assume that:</p>
+<ul class="simple">
+<li>CGI scripts live in the <tt class="literal"><span class="pre">/www/cgi-bin</span></tt> directory of your web server,
+and have the extension <tt class="literal"><span class="pre">.cgi</span></tt></li>
+<li>HTTP requests for <tt class="literal"><span class="pre">/cgi-bin/foo.cgi</span></tt> will result in the execution
+of <tt class="literal"><span class="pre">/www/cgi-bin/foo.cgi</span></tt> (for various values of <tt class="literal"><span class="pre">foo</span></tt>)</li>
+<li>if the web server is instructed to serve an executable file
+<tt class="literal"><span class="pre">bar.cgi</span></tt>, the file is treated as a CGI script</li>
+</ul>
+<p>With Apache, these configuration directives will do the trick:</p>
+<pre class="literal-block">
+AddHandler cgi-script .cgi
+ScriptAlias /cgi-bin/ /www/cgi-bin/
+</pre>
+<p>Consult the Apache documentation for other ways of configuring CGI
+script execution.</p>
+<p>For other web servers, consult your server's documentation.</p>
+</div>
+<div class="section" id="installing-driver-scripts">
+<h1><a name="installing-driver-scripts">Installing driver scripts</a></h1>
+<p>Given the above configuration, installing a Quixote driver script is the
+same as installing any other CGI script: copy it to <tt class="literal"><span class="pre">/www/cgi-bin</span></tt> (or
+whatever).  To install the Quixote demo's cgi driver script:</p>
+<pre class="literal-block">
+cp -p server/cgi_server.py /www/cgi-bin/demo.cgi
+</pre>
+<p>(The <tt class="literal"><span class="pre">-p</span></tt> option ensures that <tt class="literal"><span class="pre">cp</span></tt> preserves the file mode, so that
+it remains executable.)</p>
+</div>
+<div class="section" id="url-rewriting">
+<h1><a name="url-rewriting">URL rewriting</a></h1>
+<p>With the above configuration, users need to use URLs like</p>
+<pre class="literal-block">
+http://www.example.com/cgi-bin/demo.cgi
+</pre>
+<p>to access the Quixote demo (or other Quixote applications installed in
+the same way).  This works, but it's ugly and unnecessarily exposes
+implementation details.</p>
+<p>In our view, it's preferable to give each Quixote application its own
+chunk of URL-space -- a &quot;virtual directory&quot; if you like.  For example,
+you might want</p>
+<pre class="literal-block">
+http://www.example.com/qdemo
+</pre>
+<p>to handle the Quixote demo.</p>
+<p>With Apache, this is quite easy, as long as mod_rewrite is compiled,
+loaded, and enabled.  (Building and loading Apache modules is beyond the
+scope of this document; consult the Apache documentation.)</p>
+<p>To enable the rewrite engine, use the</p>
+<pre class="literal-block">
+RewriteEngine on
+</pre>
+<p>directive.  If you have virtual hosts, make sure to repeat this for each
+<tt class="literal"><span class="pre">&lt;VirtualHost&gt;</span></tt> section of your config file.</p>
+<p>The rewrite rule to use in this case is</p>
+<pre class="literal-block">
+RewriteRule ^/qdemo(/.*) /www/cgi-bin/demo.cgi$1 [last]
+</pre>
+<p>This is <em>not</em> a redirect; this is all handled with one HTTP
+request/response cycle, and the user never sees <tt class="literal"><span class="pre">/cgi-bin/demo.cgi</span></tt> in
+a URL.</p>
+<p>Note that requests for <tt class="literal"><span class="pre">/qdemo/</span></tt> and <tt class="literal"><span class="pre">/qdemo</span></tt> are <em>not</em> the same; in
+particular, with the above rewrite rule, the former will succeed and the
+latter will not.  (Look at the regex again if you don't believe me:
+<tt class="literal"><span class="pre">/qdemo</span></tt> doesn't match the regex, so <tt class="literal"><span class="pre">demo.cgi</span></tt> is never invoked.)</p>
+<p>The solution for <tt class="literal"><span class="pre">/qdemo</span></tt> is the same as if it corresponded to a
+directory in your document tree: redirect it to <tt class="literal"><span class="pre">/qdemo/</span></tt>.  Apache
+(and, presumably, other web servers) does this automatically for &quot;real&quot;
+directories; however, <tt class="literal"><span class="pre">/qdemo/</span></tt> is just a directory-like chunk of
+URL-space, so either you or Quixote have to take care of the redirect.</p>
+<p>It's almost certainly faster for you to take care of it in the web
+server's configuration.  With Apache, simply insert this directive
+<em>before</em> the above rewrite rule:</p>
+<pre class="literal-block">
+RewriteRule ^/qdemo$ /qdemo/ [redirect=permanent]
+</pre>
+<p>If, for some reason, you are unwilling or unable to instruct your web
+server to perform this redirection, Quixote will do it for you.
+However, you have to make sure that the <tt class="literal"><span class="pre">/qdemo</span></tt> URL is handled by
+Quixote.  Change the rewrite rule to:</p>
+<pre class="literal-block">
+RewriteRule ^/qdemo(/.*)?$ /www/cgi-bin/demo.cgi$1 [last]
+</pre>
+<p>Now a request for <tt class="literal"><span class="pre">/qdemo</span></tt> will be handled by Quixote, and it will
+generate a redirect to <tt class="literal"><span class="pre">/qdemo/</span></tt>.  If you're using a CGI driver
+script, this will be painfully slow, but it will work.</p>
+<p>For redirecting and rewriting URLs with other web servers, consult your
+server's documentation.</p>
+</div>
+<div class="section" id="long-running-processes">
+<h1><a name="long-running-processes">Long-running processes</a></h1>
+<p>For serious web applications, CGI is unacceptably slow.  For a CGI-based
+Quixote application, you have to start a Python interpreter, load the
+Quixote modules, and load your application's modules before you can
+start working.  For sophisticated, database-backed applications, you'll
+probably have to open a new database connection as well for every hit.</p>
+<p>Small wonder so many high-performance alternatives to CGI exist.  (The
+main advantages of CGI are that it is widely supported and easy to
+develop with.  Even for large Quixote applications, running in CGI mode
+is nice in development because you don't have to kill a long-running
+driver script every time the code changes.)  Quixote includes support
+for mod_scgi and FastCGI.</p>
+</div>
+<div class="section" id="mod-scgi-configuration">
+<h1><a name="mod-scgi-configuration">mod_scgi configuration</a></h1>
+<p>SCGI is a CGI replacement written by Neil Schemenauer, one of
+Quixote's developers, and is similar to FastCGI but is designed to be
+easier to implement.  mod_scgi simply forwards requests to an
+already-running SCGI server on a different TCP port, and doesn't try
+to start or stop processes, leaving that up to the SCGI server.</p>
+<p>The SCGI code is available from <a class="reference" href="http://www.mems-exchange.org/software/scgi/">http://www.mems-exchange.org/software/scgi/</a> .</p>
+<p>The quixote.server.scgi_server module is a script that
+publishes the demo quixote application via SCGI.  You can use
+it for your application by importing it and calling the <tt class="literal"><span class="pre">run()</span></tt> 
+function with arguments to run your application, on the port
+you choose.  Here is an example:</p>
+<pre class="literal-block">
+#!/usr/bin/python
+from quixote.server.scgi_server import run
+from quixote.publish import Publisher
+from mymodule import MyRootDirectory
+
+def create_my_publisher():
+    return Publisher(MyRootDirectory())
+
+run(create_my_publisher, port=3001)
+</pre>
+<p>The following Apache directive will direct requests to an SCGI server
+running on port 3001:</p>
+<pre class="literal-block">
+&lt;Location /&gt;
+  SCGIServer 127.0.0.1 3001
+  SCGIHandler On
+&lt;/Location&gt;
+</pre>
+<p>[Note: the mod_scgi module for Apache 2 requires a colon, instead of a
+space, between the host and port on the SCGIServer line.]</p>
+</div>
+<div class="section" id="scgi-through-cgi">
+<h1><a name="scgi-through-cgi">SCGI through CGI</a></h1>
+<p>Recent releases of the scgi package include cgi2scgi.c, a small program
+that offers an extremely convenient way to take advantage of SCGI using
+Apache or any web server that supports CGI.  To use it, compile the
+cgi2scgi.c and install the compiled program as usual for your
+webserver.  The default SCGI port is 3000, but you can change that
+by adding <tt class="literal"><span class="pre">-DPORT=3001</span></tt> (for example) to your compile command.</p>
+<p>Although this method requires a new process to be launched for each
+request, the process is small and fast, so the performance is
+acceptable for many applications.</p>
+</div>
+<div class="section" id="fastcgi-configuration">
+<h1><a name="fastcgi-configuration">FastCGI configuration</a></h1>
+<p>If your web server supports FastCGI, you can significantly speed up your
+Quixote applications with a simple change to your configuration.  You
+don't have to change your code at all (unless it makes assumptions about
+how many requests are handled by each process).  (See
+<a class="reference" href="http://www.fastcgi.com/">http://www.fastcgi.com/</a> for more information on FastCGI.)</p>
+<p>To use FastCGI with Apache, you'll need to download mod_fastcgi from
+<a class="reference" href="http://www.fastcgi.com/">http://www.fastcgi.com/</a> and add it to your Apache installation.</p>
+<p>Configuring a FastCGI driver script is best done after reading the fine
+documentation for mod_fastcgi at
+<a class="reference" href="http://www.fastcgi.com/mod_fastcgi/docs/mod_fastcgi.html">http://www.fastcgi.com/mod_fastcgi/docs/mod_fastcgi.html</a></p>
+<p>However, if you just want to try it with the Quixote demo to see if it
+works, add this directive to your Apache configuration:</p>
+<pre class="literal-block">
+AddHandler fastcgi-script .fcgi
+</pre>
+<p>and copy server/fastcgi_server.py to demo.fcgi.  If you're using a URL
+rewrite to map requests for (eg.) <tt class="literal"><span class="pre">/qdemo</span></tt> to
+<tt class="literal"><span class="pre">/www/cgi-bin/demo.cgi</span></tt>, be sure to change the rewrite -- it should
+now point to <tt class="literal"><span class="pre">/www/cgi-bin/demo.fcgi</span></tt>.</p>
+<p>After the first access to <tt class="literal"><span class="pre">demo.fcgi</span></tt> (or <tt class="literal"><span class="pre">/qdemo/</span></tt> with the
+modified rewrite rule), the demo should be noticeably faster.  You
+should also see a <tt class="literal"><span class="pre">demo.fcgi</span></tt> process running if you do <tt class="literal"><span class="pre">ps</span> <span class="pre">-le</span></tt>
+(<tt class="literal"><span class="pre">ps</span> <span class="pre">-aux</span></tt> on BSD-ish systems, or maybe <tt class="literal"><span class="pre">ps</span> <span class="pre">aux</span></tt>).  (On my 800 MHz
+Athlon machine, there are slight but perceptible delays navigating the
+Quixote demo in CGI mode.  In FastCGI mode, the delay between pages is
+no longer perceptible -- navigation is instantaneous.)  The larger your
+application is, the more code it loads, and the more work it does at
+startup, the bigger a win FastCGI will be for you (in comparison to CGI).</p>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Quixote Programming Overview</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="quixote-programming-overview">
+<h1 class="title">Quixote Programming Overview</h1>
+<p>This document explains how a Quixote application is structured. 
+The demo.txt file should probably be read before you read this file.
+There are three components to a Quixote application:</p>
+<ol class="arabic">
+<li><p class="first">A driver script, usually a CGI or FastCGI script.  This is the
+interface between your web server (eg., Apache) and the bulk of your
+application code.  The driver script is responsible for creating a
+Quixote publisher customized for your application and invoking its
+publishing loop.</p>
+</li>
+<li><p class="first">A configuration file.  This file specifies various features of the
+Publisher class, such as how errors are handled, the paths of
+various log files, and various other things.  Read through
+quixote/config.py for the full list of configuration settings.</p>
+<p>The most important configuration parameters are:</p>
+<blockquote>
+<dl>
+<dt><tt class="literal"><span class="pre">ERROR_EMAIL</span></tt></dt>
+<dd><p class="first last">e-mail address to which errors will be mailed</p>
+</dd>
+<dt><tt class="literal"><span class="pre">ERROR_LOG</span></tt></dt>
+<dd><p class="first last">file to which errors will be logged</p>
+</dd>
+</dl>
+</blockquote>
+<p>For development/debugging, you should also set <tt class="literal"><span class="pre">DISPLAY_EXCEPTIONS</span></tt>
+true; the default value is false, to favor security over convenience.</p>
+</li>
+<li><p class="first">Finally, the bulk of the code will be called through a call (by the
+Publisher) to the _q_traverse() method of an instance designated as
+the <tt class="literal"><span class="pre">root_directory</span></tt>.  Normally, the root_directory will be an 
+instance of the Directory class.</p>
+</li>
+</ol>
+<div class="section" id="driver-script">
+<h1><a name="driver-script">Driver script</a></h1>
+<p>The driver script is the interface between your web server and Quixote's
+&quot;publishing loop&quot;, which in turn is the gateway to your application
+code.  Thus, there are two things that your Quixote driver script must
+do:</p>
+<ul class="simple">
+<li>create a Quixote publisher -- that is, an instance of the Publisher
+class provided by the quixote.publish module -- and customize it for
+your application</li>
+<li>invoke the publisher's process_request() method as needed to get
+responses for one or more requests, writing the responses back
+to the client(s).</li>
+</ul>
+<p>The publisher is responsible for translating URLs to Python objects and
+calling the appropriate function, method, or PTL template to retrieve
+the information and/or carry out the action requested by the URL.</p>
+<p>The most important application-specific customization done by the driver
+script is to set the root directory of your application.</p>
+<p>The quixote.servers package includes driver modules for cgi, fastcgi,
+scgi, medusa, twisted, and the simple_server.  Each of these modules
+includes a <tt class="literal"><span class="pre">run()</span></tt> function that you can use in a driver script that
+provides a function to create the publisher that you want.  For an example
+of this pattern, see the __main__ part of demo/mini_demo.py.  You could
+run the mini_demo.py with scgi by using the <tt class="literal"><span class="pre">run()</span></tt> function imported
+from quixote.server.scgi_server instead of the one from 
+quixote.server.simple_server.  (You would also need your http server
+set up to use the scgi server.)</p>
+<p>That's almost the simplest possible case -- there's no
+application-specific configuration info apart from the root directory.</p>
+<p>Getting the driver script to actually run is between you and your web
+server.  See the web-server.txt document for help.</p>
+</div>
+<div class="section" id="configuration-file">
+<h1><a name="configuration-file">Configuration file</a></h1>
+<p>By default, the Publisher uses the configuration information from
+quixote/config.py.  You should never edit the default values in
+quixote/config.py, because your edits will be lost if you upgrade to a
+newer Quixote version.  You should certainly read it, though, to
+understand what all the configuration variables are.  If you want to
+customize any of the configuration variables, your driver script
+should provide your customized Config instance as an argument to the
+Publisher constructor.</p>
+</div>
+<div class="section" id="logging">
+<h1><a name="logging">Logging</a></h1>
+<p>The publisher also accepts an optional <tt class="literal"><span class="pre">logger</span></tt> keyword argument,
+that should, if provided, support the same methods as the
+default value, an instance of <tt class="literal"><span class="pre">DefaultLogger</span></tt>.  Even if you
+use the default logger, you can still customize the behavior
+by setting configuration values for <tt class="literal"><span class="pre">access_log</span></tt>, <tt class="literal"><span class="pre">error_log</span></tt>, and/or
+<tt class="literal"><span class="pre">error_email</span></tt>.  These configuration variables are described
+more fully in config.py.</p>
+<p>Quixote writes one (rather long) line to the access log for each request
+it handles; we have split that line up here to make it easier to read:</p>
+<pre class="literal-block">
+127.0.0.1 - 2001-10-15 09:48:43
+  2504 &quot;GET /catalog/ HTTP/1.1&quot;
+  200 'Opera/6.0 (Linux; U)' 0.10sec
+</pre>
+<p>This line consists of:</p>
+<ul class="simple">
+<li>client IP address</li>
+<li>current user (according to Quixote session management mechanism,
+so this will be &quot;-&quot; unless you're using a session manager that
+does authentication)</li>
+<li>date and time of request in local timezone, as YYYY-MM-DD hh:mm:ss</li>
+<li>process ID of the process serving the request (eg. your CGI/FastCGI
+driver script)</li>
+<li>the HTTP request line (request method, URI, and protocol)</li>
+<li>response status code</li>
+<li>HTTP user agent string (specifically, this is
+<tt class="literal"><span class="pre">repr(os.environ.get('HTTP_USER_AGENT',</span> <span class="pre">''))</span></tt>)</li>
+<li>time to complete the request</li>
+</ul>
+<p>If no access log is configured (ie., <tt class="literal"><span class="pre">ACCESS_LOG</span></tt> is <tt class="literal"><span class="pre">None</span></tt>), then
+Quixote will not do any access logging.</p>
+<p>The error log is used for three purposes:</p>
+<ul class="simple">
+<li>application output to <tt class="literal"><span class="pre">sys.stdout</span></tt> and <tt class="literal"><span class="pre">sys.stderr</span></tt> goes to
+Quixote's error log</li>
+<li>application tracebacks will be written to Quixote's error log</li>
+</ul>
+<p>If no error log is configured (with <tt class="literal"><span class="pre">ERROR_LOG</span></tt>), then all output is
+redirected to the stderr supplied to Quixote for this request by your
+web server.  At least for CGI/FastCGI scripts under Apache, this winds
+up in Apache's error log.</p>
+<p>Having stdout redirected to the error log is useful for debugging.  You
+can just sprinkle <tt class="literal"><span class="pre">print</span></tt> statements into your application and the
+output will wind up in the error log.</p>
+</div>
+<div class="section" id="application-code">
+<h1><a name="application-code">Application code</a></h1>
+<p>Finally, we reach the most complicated part of a Quixote application.
+However, thanks to Quixote's design, everything you've ever learned
+about designing and writing Python code is applicable, so there are no
+new hoops to jump through.  You may, optionally, wish to use PTL,
+which is simply Python with a novel way of generating function return
+values -- see PTL.txt for details.</p>
+<p>Quixote's Publisher constructs a request, splits the path into a list
+of components, and calls the root directory's _q_traverse() method,
+giving the component list as an argument.  The _q_traverse() will either
+return a value that will become the content of the HTTPResponse, or
+else it may raise an Exception.  Exceptions are caught by the Publisher
+and handled as needed, depending on configuration variables and 
+whether or not the Exception is an instance of PublisherError.</p>
+</div>
+</div>
+</body>
+</html>

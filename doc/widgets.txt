@@ -1,0 +1,533 @@
+Quixote Widget Classes
+======================
+
+[This is reference documentation.  If you haven't yet read "Lesson 5:
+widgets" of demo.txt, you should go and do so now.  This document also
+assumes you have a good understanding of HTML forms and form elements.
+If not, you could do worse than pick up a copy of *HTML: The Definitive
+Guide* by Chuck Musciano & Bill Kennedy (O'Reilly).  I usually keep it
+within arm's reach.]
+
+Web forms are built out of form elements: string input, select lists,
+checkboxes, submit buttons, and so forth.  Quixote provides a family of
+classes for handling these form elements, or widgets, in the
+quixote.form.widget module.  The class hierarchy is::
+
+    Widget [A]
+    |
+    +--StringWidget
+    |  |
+    |  +--PasswordWidget
+    |  |
+    |  +--NumberWidget [*] [A]
+    |     |
+    |     +-FloatWidget [*]
+    |     +-IntWidget [*]
+    |     
+    +--TextWidget
+    | 
+    +--CheckboxWidget
+    | 
+    +--SelectWidget [A]
+    |  |
+    |  +--SingleSelectWidget
+    |  |  |
+    |  |  +-RadiobuttonsWidget
+    |  |  |
+    |  |  +-OptionSelectWidget [*]
+    |  |    
+    |  +--MultipleSelectWidget
+    |
+    +--ButtonWidget
+    |  |
+    |  +-SubmitWidget
+    |  |
+    |  +-ResetWidget
+    |
+    +--HiddenWidget
+    |
+    +--CompositeWidget [A]
+       |
+       +-WidgetList [*]
+       |
+       +-WidgetDict [*]
+
+    [*] Widget classes that do not correspond exactly with a particular
+        HTML form element
+    [A] Abstract classes 
+
+
+Widget: the base class
+----------------------
+
+Widget is the abstract base class for the widget hierarchy.  It provides
+the following facilities:
+
+* widget name (``name`` attribute, ``set_name()`` method)
+* widget value (``value`` attribute, ``set_value()`` and ``clear()`` methods)
+* ``__str__()`` and ``__repr__()`` methods
+* some facilities for writing composite widget classes
+
+The Widget constructor signature is::
+
+    Widget(name : string, value : any = None)
+  
+``name``
+  the name of the widget.  For non-compound widgets (ie. everything in
+  the above class hierarchy), this will be used as the "name"
+  attribute for the main HTML tag that defines the form element.
+
+``value``
+  the current value of the form element.  The type of 'value' depends
+  on the widget class.  Most widget classes support only a single
+  type, eg. StringWidget always deals with strings and IntWidget with
+  integers.  The SelectWidget classes are different; see the
+  descriptions below for details.
+
+
+Common widget methods
+---------------------
+
+The Widget base class also provides a couple of useful
+methods:
+
+``set_value(value:any)``
+  use this to set the widget value; this is the same as supplying
+  a value to the constructor (and the same type rules apply, ie.
+  the type of 'value' depends on the widget class).
+
+The following two methods will be used on every widget object you
+create; if you write your own widget classes, you will almost certainly
+have to define both of these:
+
+``render()`` : ``string``
+  return a chunk of HTML that implements the form element
+  corresponding to this widget.
+
+``parse()`` : ``any``
+  extract the form value for this widget from ``request.form``, parse it
+  according to the rules for this widget class, and return the
+  resulting value.  The return value depends on the widget class, and
+  will be of the same type as the value passed to the constructor
+  and/or ``set_value()``.
+
+
+StringWidget
+------------
+
+Used for short, single-line string input with no validation (ie. any
+string will be accepted.)  Generates an ``<input type="text">`` form
+element.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    StringWidget(name : string,
+                 value : string = None,
+                 size : int = None,
+                 maxlength : int = None)
+
+``size``
+  used as the ``size`` attribute of the generated ``<input>`` tag;
+  controls the physical size of the input field.
+
+``maxlength``
+  used as the ``maxlength`` attribute; controls the maximum amount
+  of input.
+
+Examples
+~~~~~~~~
+::
+
+    >>> StringWidget("foo", value="hello").render()
+    '<input name="foo" type="text" value="hello">'
+
+    >>> StringWidget("foo", size=10, maxlength=20).render()
+    '<input name="foo" type="text" size="10" maxlength="20">'
+
+
+PasswordWidget
+--------------
+
+PasswordWidget is identical to StringWidget except for the type of the
+HTML form element: ``password`` instead of ``text``.
+
+
+TextWidget
+----------
+
+Used for multi-line text input.  The value is a single string with
+newlines right where the browser supplied them.  (``\r\n``, if present,
+is converted to ``\n``.)  Generates a ``<textarea>`` form element.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    TextWidget(name : string,
+               value : string = None,
+               cols : int = None,
+               rows : int = None,
+               wrap : string = "physical")
+
+``cols``, ``rows``
+  number of columns/rows in the textarea
+``wrap``
+  controls how the browser wraps text and includes newlines in the
+  submitted form value; consult an HTML book for details.
+
+
+CheckboxWidget
+--------------
+
+Used for single boolean (on/off) value.  The value you supply can be
+anything, since Python has a boolean interpretation for all values; the
+value returned by ``parse()`` will always be 0 or 1 (but you shouldn't
+rely on that!).  Generates an ``<input type="checkbox">`` form element.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    CheckboxWidget(name : string,
+                   value : boolean = false)
+
+Examples
+~~~~~~~~
+::
+
+    >>> CheckboxWidget("foo", value=0).render()
+    '<input name="foo" type="checkbox" value="yes">'
+
+    >>> CheckboxWidget("foo", value="you bet").render()
+    '<input name="foo" type="checkbox" value="yes" checked>'
+
+
+RadiobuttonsWidget
+------------------
+
+Used for a *set* of related radiobuttons, ie. several ``<input
+type="radio">`` tags with the same name and different values.  The set
+of values are supplied to the constructor as ``allowed_values``, which
+may be a list of any Python objects (not just strings).  The current
+value must be either ``None`` (the default) or one of the values in
+``allowed_values``; if you supply a ``value`` not in ``allowed_values``,
+it will be ignored.  ``parse()`` will return either ``None`` or one of
+the values in ``allowed_values``.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    RadiobuttonsWidget(name : string,
+                       value : any = None,
+                       allowed_values : [any] = None,
+                       descriptions : [string] = map(str, allowed_values),
+                       quote : boolean = true,
+                       delim : string = "\n")
+
+``allowed_values``
+  specifies how many ``<input type="radio">`` tags to generate and the
+  values for each.  Eg. ``allowed_values=["foo", "bar"]`` will result in
+  (roughly)::
+
+    <input type="radio" value="foo">
+    <input type="radio" value="bar">
+
+``descriptions``
+  the text that will actually be shown to the user in the web page
+  that includes this widget.  Handy when the elements of
+  ``allowed_values`` are too terse, or don't have a meaningful
+  ``str()``, or you want to add some additional cues for the user.  If
+  not supplied, ``map(str, allowed_values)`` is used, with the
+  exception that ``None`` in ``allowed_values`` becomes ``""`` (the
+  empty string) in ``descriptions``.  If supplied, ``descriptions``
+  must be the same length as ``allowed_values``.
+
+``quote``
+  if true (the default), the elements of 'descriptions' will be
+  HTML-quoted (using ``quixote.html.html_quote()``) when the widget is
+  rendered.  This is essential if you might have characters like
+  ``&`` or ``<`` in your descriptions.  However, you'll want to set
+  ``quote`` to false if you are deliberately including HTML markup
+  in your descriptions.
+
+``delim``
+  the delimiter to separate the radiobuttons with when rendering
+  the whole widget.  The default ensures that your HTML is readable
+  (by putting each ``<input>`` tag on a separate line), and that there
+  is horizontal whitespace between each radiobutton.
+
+Examples
+~~~~~~~~
+::
+
+    >>> colours = ["red", "green", "blue", "pink"]
+    >>> widget = RadiobuttonsWidget("foo", allowed_values=colours)
+    >>> print widget.render()
+    <input name="foo" type="radio" value="0">red</input>
+    <input name="foo" type="radio" value="1">green</input>
+    <input name="foo" type="radio" value="2">blue</input>
+    <input name="foo" type="radio" value="3">pink</input>
+  
+(Note that the actual form values, ie. what the browser returns to the
+server, are always stringified indices into the 'allowed_values' list.
+This is irrelevant to you, since SingleSelectWidget takes care of
+converting ``"1"`` to ``1`` and looking up ``allowed_values[1]``.)
+
+::
+
+    >>> values = [val1, val2, val3]
+    >>> descs = ["thing <b>1</b>",
+                 "thing <b>2</b>",
+                 "thing <b>3</b>"]
+    >>> widget = RadiobuttonsWidget("bar",
+                     allowed_values=values,
+                     descriptions=descs,
+                     value=val3,
+                     delim="<br>\n",
+                     quote=0)
+    >>> print widget.render()
+    <input name="bar" type="radio" value="0">thing <b>1</b></input><br>
+    <input name="bar" type="radio" value="1">thing <b>2</b></input><br>
+    <input name="bar" type="radio" value="2" checked="checked">thing <b>3</b></input>
+
+
+SingleSelectWidget
+------------------
+
+Used to select a single value from a list that's too long or ungainly
+for a set of radiobuttons.  (Most browsers implement this as a scrolling
+list; UNIX versions of Netscape 4.x and earlier used a pop-up menu.)
+The value can be any Python object; ``parse()`` will return either
+``None`` or one of the values you supply to the constructor as
+``allowed_values``.  Generates a ``<select>...</select>`` tag, with one
+``<option>`` tag for each element of ``allowed_values``.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    SingleSelectWidget(name : string,
+                       value : any = None,
+                       allowed_values : [any] = None,
+                       descriptions : [string] = map(str, allowed_values),
+                       quote : boolean = true,
+                       size : int = None)
+
+``allowed_values``
+  determines the set of ``<option>`` tags that will go inside the
+  ``<select>`` tag; these can be any Python values (not just strings).
+  ``parse()`` will return either one of the ``allowed_values`` or ``None``.
+  If you supply a ``value`` that is not in ``allowed_values``, it
+  will be ignored.
+
+``descriptions``
+  (same as RadiobuttonsWidget above)
+
+``quote``
+  (same as RadiobuttonsWidget above)
+
+``size``
+  corresponds to the ``size`` attribute of the ``<select>`` tag: ask
+  the browser to show a select list with ``size`` items visible.
+  Not always respected by the browser; consult an HTML book.
+
+Examples
+~~~~~~~~
+::
+
+    >>> widget = SingleSelectWidget("foo",
+                                    allowed_values=["abc", 123, 5.5])
+    >>> print widget.render()
+    <select name="foo">
+    <option value="0">abc
+    <option value="1">123
+    <option value="2">5.5
+    </select>
+
+    >>> widget = SingleSelectWidget("bar",
+                                    value=val2,  
+                                    allowed_values=[val1, val2, val3],
+                                    descriptions=["foo", "bar", "foo & bar"],
+                                    size=3)
+    >>> print widget.render()
+    <select name="bar" size="3">
+    <option value="0">foo
+    <option selected value="1">bar
+    <option value="2">foo &amp; bar
+    </select>
+
+
+MultipleSelectWidget
+--------------------
+
+Used to select multiple values from a list.  Everything is just like
+SingleSelectWidget, except that ``value`` can be a list of objects
+selected from ``allowed_values`` (in which case every object in ``value``
+will initially be selected).  Generates a ``<select multiple>...</select>``
+tag, with one ``<option>`` tag for each element of ``allowed_values``.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    MultipleSelectWidget(name : string,
+                         value : any | [any] = None,
+                         allowed_values : [any] = None,
+                         descriptions : [string] = map(str, allowed_values),
+                         quote : boolean = true,
+                         size : int = None)
+
+ButtonWidget
+------------
+
+Base class of SubmitWidget and ResetWidget.  A ButtonWidget does nothing
+except create a button on the page.
+
+    >>> ButtonWidget("button", value="hello").render()
+    '<input type="button" name="button" value="hello">'
+
+SubmitWidget
+------------
+
+Used for generating submit buttons.  Note that HTML submit buttons are
+rather weird, and Quixote preserves this weirdness -- the Widget classes
+are meant to be a fairly thin wrapper around HTML form elements, after
+all.
+
+In particular, the widget value for a submit button controls two things:
+what the user sees in their browser (the text in the button) and what
+the browser returns as the value for that form element.  You can't
+control the two separately, as you can with radiobuttons or selection
+widgets.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    SubmitButtonWidget(name : string = None,
+                       value : string = None)
+
+``value``
+  the text that will be shown in the user's browser, *and* the
+  value that will be returned for this form element (widget)
+  if the user selects this submit button.
+
+Examples
+~~~~~~~~
+
+    >>> SubmitButtonWidget("submit", value="Submit Form").render()
+    '<input type="submit" value="Submit Form">'
+
+ResetWidget
+-----------
+
+Generates a button to reset the form::
+
+    >>> ResetWidget("reset").render()
+    '<input type="reset" name="reset">'
+
+HiddenWidget
+------------
+
+Used to generate HTML hidden widgets, which can be useful for carrying
+around non-sensitive application state.  (The Quixote form framework
+uses hidden widgets for form tokens as a measure against cross-site
+request forgery [CSRF] attacks.  So by "sensitive" I mean "information
+which should not be revealed", rather than "security-related".  If you
+wouldn't put it in a cookie or in email, don't put it in a hidden form
+element.)
+
+Constructor
+~~~~~~~~~~~
+::
+
+    HiddenWidget(name : string,
+                 value : string)
+
+Examples
+~~~~~~~~
+::
+
+    >>> HiddenWidget("form_id", "2452345135").render()
+    '<input type="hidden" name="form_id" value="2452345135">'
+
+
+IntWidget
+---------
+
+The first derived widget class: this is a subclass of StringWidget
+specifically for entering integer values.  As such, this is the first
+widget class we've covered that can reject certain user input.  (The
+selection widgets all have to validate their input in case of broken or
+malicious clients, but they just drop bogus values.)  If the user enters
+a string that Python's built-in ``int()`` can't convert to an integer,
+IntWidget's ``parse()`` method raises FormValueError (also defined in
+the quixote.form.widget module).  This exception is handled by Quixote's
+form framework, but if you're using widget objects on their own, you'll
+have to handle it yourself.
+
+``IntWidget.parse()`` always returns an integer or ``None``.
+
+Constructor
+~~~~~~~~~~~
+::
+
+    IntWidget(name : string,
+              value : int = None,
+              size : int = None,
+              maxlength : int = None)
+
+Constructor arguments are as for StringWidget, except that ``value``
+must be an integer (or ``None``).  Note that ``size`` and
+``maxlength`` have exactly the same meaning: they control the size of
+the input widget and the maximum number of characters of input.
+
+[Examples]
+
+    >>> IntWidget("num", value=37, size=5).render()
+    '<input type="string" name="num" value="37" size="5">'
+
+
+FloatWidget
+-----------
+
+FloatWidget is identical to IntWidget, except:
+
+* ``value`` must be a float
+* ``parse()`` returns a float or ``None``
+* ``parse()`` raises FormValueError if the string entered by the
+  user cannot be converted by Python's built-in ``float()`` function
+
+
+OptionSelectWidget
+------------------
+
+OptionSelectWidget is simply a SingleSelectWidget that uses a bit of
+Javascript to automatically submit the current form as soon as the user
+selects a value.  This is useful for very simple one-element forms where
+you don't want to bother with a submit button, or for very complex forms
+where you need to revamp the user interface based on a user's selection.
+Your form-processing code could then detect that style of form
+submission, and regenerate a slightly different form for the user.  (Or
+you could treat it as a full-blown form submission, if the only widget
+of interest is the OptionSelectWidget.)
+
+For example, if you're asking a user for their address, some of the
+details will vary depending on which country they're in.  You might make
+the country widget an OptionSelectWidget: if the user selects "Canada",
+you'll ask them for a province and a postal code; if they select "United
+States", you ask for a state and a zip code; and so forth.  (I don't
+really recommend a user interface that works this way: you'll spend way
+too much time getting the details right ["How many states does Australia
+have again?"], and you're bound to get something wrong -- there are over
+200 countries in the world, after all.)
+
+Be warned that since OptionSelectWidget relies on Javascript to work,
+using it makes immediately makes your application less portable and more
+fragile.  One thing to avoid: form elements with a name of ``submit``,
+since that masks the Javascript function called by OptionSelectWidget.
+
+

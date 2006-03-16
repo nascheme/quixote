@@ -1,0 +1,51 @@
+Examples of serving static files
+================================
+
+The ``quixote.util`` module includes classes for making files and
+directories available as Quixote resources.  Here are some examples.
+
+
+Publishing a Single File
+------------------------
+
+The ``StaticFile`` class makes an individual filesystem file (possibly
+a symbolic link) available.  You can also specify the MIME type and
+encoding of the file; if you don't specify this, the MIME type will be
+guessed using the standard Python ``mimetypes.guess_type()`` function.
+The default action is to not follow symbolic links, but this behaviour
+can be changed using the ``follow_symlinks`` parameter.
+
+The following example publishes a file with the URL ``.../stylesheet_css``::
+
+    # 'stylesheet_css' must be in the _q_exports list
+    _q_exports = [ ..., 'stylesheet_css', ...]
+
+    stylesheet_css = StaticFile(
+            "/htdocs/legacy_app/stylesheet.css",
+            follow_symlinks=1, mime_type="text/css")
+    
+
+If you want the URL of the file to have a ``.css`` extension, you use
+the external to internal name mapping feature of ``_q_exports``.  For
+example::
+
+    _q_exports = [ ..., ('stylesheet.css', 'stylesheet_css'), ...]
+
+
+
+Publishing a Directory
+----------------------
+
+Publishing a directory is similar.  The ``StaticDirectory`` class
+makes a complete filesystem directory available.  Again, the default
+behaviour is to not follow symlinks.  You can also request that the
+``StaticDirectory`` object cache information about the files in
+memory so that it doesn't try to guess the MIME type on every hit.
+
+This example publishes the ``notes/`` directory::
+
+    _q_exports = [ ..., 'notes', ...]
+
+    notes = StaticDirectory("/htdocs/legacy_app/notes")
+
+

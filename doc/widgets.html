@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Quixote Widget Classes</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="quixote-widget-classes">
+<h1 class="title">Quixote Widget Classes</h1>
+<p>[This is reference documentation.  If you haven't yet read &quot;Lesson 5:
+widgets&quot; of demo.txt, you should go and do so now.  This document also
+assumes you have a good understanding of HTML forms and form elements.
+If not, you could do worse than pick up a copy of <em>HTML: The Definitive
+Guide</em> by Chuck Musciano &amp; Bill Kennedy (O'Reilly).  I usually keep it
+within arm's reach.]</p>
+<p>Web forms are built out of form elements: string input, select lists,
+checkboxes, submit buttons, and so forth.  Quixote provides a family of
+classes for handling these form elements, or widgets, in the
+quixote.form.widget module.  The class hierarchy is:</p>
+<pre class="literal-block">
+Widget [A]
+|
++--StringWidget
+|  |
+|  +--PasswordWidget
+|  |
+|  +--NumberWidget [*] [A]
+|     |
+|     +-FloatWidget [*]
+|     +-IntWidget [*]
+|     
++--TextWidget
+| 
++--CheckboxWidget
+| 
++--SelectWidget [A]
+|  |
+|  +--SingleSelectWidget
+|  |  |
+|  |  +-RadiobuttonsWidget
+|  |  |
+|  |  +-OptionSelectWidget [*]
+|  |    
+|  +--MultipleSelectWidget
+|    
++--SubmitButtonWidget
+| 
++--HiddenWidget
+|
++--ListWidget [*]
+
+[*] Widget classes that do not correspond exactly with a particular
+    HTML form element
+[A] Abstract classes 
+</pre>
+<div class="section" id="widget-the-base-class">
+<h1><a name="widget-the-base-class">Widget: the base class</a></h1>
+<p>Widget is the abstract base class for the widget hierarchy.  It provides
+the following facilities:</p>
+<ul class="simple">
+<li>widget name (<tt class="literal"><span class="pre">name</span></tt> attribute, <tt class="literal"><span class="pre">set_name()</span></tt> method)</li>
+<li>widget value (<tt class="literal"><span class="pre">value</span></tt> attribute, <tt class="literal"><span class="pre">set_value()</span></tt> and <tt class="literal"><span class="pre">clear()</span></tt> methods)</li>
+<li><tt class="literal"><span class="pre">__str__()</span></tt> and <tt class="literal"><span class="pre">__repr__()</span></tt> methods</li>
+<li>some facilities for writing composite widget classes</li>
+</ul>
+<p>The Widget constructor signature is:</p>
+<pre class="literal-block">
+Widget(name : string, value : any = None)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">name</span></tt></dt>
+<dd>the name of the widget.  For non-compound widgets (ie. everything in
+the above class hierarchy), this will be used as the &quot;name&quot;
+attribute for the main HTML tag that defines the form element.</dd>
+<dt><tt class="literal"><span class="pre">value</span></tt></dt>
+<dd>the current value of the form element.  The type of 'value' depends
+on the widget class.  Most widget classes support only a single
+type, eg. StringWidget always deals with strings and IntWidget with
+integers.  The SelectWidget classes are different; see the
+descriptions below for details.</dd>
+</dl>
+</div>
+<div class="section" id="common-widget-methods">
+<h1><a name="common-widget-methods">Common widget methods</a></h1>
+<p>The Widget base class also provides a couple of useful
+methods:</p>
+<dl>
+<dt><tt class="literal"><span class="pre">set_name(name:string)</span></tt></dt>
+<dd>use this to change the widget name supplied to the constructor.
+Unless you know what you're doing, you should do this before
+rendering or parsing the widget.</dd>
+<dt><tt class="literal"><span class="pre">set_value(value:any)</span></tt></dt>
+<dd>use this to set the widget value; this is the same as supplying
+a value to the constructor (and the same type rules apply, ie.
+the type of 'value' depends on the widget class).</dd>
+<dt><tt class="literal"><span class="pre">clear()</span></tt></dt>
+<dd>clear the widget's current value.  Equivalent to
+<tt class="literal"><span class="pre">widget.set_value(None)</span></tt>.</dd>
+</dl>
+<p>The following two methods will be used on every widget object you
+create; if you write your own widget classes, you will almost certainly
+have to define both of these:</p>
+<dl>
+<dt><tt class="literal"><span class="pre">render(request:HTTPRequest)</span></tt> <span class="classifier-delimiter">:</span> <span class="classifier"><tt class="literal"><span class="pre">string</span></tt></span></dt>
+<dd>return a chunk of HTML that implements the form element
+corresponding to this widget.</dd>
+<dt><tt class="literal"><span class="pre">parse(request:HTTPRequest)</span></tt> <span class="classifier-delimiter">:</span> <span class="classifier"><tt class="literal"><span class="pre">any</span></tt></span></dt>
+<dd>extract the form value for this widget from <tt class="literal"><span class="pre">request.form</span></tt>, parse it
+according to the rules for this widget class, and return the
+resulting value.  The return value depends on the widget class, and
+will be of the same type as the value passed to the constructor
+and/or <tt class="literal"><span class="pre">set_value()</span></tt>.</dd>
+</dl>
+</div>
+<div class="section" id="stringwidget">
+<h1><a name="stringwidget">StringWidget</a></h1>
+<p>Used for short, single-line string input with no validation (ie. any
+string will be accepted.)  Generates an <tt class="literal"><span class="pre">&lt;input</span> <span class="pre">type=&quot;text&quot;&gt;</span></tt> form
+element.</p>
+<div class="section" id="constructor">
+<h2><a name="constructor">Constructor</a></h2>
+<pre class="literal-block">
+StringWidget(name : string,
+             value : string = None,
+             size : int = None,
+             maxlength : int = None)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">size</span></tt></dt>
+<dd>used as the <tt class="literal"><span class="pre">size</span></tt> attribute of the generated <tt class="literal"><span class="pre">&lt;input&gt;</span></tt> tag;
+controls the physical size of the input field.</dd>
+<dt><tt class="literal"><span class="pre">maxlength</span></tt></dt>
+<dd>used as the <tt class="literal"><span class="pre">maxlength</span></tt> attribute; controls the maximum amount
+of input.</dd>
+</dl>
+</div>
+<div class="section" id="examples">
+<h2><a name="examples">Examples</a></h2>
+<pre class="literal-block">
+&gt;&gt;&gt; StringWidget(&quot;foo&quot;, value=&quot;hello&quot;).render(request)
+'&lt;input name=&quot;foo&quot; type=&quot;text&quot; value=&quot;hello&quot;&gt;'
+
+&gt;&gt;&gt; StringWidget(&quot;foo&quot;, size=10, maxlength=20).render(request)
+'&lt;input name=&quot;foo&quot; type=&quot;text&quot; size=&quot;10&quot; maxlength=&quot;20&quot;&gt;'
+</pre>
+</div>
+</div>
+<div class="section" id="passwordwidget">
+<h1><a name="passwordwidget">PasswordWidget</a></h1>
+<p>PasswordWidget is identical to StringWidget except for the type of the
+HTML form element: <tt class="literal"><span class="pre">password</span></tt> instead of <tt class="literal"><span class="pre">text</span></tt>.</p>
+</div>
+<div class="section" id="textwidget">
+<h1><a name="textwidget">TextWidget</a></h1>
+<p>Used for multi-line text input.  The value is a single string with
+newlines right where the browser supplied them.  (<tt class="literal"><span class="pre">\r\n</span></tt>, if present,
+is converted to <tt class="literal"><span class="pre">\n</span></tt>.)  Generates a <tt class="literal"><span class="pre">&lt;textarea&gt;</span></tt> form element.</p>
+<div class="section" id="id1">
+<h2><a name="id1">Constructor</a></h2>
+<pre class="literal-block">
+TextWidget(name : string,
+           value : string = None,
+           cols : int = None,
+           rows : int = None,
+           wrap : string = &quot;physical&quot;)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">cols</span></tt>, <tt class="literal"><span class="pre">rows</span></tt></dt>
+<dd>number of columns/rows in the textarea</dd>
+<dt><tt class="literal"><span class="pre">wrap</span></tt></dt>
+<dd>controls how the browser wraps text and includes newlines in the
+submitted form value; consult an HTML book for details.</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="checkboxwidget">
+<h1><a name="checkboxwidget">CheckboxWidget</a></h1>
+<p>Used for single boolean (on/off) value.  The value you supply can be
+anything, since Python has a boolean interpretation for all values; the
+value returned by <tt class="literal"><span class="pre">parse()</span></tt> will always be 0 or 1 (but you shouldn't
+rely on that!).  Generates an <tt class="literal"><span class="pre">&lt;input</span> <span class="pre">type=&quot;checkbox&quot;&gt;</span></tt> form element.</p>
+<div class="section" id="id2">
+<h2><a name="id2">Constructor</a></h2>
+<pre class="literal-block">
+CheckboxWidget(name : string,
+               value : boolean = false)
+</pre>
+</div>
+<div class="section" id="id3">
+<h2><a name="id3">Examples</a></h2>
+<pre class="literal-block">
+&gt;&gt;&gt; CheckboxWidget(&quot;foo&quot;, value=0).render(request)
+'&lt;input name=&quot;foo&quot; type=&quot;checkbox&quot; value=&quot;yes&quot;&gt;'
+
+&gt;&gt;&gt; CheckboxWidget(&quot;foo&quot;, value=&quot;you bet&quot;).render(request)
+'&lt;input name=&quot;foo&quot; type=&quot;checkbox&quot; value=&quot;yes&quot; checked&gt;'
+</pre>
+</div>
+</div>
+<div class="section" id="radiobuttonswidget">
+<h1><a name="radiobuttonswidget">RadiobuttonsWidget</a></h1>
+<p>Used for a <em>set</em> of related radiobuttons, ie. several <tt class="literal"><span class="pre">&lt;input</span>
+<span class="pre">type=&quot;radio&quot;&gt;</span></tt> tags with the same name and different values.  The set
+of values are supplied to the constructor as <tt class="literal"><span class="pre">allowed_values</span></tt>, which
+may be a list of any Python objects (not just strings).  The current
+value must be either <tt class="literal"><span class="pre">None</span></tt> (the default) or one of the values in
+<tt class="literal"><span class="pre">allowed_values</span></tt>; if you supply a <tt class="literal"><span class="pre">value</span></tt> not in <tt class="literal"><span class="pre">allowed_values</span></tt>,
+it will be ignored.  <tt class="literal"><span class="pre">parse()</span></tt> will return either <tt class="literal"><span class="pre">None</span></tt> or one of
+the values in <tt class="literal"><span class="pre">allowed_values</span></tt>.</p>
+<div class="section" id="id4">
+<h2><a name="id4">Constructor</a></h2>
+<pre class="literal-block">
+RadiobuttonsWidget(name : string,
+                   value : any = None,
+                   allowed_values : [any] = None,
+                   descriptions : [string] = map(str, allowed_values),
+                   quote : boolean = true,
+                   delim : string = &quot;\n&quot;)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">allowed_values</span></tt></dt>
+<dd><p class="first">specifies how many <tt class="literal"><span class="pre">&lt;input</span> <span class="pre">type=&quot;radio&quot;&gt;</span></tt> tags to generate and the
+values for each.  Eg. <tt class="literal"><span class="pre">allowed_values=[&quot;foo&quot;,</span> <span class="pre">&quot;bar&quot;]</span></tt> will result in
+(roughly):</p>
+<pre class="last literal-block">
+&lt;input type=&quot;radio&quot; value=&quot;foo&quot;&gt;
+&lt;input type=&quot;radio&quot; value=&quot;bar&quot;&gt;
+</pre>
+</dd>
+<dt><tt class="literal"><span class="pre">descriptions</span></tt></dt>
+<dd>the text that will actually be shown to the user in the web page
+that includes this widget.  Handy when the elements of
+<tt class="literal"><span class="pre">allowed_values</span></tt> are too terse, or don't have a meaningful
+<tt class="literal"><span class="pre">str()</span></tt>, or you want to add some additional cues for the user.  If
+not supplied, <tt class="literal"><span class="pre">map(str,</span> <span class="pre">allowed_values)</span></tt> is used, with the
+exception that <tt class="literal"><span class="pre">None</span></tt> in <tt class="literal"><span class="pre">allowed_values</span></tt> becomes <tt class="literal"><span class="pre">&quot;&quot;</span></tt> (the
+empty string) in <tt class="literal"><span class="pre">descriptions</span></tt>.  If supplied, <tt class="literal"><span class="pre">descriptions</span></tt>
+must be the same length as <tt class="literal"><span class="pre">allowed_values</span></tt>.</dd>
+<dt><tt class="literal"><span class="pre">quote</span></tt></dt>
+<dd>if true (the default), the elements of 'descriptions' will be
+HTML-quoted (using <tt class="literal"><span class="pre">quixote.html.html_quote()</span></tt>) when the widget is
+rendered.  This is essential if you might have characters like
+<tt class="literal"><span class="pre">&amp;</span></tt> or <tt class="literal"><span class="pre">&lt;</span></tt> in your descriptions.  However, you'll want to set
+<tt class="literal"><span class="pre">quote</span></tt> to false if you are deliberately including HTML markup
+in your descriptions.</dd>
+<dt><tt class="literal"><span class="pre">delim</span></tt></dt>
+<dd>the delimiter to separate the radiobuttons with when rendering
+the whole widget.  The default ensures that your HTML is readable
+(by putting each <tt class="literal"><span class="pre">&lt;input&gt;</span></tt> tag on a separate line), and that there
+is horizontal whitespace between each radiobutton.</dd>
+</dl>
+</div>
+<div class="section" id="id5">
+<h2><a name="id5">Examples</a></h2>
+<pre class="literal-block">
+&gt;&gt;&gt; colours = [&quot;red&quot;, &quot;green&quot;, &quot;blue&quot;, &quot;pink&quot;]
+&gt;&gt;&gt; widget = RadiobuttonsWidget(&quot;foo&quot;, allowed_values=colours)
+&gt;&gt;&gt; print widget.render(request)
+&lt;input name=&quot;foo&quot; type=&quot;radio&quot; value=&quot;0&quot;&gt;red&lt;/input&gt;
+&lt;input name=&quot;foo&quot; type=&quot;radio&quot; value=&quot;1&quot;&gt;green&lt;/input&gt;
+&lt;input name=&quot;foo&quot; type=&quot;radio&quot; value=&quot;2&quot;&gt;blue&lt;/input&gt;
+&lt;input name=&quot;foo&quot; type=&quot;radio&quot; value=&quot;3&quot;&gt;pink&lt;/input&gt;
+</pre>
+<p>(Note that the actual form values, ie. what the browser returns to the
+server, are always stringified indices into the 'allowed_values' list.
+This is irrelevant to you, since SingleSelectWidget takes care of
+converting <tt class="literal"><span class="pre">&quot;1&quot;</span></tt> to <tt class="literal"><span class="pre">1</span></tt> and looking up <tt class="literal"><span class="pre">allowed_values[1]</span></tt>.)</p>
+<pre class="literal-block">
+&gt;&gt;&gt; values = [val1, val2, val3]
+&gt;&gt;&gt; descs = [&quot;thing &lt;b&gt;1&lt;/b&gt;&quot;,
+             &quot;thing &lt;b&gt;2&lt;/b&gt;&quot;,
+             &quot;thing &lt;b&gt;3&lt;/b&gt;&quot;]
+&gt;&gt;&gt; widget = RadiobuttonsWidget(&quot;bar&quot;,
+                 allowed_values=values,
+                 descriptions=descs,
+                 value=val3,
+                 delim=&quot;&lt;br&gt;\n&quot;,
+                 quote=0)
+&gt;&gt;&gt; print widget.render(request)
+&lt;input name=&quot;bar&quot; type=&quot;radio&quot; value=&quot;0&quot;&gt;thing &lt;b&gt;1&lt;/b&gt;&lt;/input&gt;&lt;br&gt;
+&lt;input name=&quot;bar&quot; type=&quot;radio&quot; value=&quot;1&quot;&gt;thing &lt;b&gt;2&lt;/b&gt;&lt;/input&gt;&lt;br&gt;
+&lt;input name=&quot;bar&quot; type=&quot;radio&quot; value=&quot;2&quot; checked=&quot;checked&quot;&gt;thing &lt;b&gt;3&lt;/b&gt;&lt;/input&gt;
+</pre>
+</div>
+</div>
+<div class="section" id="singleselectwidget">
+<h1><a name="singleselectwidget">SingleSelectWidget</a></h1>
+<p>Used to select a single value from a list that's too long or ungainly
+for a set of radiobuttons.  (Most browsers implement this as a scrolling
+list; UNIX versions of Netscape 4.x and earlier used a pop-up menu.)
+The value can be any Python object; <tt class="literal"><span class="pre">parse()</span></tt> will return either
+<tt class="literal"><span class="pre">None</span></tt> or one of the values you supply to the constructor as
+<tt class="literal"><span class="pre">allowed_values</span></tt>.  Generates a <tt class="literal"><span class="pre">&lt;select&gt;...&lt;/select&gt;</span></tt> tag, with one
+<tt class="literal"><span class="pre">&lt;option&gt;</span></tt> tag for each element of <tt class="literal"><span class="pre">allowed_values</span></tt>.</p>
+<div class="section" id="id6">
+<h2><a name="id6">Constructor</a></h2>
+<pre class="literal-block">
+SingleSelectWidget(name : string,
+                   value : any = None,
+                   allowed_values : [any] = None,
+                   descriptions : [string] = map(str, allowed_values),
+                   quote : boolean = true,
+                   size : int = None)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">allowed_values</span></tt></dt>
+<dd>determines the set of <tt class="literal"><span class="pre">&lt;option&gt;</span></tt> tags that will go inside the
+<tt class="literal"><span class="pre">&lt;select&gt;</span></tt> tag; these can be any Python values (not just strings).
+<tt class="literal"><span class="pre">parse()</span></tt> will return either one of the <tt class="literal"><span class="pre">allowed_values</span></tt> or <tt class="literal"><span class="pre">None</span></tt>.
+If you supply a <tt class="literal"><span class="pre">value</span></tt> that is not in <tt class="literal"><span class="pre">allowed_values</span></tt>, it
+will be ignored.</dd>
+<dt><tt class="literal"><span class="pre">descriptions</span></tt></dt>
+<dd>(same as RadiobuttonsWidget above)</dd>
+<dt><tt class="literal"><span class="pre">quote</span></tt></dt>
+<dd>(same as RadiobuttonsWidget above)</dd>
+<dt><tt class="literal"><span class="pre">size</span></tt></dt>
+<dd>corresponds to the <tt class="literal"><span class="pre">size</span></tt> attribute of the <tt class="literal"><span class="pre">&lt;select&gt;</span></tt> tag: ask
+the browser to show a select list with <tt class="literal"><span class="pre">size</span></tt> items visible.
+Not always respected by the browser; consult an HTML book.</dd>
+</dl>
+</div>
+<div class="section" id="id7">
+<h2><a name="id7">Examples</a></h2>
+<pre class="literal-block">
+&gt;&gt;&gt; widget = SingleSelectWidget(&quot;foo&quot;,
+                                allowed_values=[&quot;abc&quot;, 123, 5.5])
+&gt;&gt;&gt; print widget.render(request)
+&lt;select name=&quot;foo&quot;&gt;
+&lt;option value=&quot;0&quot;&gt;abc
+&lt;option value=&quot;1&quot;&gt;123
+&lt;option value=&quot;2&quot;&gt;5.5
+&lt;/select&gt;
+
+&gt;&gt;&gt; widget = SingleSelectWidget(&quot;bar&quot;,
+                                value=val2,  
+                                allowed_values=[val1, val2, val3],
+                                descriptions=[&quot;foo&quot;, &quot;bar&quot;, &quot;foo &amp; bar&quot;],
+                                size=3)
+&gt;&gt;&gt; print widget.render(request)
+&lt;select name=&quot;bar&quot; size=&quot;3&quot;&gt;
+&lt;option value=&quot;0&quot;&gt;foo
+&lt;option selected value=&quot;1&quot;&gt;bar
+&lt;option value=&quot;2&quot;&gt;foo &amp;amp; bar
+&lt;/select&gt;
+</pre>
+</div>
+</div>
+<div class="section" id="multipleselectwidget">
+<h1><a name="multipleselectwidget">MultipleSelectWidget</a></h1>
+<p>Used to select multiple values from a list.  Everything is just like
+SingleSelectWidget, except that <tt class="literal"><span class="pre">value</span></tt> can be a list of objects
+selected from <tt class="literal"><span class="pre">allowed_values</span></tt> (in which case every object in <tt class="literal"><span class="pre">value</span></tt>
+will initially be selected).  Generates a <tt class="literal"><span class="pre">&lt;select</span> <span class="pre">multiple&gt;...&lt;/select&gt;</span></tt>
+tag, with one <tt class="literal"><span class="pre">&lt;option&gt;</span></tt> tag for each element of <tt class="literal"><span class="pre">allowed_values</span></tt>.</p>
+<div class="section" id="id8">
+<h2><a name="id8">Constructor</a></h2>
+<pre class="literal-block">
+MultipleSelectWidget(name : string,
+                     value : any | [any] = None,
+                     allowed_values : [any] = None,
+                     descriptions : [string] = map(str, allowed_values),
+                     quote : boolean = true,
+                     size : int = None)
+</pre>
+</div>
+</div>
+<div class="section" id="submitbuttonwidget">
+<h1><a name="submitbuttonwidget">SubmitButtonWidget</a></h1>
+<p>Used for generating submit buttons.  Note that HTML submit buttons are
+rather weird, and Quixote preserves this weirdness -- the Widget classes
+are meant to be a fairly thin wrapper around HTML form elements, after
+all.</p>
+<p>In particular, the widget value for a submit button controls two things:
+what the user sees in their browser (the text in the button) and what
+the browser returns as the value for that form element.  You can't
+control the two separately, as you can with radiobuttons or selection
+widgets.</p>
+<p>Also, SubmitButtonWidget is the only widget with an optional <tt class="literal"><span class="pre">name</span></tt>.
+In many simple forms, all you care about is the fact that the form was
+submitted -- which submit button the user used doesn't matter.</p>
+<div class="section" id="id9">
+<h2><a name="id9">Constructor</a></h2>
+<pre class="literal-block">
+SubmitButtonWidget(name : string = None,
+                   value : string = None)
+</pre>
+<dl>
+<dt><tt class="literal"><span class="pre">value</span></tt></dt>
+<dd>the text that will be shown in the user's browser, <em>and</em> the
+value that will be returned for this form element (widget)
+if the user selects this submit button.</dd>
+</dl>
+</div>
+<div class="section" id="id10">
+<h2><a name="id10">Examples</a></h2>
+<blockquote>
+<pre class="doctest-block">
+&gt;&gt;&gt; SubmitButtonWidget(value=&quot;Submit Form&quot;).render(request)
+'&lt;input type=&quot;submit&quot; value=&quot;Submit Form&quot;&gt;'
+</pre>
+</blockquote>
+</div>
+</div>
+<div class="section" id="hiddenwidget">
+<h1><a name="hiddenwidget">HiddenWidget</a></h1>
+<p>Used to generate HTML hidden widgets, which can be useful for carrying
+around non-sensitive application state.  (The Quixote form framework
+uses hidden widgets for form tokens as a measure against cross-site
+request forgery [CSRF] attacks.  So by &quot;sensitive&quot; I mean &quot;information
+which should not be revealed&quot;, rather than &quot;security-related&quot;.  If you
+wouldn't put it in a cookie or in email, don't put it in a hidden form
+element.)</p>
+<div class="section" id="id11">
+<h2><a name="id11">Constructor</a></h2>
+<pre class="literal-block">
+HiddenWidget(name : string,
+             value : string)
+</pre>
+</div>
+<div class="section" id="id12">
+<h2><a name="id12">Examples</a></h2>
+<pre class="literal-block">
+&gt;&gt;&gt; HiddenWidget(&quot;form_id&quot;, &quot;2452345135&quot;).render(request)
+'&lt;input type=&quot;hidden&quot; name=&quot;form_id&quot; value=&quot;2452345135&quot;&gt;'
+</pre>
+</div>
+</div>
+<div class="section" id="intwidget">
+<h1><a name="intwidget">IntWidget</a></h1>
+<p>The first derived widget class: this is a subclass of StringWidget
+specifically for entering integer values.  As such, this is the first
+widget class we've covered that can reject certain user input.  (The
+selection widgets all have to validate their input in case of broken or
+malicious clients, but they just drop bogus values.)  If the user enters
+a string that Python's built-in <tt class="literal"><span class="pre">int()</span></tt> can't convert to an integer,
+IntWidget's <tt class="literal"><span class="pre">parse()</span></tt> method raises FormValueError (also defined in
+the quixote.form.widget module).  This exception is handled by Quixote's
+form framework, but if you're using widget objects on their own, you'll
+have to handle it yourself.</p>
+<p><tt class="literal"><span class="pre">IntWidget.parse()</span></tt> always returns an integer or <tt class="literal"><span class="pre">None</span></tt>.</p>
+<div class="section" id="id13">
+<h2><a name="id13">Constructor</a></h2>
+<pre class="literal-block">
+IntWidget(name : string,
+          value : int = None,
+          size : int = None,
+          maxlength : int = None)
+</pre>
+<p>Constructor arguments are as for StringWidget, except that <tt class="literal"><span class="pre">value</span></tt>
+must be an integer (or <tt class="literal"><span class="pre">None</span></tt>).  Note that <tt class="literal"><span class="pre">size</span></tt> and
+<tt class="literal"><span class="pre">maxlength</span></tt> have exactly the same meaning: they control the size of
+the input widget and the maximum number of characters of input.</p>
+<p>[Examples]</p>
+<blockquote>
+<pre class="doctest-block">
+&gt;&gt;&gt; IntWidget(&quot;num&quot;, value=37, size=5).render(request)
+'&lt;input type=&quot;string&quot; name=&quot;num&quot; value=&quot;37&quot; size=&quot;5&quot;&gt;'
+</pre>
+</blockquote>
+</div>
+</div>
+<div class="section" id="floatwidget">
+<h1><a name="floatwidget">FloatWidget</a></h1>
+<p>FloatWidget is identical to IntWidget, except:</p>
+<ul class="simple">
+<li><tt class="literal"><span class="pre">value</span></tt> must be a float</li>
+<li><tt class="literal"><span class="pre">parse()</span></tt> returns a float or <tt class="literal"><span class="pre">None</span></tt></li>
+<li><tt class="literal"><span class="pre">parse()</span></tt> raises FormValueError if the string entered by the
+user cannot be converted by Python's built-in <tt class="literal"><span class="pre">float()</span></tt> function</li>
+</ul>
+</div>
+<div class="section" id="optionselectwidget">
+<h1><a name="optionselectwidget">OptionSelectWidget</a></h1>
+<p>OptionSelectWidget is simply a SingleSelectWidget that uses a bit of
+Javascript to automatically submit the current form as soon as the user
+selects a value.  This is useful for very simple one-element forms where
+you don't want to bother with a submit button, or for very complex forms
+where you need to revamp the user interface based on a user's selection.
+Your form-processing code could then detect that style of form
+submission, and regenerate a slightly different form for the user.  (Or
+you could treat it as a full-blown form submission, if the only widget
+of interest is the OptionSelectWidget.)</p>
+<p>For example, if you're asking a user for their address, some of the
+details will vary depending on which country they're in.  You might make
+the country widget an OptionSelectWidget: if the user selects &quot;Canada&quot;,
+you'll ask them for a province and a postal code; if they select &quot;United
+States&quot;, you ask for a state and a zip code; and so forth.  (I don't
+really recommend a user interface that works this way: you'll spend way
+too much time getting the details right [&quot;How many states does Australia
+have again?&quot;], and you're bound to get something wrong -- there are over
+200 countries in the world, after all.)</p>
+<p>Be warned that since OptionSelectWidget relies on Javascript to work,
+using it makes immediately makes your application less portable and more
+fragile.  One thing to avoid: form elements with a name of <tt class="literal"><span class="pre">submit</span></tt>,
+since that masks the Javascript function called by OptionSelectWidget.</p>
+<p>$Id: widgets.txt 20217 2003-01-16 20:51:53Z akuchlin $</p>
+</div>
+</div>
+</body>
+</html>

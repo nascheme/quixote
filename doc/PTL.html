@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>PTL: Python Template Language</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="ptl-python-template-language">
+<h1 class="title">PTL: Python Template Language</h1>
+<div class="section" id="introduction">
+<h1><a name="introduction">Introduction</a></h1>
+<p>PTL is the templating language used by Quixote.  Most web templating
+languages embed a real programming language in HTML, but PTL inverts
+this model by merely tweaking Python to make it easier to generate
+HTML pages (or other forms of text).  In other words, PTL is basically
+Python with a novel way to specify function return values.</p>
+<p>Specifically, a PTL template is designated by inserting a <tt class="literal"><span class="pre">[plain]</span></tt>
+or <tt class="literal"><span class="pre">[html]</span></tt> modifier after the function name.  The value of
+expressions inside templates are kept, not discarded.  If the type is
+<tt class="literal"><span class="pre">[html]</span></tt> then non-literal strings are passed through a function that
+escapes HTML special characters.</p>
+</div>
+<div class="section" id="plain-text-templates">
+<h1><a name="plain-text-templates">Plain text templates</a></h1>
+<p>Here's a sample plain text template:</p>
+<pre class="literal-block">
+def foo [plain] (x, y = 5):
+    &quot;This is a chunk of static text.&quot;
+    greeting = &quot;hello world&quot; # statement, no PTL output
+    print 'Input values:', x, y
+    z = x + y
+    &quot;&quot;&quot;You can plug in variables like x (%s)
+in a variety of ways.&quot;&quot;&quot; % x
+
+    &quot;\n\n&quot;
+    &quot;Whitespace is important in generated text.\n&quot;
+    &quot;z = &quot;; z
+    &quot;, but y is &quot;
+    y
+    &quot;.&quot;
+</pre>
+<p>Obviously, templates can't have docstrings, but otherwise they follow
+Python's syntactic rules: indentation indicates scoping, single-quoted
+and triple-quoted strings can be used, the same rules for continuing
+lines apply, and so forth.  PTL also follows all the expected semantics
+of normal Python code: so templates can have parameters, and the
+parameters can have default values, be treated as keyword arguments,
+etc.</p>
+<p>The difference between a template and a regular Python function is that
+inside a template the result of expressions are saved as the return
+value of that template.  Look at the first part of the example again:</p>
+<pre class="literal-block">
+def foo [plain] (x, y = 5):
+    &quot;This is a chunk of static text.&quot;
+    greeting = &quot;hello world&quot; # statement, no PTL output
+    print 'Input values:', x, y
+    z = x + y
+    &quot;&quot;&quot;You can plug in variables like x (%s)
+in a variety of ways.&quot;&quot;&quot; % x
+</pre>
+<p>Calling this template with <tt class="literal"><span class="pre">foo(1,</span> <span class="pre">2)</span></tt> results in the following
+string:</p>
+<pre class="literal-block">
+This is a chunk of static text.You can plug in variables like x (1)
+in a variety of ways.
+</pre>
+<p>Normally when Python evaluates expressions inside functions, it just
+discards their values, but in a <tt class="literal"><span class="pre">[plain]</span></tt> PTL template the value is
+converted to a string using <tt class="literal"><span class="pre">str()</span></tt> and appended to the template's
+return value.  There's a single exception to this rule: <tt class="literal"><span class="pre">None</span></tt> is the
+only value that's ever ignored, adding nothing to the output.  (If this
+weren't the case, calling methods or functions that return <tt class="literal"><span class="pre">None</span></tt>
+would require assigning their value to a variable.  You'd have to write
+<tt class="literal"><span class="pre">dummy</span> <span class="pre">=</span> <span class="pre">list.sort()</span></tt> in PTL code, which would be strange and
+confusing.)</p>
+<p>The initial string in a template isn't treated as a docstring, but is
+just incorporated in the generated output; therefore, templates can't
+have docstrings.  No whitespace is ever automatically added to the
+output, resulting in <tt class="literal"><span class="pre">...text.You</span> <span class="pre">can</span> <span class="pre">...</span></tt> from the example.  You'd
+have to add an extra space to one of the string literals to correct
+this.</p>
+<p>The assignment to the <tt class="literal"><span class="pre">greeting</span></tt> local variable is a statement, not an
+expression, so it doesn't return a value and produces no output.  The
+output from the <tt class="literal"><span class="pre">print</span></tt> statement will be printed as usual, but won't
+go into the string generated by the template.  Quixote directs standard
+output into Quixote's debugging log; if you're using PTL on its own, you
+should consider doing something similar.  <tt class="literal"><span class="pre">print</span></tt> should never be used
+to generate output returned to the browser, only for adding debugging
+traces to a template.</p>
+<p>Inside templates, you can use all of Python's control-flow statements:</p>
+<pre class="literal-block">
+def numbers [plain] (n):
+    for i in range(n):
+        i
+        &quot; &quot; # PTL does not add any whitespace
+</pre>
+<p>Calling <tt class="literal"><span class="pre">numbers(5)</span></tt> will return the string <tt class="literal"><span class="pre">&quot;1</span> <span class="pre">2</span> <span class="pre">3</span> <span class="pre">4</span> <span class="pre">5</span> <span class="pre">&quot;</span></tt>.  You can
+also have conditional logic or exception blocks:</p>
+<pre class="literal-block">
+def international_hello [plain] (language):
+    if language == &quot;english&quot;:
+        &quot;hello&quot;
+    elif language == &quot;french&quot;:
+        &quot;bonjour&quot;
+    else:
+        raise ValueError, &quot;I don't speak %s&quot; % language
+</pre>
+</div>
+<div class="section" id="html-templates">
+<h1><a name="html-templates">HTML templates</a></h1>
+<p>Since PTL is usually used to generate HTML documents, an <tt class="literal"><span class="pre">[html]</span></tt>
+template type has been provided to make generating HTML easier.</p>
+<p>A common error when generating HTML is to grab data from the browser
+or from a database and incorporate the contents without escaping
+special characters such as '&lt;' and '&amp;'.  This leads to a class of
+security bugs called &quot;cross-site scripting&quot; bugs, where a hostile user
+can insert arbitrary HTML in your site's output that can link to other
+sites or contain JavaScript code that does something nasty (say,
+popping up 10,000 browser windows).</p>
+<p>Such bugs occur because it's easy to forget to HTML-escape a string,
+and forgetting it in just one location is enough to open a hole.  PTL
+offers a solution to this problem by being able to escape strings
+automatically when generating HTML output, at the cost of slightly
+diminished performance (a few percent).</p>
+<p>Here's how this feature works.  PTL defines a class called
+<tt class="literal"><span class="pre">htmltext</span></tt> that represents a string that's already been HTML-escaped
+and can be safely sent to the client.  The function <tt class="literal"><span class="pre">htmlescape(string)</span></tt>
+is used to escape data, and it always returns an <tt class="literal"><span class="pre">htmltext</span></tt>
+instance.  It does nothing if the argument is already <tt class="literal"><span class="pre">htmltext</span></tt>.</p>
+<p>If a template function is declared <tt class="literal"><span class="pre">[html]</span></tt> instead of <tt class="literal"><span class="pre">[text]</span></tt>
+then two things happen.  First, all literal strings in the function
+become instances of <tt class="literal"><span class="pre">htmltext</span></tt> instead of Python's <tt class="literal"><span class="pre">str</span></tt>.  Second,
+the values of expressions are passed through <tt class="literal"><span class="pre">htmlescape()</span></tt> instead
+of <tt class="literal"><span class="pre">str()</span></tt>.</p>
+<p><tt class="literal"><span class="pre">htmltext</span></tt> type is like the <tt class="literal"><span class="pre">str</span></tt> type except that operations
+combining strings and <tt class="literal"><span class="pre">htmltext</span></tt> instances will result in the string
+being passed through <tt class="literal"><span class="pre">htmlescape()</span></tt>.  For example:</p>
+<pre class="literal-block">
+&gt;&gt;&gt; from quixote.html import htmltext
+&gt;&gt;&gt; htmltext('a') + 'b'
+&lt;htmltext 'ab'&gt;
+&gt;&gt;&gt; 'a' + htmltext('b')
+&lt;htmltext 'ab'&gt;
+&gt;&gt;&gt; htmltext('a%s') % 'b'
+&lt;htmltext 'ab'&gt;
+&gt;&gt;&gt; response = 'green eggs &amp; ham'
+&gt;&gt;&gt; htmltext('The response was: %s') % response
+&lt;htmltext 'The response was: green eggs &amp;amp; ham'&gt;
+</pre>
+<p>Note that calling <tt class="literal"><span class="pre">str()</span></tt> strips the <tt class="literal"><span class="pre">htmltext</span></tt> type and should be
+avoided since it usually results in characters being escaped more than
+once.  While <tt class="literal"><span class="pre">htmltext</span></tt> behaves much like a regular string, it is
+sometimes necessary to insert a <tt class="literal"><span class="pre">str()</span></tt> inside a template in order
+to obtain a genuine string.  For example, the <tt class="literal"><span class="pre">re</span></tt> module requires
+genuine strings.  We have found that explicit calls to <tt class="literal"><span class="pre">str()</span></tt> can
+often be avoided by splitting some code out of the template into a
+helper function written in regular Python.</p>
+<p>It is also recommended that the <tt class="literal"><span class="pre">htmltext</span></tt> constructor be used as
+sparingly as possible.  The reason is that when using the htmltext
+feature of PTL, explicit calls to <tt class="literal"><span class="pre">htmltext</span></tt> become the most likely
+source of cross-site scripting holes.  Calling <tt class="literal"><span class="pre">htmltext</span></tt> is like
+saying &quot;I am absolutely sure this piece of data cannot contain malicious
+HTML code injected by a user.  Don't escape HTML special characters
+because I want them.&quot;</p>
+<p>Note that literal strings in template functions declared with
+<tt class="literal"><span class="pre">[html]</span></tt> are htmltext instances, and therefore won't be escaped.
+You'll only need to use <tt class="literal"><span class="pre">htmltext</span></tt> when HTML markup comes from
+outside the template.  For example, if you want to include a file
+containing HTML:</p>
+<pre class="literal-block">
+def output_file [html] ():
+    '&lt;html&gt;&lt;body&gt;' # does not get escaped
+    htmltext(open(&quot;myfile.html&quot;).read())
+    '&lt;/body&gt;&lt;/html&gt;'
+</pre>
+<p>In the common case, templates won't be dealing with HTML markup from
+external sources, so you can write straightforward code.  Consider
+this function to generate the contents of the <tt class="literal"><span class="pre">HEAD</span></tt> element:</p>
+<pre class="literal-block">
+def meta_tags [html] (title, description):
+    '&lt;title&gt;%s&lt;/title&gt;' % title
+    '&lt;meta name=&quot;description&quot; content=&quot;%s&quot;&gt;\n' % description
+</pre>
+<p>There are no calls to <tt class="literal"><span class="pre">htmlescape()</span></tt> at all, but string literals
+such as <tt class="literal"><span class="pre">&lt;title&gt;%s&lt;/title&gt;</span></tt> have all be turned into <tt class="literal"><span class="pre">htmltext</span></tt>
+instances, so the string variables will be automatically escaped:</p>
+<pre class="literal-block">
+&gt;&gt;&gt; t.meta_tags('Catalog', 'A catalog of our cool products')
+&lt;htmltext '&lt;title&gt;Catalog&lt;/title&gt;
+  &lt;meta name=&quot;description&quot; content=&quot;A catalog of our cool products&quot;&gt;\n'&gt;
+&gt;&gt;&gt; t.meta_tags('Dissertation on &lt;HEAD&gt;', 
+...             'Discusses the &quot;LINK&quot; and &quot;META&quot; tags')
+&lt;htmltext '&lt;title&gt;Dissertation on &amp;lt;HEAD&amp;gt;&lt;/title&gt;
+  &lt;meta name=&quot;description&quot; 
+   content=&quot;Discusses the &amp;quot;LINK&amp;quot; and &amp;quot;META&amp;quot; tags&quot;&gt;\n'&gt;
+&gt;&gt;&gt;
+</pre>
+<p>Note how the title and description have had HTML-escaping applied to them.
+(The output has been manually pretty-printed to be more readable.)</p>
+<p>Once you start using <tt class="literal"><span class="pre">htmltext</span></tt> in one of your templates, mixing
+plain and HTML templates is tricky because of <tt class="literal"><span class="pre">htmltext</span></tt>'s automatic
+escaping; plain templates that generate HTML tags will be
+double-escaped.  One approach is to just use HTML templates throughout
+your application.  Alternatively you can use <tt class="literal"><span class="pre">str()</span></tt> to convert
+<tt class="literal"><span class="pre">htmltext</span></tt> instances to regular Python strings; just be sure the
+resulting string isn't HTML-escaped again.</p>
+<p>Two implementations of <tt class="literal"><span class="pre">htmltext</span></tt> are provided, one written in pure
+Python and a second one implemented as a C extension.  Both versions
+have seen production use.</p>
+</div>
+<div class="section" id="ptl-modules">
+<h1><a name="ptl-modules">PTL modules</a></h1>
+<p>PTL templates are kept in files with the extension .ptl.  Like Python
+files, they are byte-compiled on import, and the byte-code is written to
+a compiled file with the extension <tt class="literal"><span class="pre">.pyc</span></tt>.  Since vanilla Python
+doesn't know anything about PTL, Quixote provides an import hook to let
+you import PTL files just like regular Python modules.  The standard way
+to install this import hook is by calling the <tt class="literal"><span class="pre">enable_ptl()</span></tt> function:</p>
+<pre class="literal-block">
+from quixote import enable_ptl
+enable_ptl()
+</pre>
+<p>(Note: if you're using ZODB, always import ZODB <em>before</em> installing the
+PTL import hook.  There's some interaction which causes importing the
+TimeStamp module to fail when the PTL import hook is installed; we
+haven't debugged the problem.  A similar problem has been reported for
+BioPython and win32com.client imports.)</p>
+<p>Once the import hook is installed, PTL files can be imported as if they
+were Python modules.  If all the example templates shown here were put
+into a file named <tt class="literal"><span class="pre">foo.ptl</span></tt>, you could then write Python code that did
+this:</p>
+<pre class="literal-block">
+from foo import numbers
+def f():
+    return numbers(10)
+</pre>
+<p>You may want to keep this little function in your <tt class="literal"><span class="pre">PYTHONSTARTUP</span></tt>
+file:</p>
+<pre class="literal-block">
+def ptl():
+    try:
+        import ZODB
+    except ImportError:
+        pass
+    from quixote import enable_ptl
+    enable_ptl()
+</pre>
+<p>This is useful if you want to interactively play with a PTL module.</p>
+</div>
+</div>
+</body>
+</html>

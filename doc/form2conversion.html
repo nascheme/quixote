@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<title>Converting form1 forms to use the form2 library</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="converting-form1-forms-to-use-the-form2-library">
+<h1 class="title">Converting form1 forms to use the form2 library</h1>
+<div class="section" id="note">
+<h1><a name="note">Note:</a></h1>
+<p>The packages names have changed in Quixote 2.</p>
+<p>Quixote form1 forms are now in the package quixote.form1.
+(In Quixote 1, they were in quixote.form.)</p>
+<p>Quixote form2 forms are now in the package quixote.form.
+(In Quixote 1, they were in quixote.form2.)</p>
+</div>
+<div class="section" id="introduction">
+<h1><a name="introduction">Introduction</a></h1>
+<p>These are some notes and examples for converting Quixote form1 forms,
+that is forms derived from <tt class="literal"><span class="pre">quixote.form1.Form</span></tt>, to the newer form2
+forms.</p>
+<p>Form2 forms are more flexible than their form1 counterparts in that they
+do not require you to use the <tt class="literal"><span class="pre">Form</span></tt> class as a base to get form
+functionality as form1 forms did.  Form2 forms can be instantiated
+directly and then manipulated as instances.  You may also continue to
+use inheritance for your form2 classes to get form functionality,
+particularly if the structured separation of <tt class="literal"><span class="pre">process</span></tt>, <tt class="literal"><span class="pre">render</span></tt>,
+and <tt class="literal"><span class="pre">action</span></tt> is desirable.</p>
+<p>There are many ways to get from form1 code ported to form2.  At one
+end of the spectrum is to rewrite the form class using a functional
+programing style.  This method is arguably best since the functional
+style makes the flow of control clearer.</p>
+<p>The other end of the spectrum and normally the easiest way to port 
+form1 forms to form2 is to use the <tt class="literal"><span class="pre">compatibility</span></tt> module provided
+in the form2 package.  The compatibility module's Form class provides
+much of the same highly structured machinery (via a <tt class="literal"><span class="pre">handle</span></tt> master
+method) that the form1 framework uses.</p>
+</div>
+<div class="section" id="converting-form1-forms-using-using-the-compatibility-module">
+<h1><a name="converting-form1-forms-using-using-the-compatibility-module">Converting form1 forms using using the compatibility module</a></h1>
+<p>Here's the short list of things to do to convert form1 forms to 
+form2 using compatibility.</p>
+<blockquote>
+<ol class="arabic">
+<li><p class="first">Import the Form base class from <tt class="literal"><span class="pre">quixote.form.compatibility</span></tt>
+rather than from quixote.form1.</p>
+</li>
+<li><p class="first">Getting and setting errors is slightly different.  In your form's 
+process method, where errors are typically set, form2
+has a new interface for marking a widget as having an error.</p>
+<blockquote>
+<p>Form1 API:</p>
+<pre class="literal-block">
+self.error['widget_name'] = 'the error message'
+</pre>
+<p>Form2 API:</p>
+<pre class="literal-block">
+self.set_error('widget_name', 'the error message') 
+</pre>
+</blockquote>
+<p>If you want to find out if the form already has errors, change
+the form1 style of direct references to the <tt class="literal"><span class="pre">self.errors</span></tt>
+dictionary to a call to the <tt class="literal"><span class="pre">has_errors</span></tt> method.</p>
+<blockquote>
+<p>Form1 API:</p>
+<pre class="literal-block">
+if not self.error:
+   do some more error checking...
+</pre>
+<p>Form2 API:</p>
+<pre class="literal-block">
+if not self.has_errors():
+   do some more error checking...
+</pre>
+</blockquote>
+</li>
+<li><p class="first">Form2 select widgets no longer take <tt class="literal"><span class="pre">allowed_values</span></tt> or
+<tt class="literal"><span class="pre">descriptions</span></tt> arguments.  If you are adding type of form2 select
+widget, you must provide the <tt class="literal"><span class="pre">options</span></tt> argument instead.  Options
+are the way you define the list of things that are selectable and
+what is returned when they are selected.  the options list can be
+specified in in one of three ways:</p>
+<pre class="literal-block">
+    options: [objects:any]
+or
+    options: [(object:any, description:any)]
+or
+    options: [(object:any, description:any, key:any)]
+</pre>
+<p>An easy way to construct options if you already have
+allowed_values and descriptions is to use the built-in function
+<tt class="literal"><span class="pre">zip</span></tt> to define options:</p>
+<pre class="literal-block">
+options=zip(allowed_values, descriptions)
+</pre>
+</li>
+</ol>
+<blockquote>
+Note, however, that often it is simpler to to construct the
+<tt class="literal"><span class="pre">options</span></tt> list directly.</blockquote>
+<ol class="arabic simple" start="4">
+<li>You almost certainly want to include some kind of cascading style
+sheet (since form2 forms render with minimal markup).  There is a
+basic set of CSS rules in <tt class="literal"><span class="pre">quixote.form.css</span></tt>.</li>
+</ol>
+</blockquote>
+<p>Here's the longer list of things you may need to tweak in order for
+form2 compatibility forms to work with your form1 code.</p>
+<blockquote>
+<ul>
+<li><p class="first"><tt class="literal"><span class="pre">widget_type</span></tt> widget class attribute is gone.  This means when
+adding widgets other than widgets defined in <tt class="literal"><span class="pre">quixote.form.widget</span></tt>,
+you must import the widget class into your module and pass the 
+widget class as the first argument to the <tt class="literal"><span class="pre">add_widget</span></tt> method
+rather than using the <tt class="literal"><span class="pre">widget_type</span></tt> string.</p>
+</li>
+<li><p class="first">The <tt class="literal"><span class="pre">action_url</span></tt> argument to the form's render method is now
+a keyword argument.</p>
+</li>
+<li><p class="first">If you use <tt class="literal"><span class="pre">OptionSelectWidget</span></tt>, there is no longer a 
+<tt class="literal"><span class="pre">get_current_option</span></tt> method.  You can get the current value
+in the normal way.</p>
+</li>
+<li><p class="first"><tt class="literal"><span class="pre">ListWidget</span></tt> has been renamed to <tt class="literal"><span class="pre">WidgetList</span></tt>.</p>
+</li>
+<li><p class="first">There is no longer a <tt class="literal"><span class="pre">CollapsibleListWidget</span></tt> class.  If you need
+this functionality, consider writing a 'deletable composite widget'
+to wrap your <tt class="literal"><span class="pre">WidgetList</span></tt> widgets in it:</p>
+<pre class="literal-block">
+class DeletableWidget(CompositeWidget):
+
+  def __init__(self, name, value=None,
+               element_type=StringWidget,
+               element_kwargs={}, **kwargs):
+     CompositeWidget.__init__(self, name, value=value, **kwargs)
+     self.add(HiddenWidget, 'deleted', value='0')
+       if self.get('deleted') != '1':
+          self.add(element_type, 'element', value=value,
+                   **element_kwargs)
+          self.add(SubmitWidget, 'delete', value='Delete')
+          if self.get('delete'):
+             self.get_widget('deleted').set_value('1')
+
+  def _parse(self, request):
+     if self.get('deleted') == '1':
+        self.value = None
+     else:
+        self.value = self.get('element')
+
+  def render(self):
+     if self.get('deleted') == '1':
+        return self.get_widget('deleted').render()
+     else:
+        return CompositeWidget.render(self)
+</pre>
+</li>
+</ul>
+</blockquote>
+<p>Congratulations, now that you've gotten your form1 forms working in form2,
+you may wish to simplify this code using some of the new features available
+in form2 forms.  Here's a list of things you may wish to consider:</p>
+<blockquote>
+<ul>
+<li><p class="first">In your process method, you don't really need to get a <tt class="literal"><span class="pre">form_data</span></tt>
+dictionary by calling <tt class="literal"><span class="pre">Form.process</span></tt> to ensure your widgets are
+parsed.  Instead, the parsed value of any widget is easy to obtain
+using the widget's <tt class="literal"><span class="pre">get_value</span></tt> method or the form's
+<tt class="literal"><span class="pre">__getitem__</span></tt> method.  So, instead of:</p>
+<pre class="literal-block">
+form_data = Form.process(self, request)
+val = form_data['my_widget']
+</pre>
+<p>You can use:</p>
+<pre class="literal-block">
+val = self['my_widget']
+</pre>
+<p>If the widget may or may not be in the form, you can use <tt class="literal"><span class="pre">get</span></tt>:</p>
+<pre class="literal-block">
+val = self.get('my_widget')
+</pre>
+</li>
+<li><p class="first">It's normally not necessary to provide the <tt class="literal"><span class="pre">action_url</span></tt> argument
+to the form's <tt class="literal"><span class="pre">render</span></tt> method.</p>
+</li>
+<li><p class="first">You don't need to save references to your widgets in your form
+class.  You may have a particular reason for wanting to do that,
+but any widget added to the form using <tt class="literal"><span class="pre">add</span></tt> (or <tt class="literal"><span class="pre">add_widget</span></tt> in
+the compatibility module) can be retrieved using the form's 
+<tt class="literal"><span class="pre">get_widget</span></tt> method.</p>
+</li>
+</ul>
+</blockquote>
+</div>
+<div class="section" id="converting-form1-forms-to-form2-by-functional-rewrite">
+<h1><a name="converting-form1-forms-to-form2-by-functional-rewrite">Converting form1 forms to form2 by functional rewrite</a></h1>
+<p>The best way to get started on a functional version of a form2 rewrite
+is to look at a trivial example form first written using the form1 
+inheritance model followed by it's form2 functional equivalent.</p>
+<p>First the form1 form:</p>
+<pre class="literal-block">
+class MyForm1Form(Form):
+    def __init__(self, request, obj):
+        Form.__init__(self)
+
+        if obj is None:
+            self.obj = Obj()
+            self.add_submit_button('add', 'Add')
+        else:
+            self.obj = obj
+            self.add_submit_button('update', 'Update')
+
+        self.add_cancel_button('Cancel', request.get_path(1) + '/')
+
+        self.add_widget('single_select', 'obj_type',
+                        title='Object Type',
+                        value=self.obj.get_type(),
+                        allowed_values=list(obj.VALID_TYPES),
+                        descriptions=['type1', 'type2', 'type3'])
+        self.add_widget('float', 'cost',
+                        title='Cost',
+                        value=obj.get_cost())
+
+    def render [html] (self, request, action_url):
+        title = 'Obj %s: Edit Object' % self.obj
+        header(title)
+        Form.render(self, request, action_url)
+        footer(title)
+
+    def process(self, request):
+        form_data = Form.process(self, request)
+
+        if not self.error:
+            if form_data['cost'] is None:
+                self.error['cost'] = 'A cost is required.'
+            elif form_data['cost'] &lt; 0:
+                self.error['cost'] = 'The amount must be positive'
+        return form_data
+
+    def action(self, request, submit, form_data):
+        self.obj.set_type(form_data['obj_type'])
+        self.obj.set_cost(form_data['cost'])
+        if submit == 'add':
+            db = get_database()
+            db.add(self.obj)
+        else:
+            assert submit == 'update'
+        return request.redirect(request.get_path(1) + '/')
+</pre>
+<p>Here's the same form using form2 where the function operates on a Form
+instance it keeps a reference to it as a local variable:</p>
+<pre class="literal-block">
+def obj_form(request, obj):
+    form = Form() # quixote.form.Form
+    if obj is None:
+        obj = Obj()
+        form.add_submit('add', 'Add')
+    else:
+        form.add_submit('update', 'Update')
+    form.add_submit('cancel', 'Cancel')
+
+    form.add_single_select('obj_type',
+                           title='Object Type',
+                           value=obj.get_type(),
+                           options=zip(obj.VALID_TYPES, 
+                                       ['type1', 'type2', 'type3']))
+    form.add_float('cost',
+                   title='Cost',
+                   value=obj.get_cost(),
+                   required=1)
+
+    def render [html] ():
+        title = 'Obj %s: Edit Object' % obj
+        header(title)
+        form.render()
+        footer(title)
+
+    def process():
+       if form['cost'] &lt; 0:
+          self.set_error('cost', 'The amount must be positive')
+
+    def action(submit):
+      obj.set_type(form['obj_type'])
+      obj.set_cost(form['cost'])
+      if submit == 'add':
+          db = get_database()
+          db.add(self.obj)
+      else:
+          assert submit == 'update'
+
+    exit_path = request.get_path(1) + '/'
+    submit = form.get_submit()
+    if submit == 'cancel':
+        return request.redirect(exit_path)
+
+    if not form.is_submitted() or form.has_errors():
+        return render()
+    process()
+    if form.has_errors():
+        return render()
+   
+    action(submit)
+    return request.redirect(exit_path)
+</pre>
+<p>As you can see in the example, the function still has all of the same
+parts of it's form1 equivalent.</p>
+<blockquote>
+<ol class="arabic simple">
+<li>It determines if it's to create a new object or edit an existing one</li>
+<li>It adds submit buttons and widgets</li>
+<li>It has a function that knows how to render the form</li>
+<li>It has a function that knows how to do error processing on the form</li>
+<li>It has a function that knows how to register permanent changes to
+objects when the form is submitted successfully.</li>
+</ol>
+</blockquote>
+<p>In the form2 example, we have used inner functions to separate out these
+parts.  This, of course, is optional, but it does help readability once
+the form gets more complicated and has the additional advantage of
+mapping directly with it's form1 counterparts.</p>
+<p>Form2 functional forms do not have the <tt class="literal"><span class="pre">handle</span></tt> master-method that
+is called after the form is initialized.  Instead, we deal with this
+functionality manually.  Here are some things that the <tt class="literal"><span class="pre">handle</span></tt>
+portion of your form might need to implement illustrated in the 
+order that often makes sense.</p>
+<blockquote>
+<ol class="arabic simple">
+<li>Get the value of any submit buttons using <tt class="literal"><span class="pre">form.get_submit</span></tt></li>
+<li>If the form has not been submitted yet, return <tt class="literal"><span class="pre">render()</span></tt>.</li>
+<li>See if the cancel button was pressed, if so return a redirect.</li>
+<li>Call your <tt class="literal"><span class="pre">process</span></tt> inner function to do any widget-level error
+checks.  The form may already have set some errors, so you
+may wish to check for that before trying additional error checks.</li>
+<li>See if the form was submitted by an unknown submit button.
+This will be the case if the form was submitted via a JavaScript
+action, which is the case when an option select widget is selected.
+The value of <tt class="literal"><span class="pre">get_submit</span></tt> is <tt class="literal"><span class="pre">True</span></tt> in this case and if it is,
+you want to clear any errors and re-render the form.</li>
+<li>If the form has not been submitted or if the form has errors,
+you simply want to render the form.</li>
+<li>Check for your named submit buttons which you expect for
+successful form posting e.g. <tt class="literal"><span class="pre">add</span></tt> or <tt class="literal"><span class="pre">update</span></tt>.  If one of 
+these is pressed, call you action inner function.</li>
+<li>Finally, return a redirect to the expected page following a
+form submission.</li>
+</ol>
+</blockquote>
+<p>These steps are illustrated by the following snippet of code and to a
+large degree in the above functional form2 code example.  Often this
+<tt class="literal"><span class="pre">handle</span></tt> block of code can be simplified.  For example, if you do not
+expect form submissions from unregistered submit buttons, you can
+eliminate the test for that.  Similarly, if your form does not do any
+widget-specific error checking, there's no reason to have an error
+checking <tt class="literal"><span class="pre">process</span></tt> function or the call to it:</p>
+<pre class="literal-block">
+exit_path = request.get_path(1) + '/'
+submit = form.get_submit()
+if not submit:
+    return render()
+if submit == 'cancel':
+    return request.redirect(exit_path)
+if submit == True:
+    form.clear_errors()
+    return render()
+process()
+if form.has_errors():
+    return render()
+action(submit)
+return request.redirect(exit_path)
+</pre>
+</div>
+</div>
+</body>
+</html>

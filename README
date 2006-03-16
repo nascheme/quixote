@@ -1,0 +1,58 @@
+Quixote
+=======
+
+Quixote is a framework for developing Web applications in Python.  
+The target is web applications that are developed and maintained
+by Python programmers.
+
+Quixote requires Python 2.3 or greater to run.  For installation
+instructions, see the doc/INSTALL.txt file.
+
+Quixote includes PTL, the Python Template Language for producing 
+HTML with Python code.  The use of PTL is not required in Quixote 
+applications, but we recommend it.  Details about PTL are provided
+in doc/PTL.txt.
+
+If you're switching to a newer version of Quixote from an older
+version, please refer to doc/upgrading.txt for explanations of any
+backward-incompatible changes.  
+
+
+Installation
+=============
+
+See doc/INSTALL.txt.
+
+
+Documentation
+=============
+
+Look in the doc/ directory.
+
+
+Authors, copyright, and license
+===============================
+
+Quixote was originally written by Andrew Kuchling, Neil Schemenauer, and
+Greg Ward.
+
+A list of contributors appears in the ACKS file.
+
+Copyright (c) 2000-2005 CNRI.
+
+Quixote is distributed under the CNRI Open Source License Agreement.
+See LICENSE for details.
+
+
+Availability, home page, and mailing lists
+==========================================
+
+The Quixote home page is:
+    http://www.mems-exchange.org/software/quixote/
+
+Discussion of Quixote occurs on the quixote-users mailing list:
+    http://mail.mems-exchange.org/mailman/listinfo/quixote-users/
+
+To follow development at the most detailed level by seeing every
+checkin, join the quixote-checkins mailing list:
+    http://mail.mems-exchange.org/mailman/listinfo/quixote-checkins/

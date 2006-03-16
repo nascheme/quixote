@@ -1,0 +1,14 @@
+Compiling Quixote c extensions for Windows using the mingw compiler:
+
+The variable build_extensions in setup.py must be set to True (instead
+of "sys.platform != win32"). Then, Quixote can be installed through
+
+   python setup.py build_ext --compiler=mingw32 install
+
+The mingw compiler can be downloaded from
+http://www.bloodshed.net/dev/devcpp.html. Probably you need to list
+the bin directory (C:\Program files\Dev-Cpp\bin) in the PATH.
+
+To permit gcc to link against Python library, you also need a
+libpython2x.a file. Instructions for its creation are provided at
+http://sebsauvage.net/python/mingw.html.

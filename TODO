@@ -1,0 +1,17 @@
+* Extend HTTPRequest to support single/multiple-valued fields.
+
+* Make bare return statements inside of PTL templates work as expected.
+
+* Allow __init__.ptl files to be used as package markers.  It looks like
+  something is wrong with the way ihooks handles __init__ modules.
+
+* Logging doesn't work with CGI scripts (something about our
+  log-opening code depends on how fastcgi.py fiddles stdout).
+
+* For OpenBSD: fcgi.py should catch SIGTERM and, umm, do something.
+  (Terminate the process?)  Otherwise, the FastCGI process can no longer
+  accept() on its socket.  (Reported by Robin Wöhler
+  <rw@robinwoehler.de>, 2002/08/02.)
+
+* For Mac OS X: _startup() in fcgi.py doesn't work for some reason on
+  OS X.  Figure out why and fix it (or kludge around it).

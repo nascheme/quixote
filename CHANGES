@@ -1,0 +1,1165 @@
+2.4 (2005-12-14) r27719:
+
+  * Fix cimport bug (caused None to be bound to an imported name that did
+	not exist).
+
+  * Add Publisher.process(), which is like process_request() except that the caller provides
+	an input stream and an environment instead of an HTTPRequest instance.  Modify the
+	included drivers to use process() instead of process_request().
+
+  *	Update widgets.txt doc file (from Titus Brown).
+
+2.3 (2005-10-18) r27556:
+
+  * Remove some typechecking asserts from sendmail module to allow for unicode.
+
+  * Make the generated http response header for content length be a str instead
+    of an int.
+
+2.2 (2005-9-27) r27459:
+
+  * Remove check_session_addr from Config.config_var_list.
+
+  * Remove Config.dump().
+
+  * When the PATH_INFO does not start with a '/' (or is empty), return
+    a redirect instead of raising AssertionError.
+
+  * Change htmltextObject_Check() to allow subtypes.
+
+  * Improve unicode/charset handling.  Add quixote.DEFAULT_CHARSET and
+    use this as needed to encode log output, email bodies, and
+    response bodies.  When the response body is a str, let it pass
+    through without re-encoding.  When the response charset is None,
+    omit the charset parameter from the content-type header.  Use the
+    default charset for decoding multipart requests.
+
+  * Replace relative import in ptl_import.py.
+
+  * Introduce a unicode-wrapper helper class to be used by htmltext
+    formatting.  It's purpose is to work around a PyString_Format bug
+    that exists in all current versions of Python.  Thanks go to
+    Alexander J. Kozlovsky for the idea and for various other minor
+    fixes.
+
+2.1 (2005-8-9) r27151:
+
+  * Make htmltag work better with unicode attribute values.
+
+  * Modify publisher's exception handler to let SystemExit through.
+
+  * Modify simple server so that SystemExit exceptions that make it to the
+    server's error handler really are terminal.
+
+  * Make encoding declarations work in ptl files.
+
+  * Add HEAD request support to the simple server.
+
+  * Modify simple server to avoid duplicate Date headers.
+
+  * Add include_body keyword to response write().
+
+2.0 (2005-4-12) r26537:
+
+  * Remove SessionError: just make a new session when the cookie does not 
+    identify an existing one.  Remove CHECK_SESSION_ADDR configuration variable.
+
+  * Gather ptl-related code into a sub-package: quixote.ptl.
+    Add quixote.ptl.install: importing this module installs the ptl import hooks.
+    Add quixote.ptl.ptlrun.py, a script for running ptl files from the command line.
+    Gather the quixote.html and support files for htmltext into a sub-package.
+    These changes should be compatible with current code, except that 
+    quixote.ptl_import is now in quixote.ptl.ptl_import,
+    quixote.qx_distutils is now in quixote.ptl.qx_distutils, 
+    quixote._py_htmltext is now quixote.html._py_htmltext, and
+    quixote._c_htmltext is now quixote.html._c_htmltext.
+
+  * Insert REMOTE_USER environment value.
+
+  * Change name: html_url() -> url_with_query()
+
+  * Have StaticFile set the Expires header for 304 responses.
+
+  * Add --https option to simple server to support https through stunnel.
+
+  * Allow the label for the 'Add row' button to be specified for WidgetDict.
+
+  * Add Session.get_user().
+
+  * Add Daniele Varrazzo's patch to _c_htmltext.c that makes it work on
+    win32 with the mingw compiler.
+
+  * Use private_msg when Directory raises TraversalError.
+
+  * Allow setting of request's DEFAULT_CHARSET.
+
+
+2.0a5 (2005-3-7) r26297:
+
+  * SessionPublisher merged into Publisher.
+
+  * Publisher 'session_mgr' keyword changed to 'session_manager'.
+
+  * Form 'action_url' keyword and attribute changed to 'action.'
+
+  * Make sure that HTTPResponse charset attribute is a str.  
+
+  * Don't require the traversed-into-object to be a Directory.
+
+  * Make redirect() call str() on the location, so that calls from
+    ptl templates don't need to.
+
+  * Add an html_url() function that assembles a quoted url with a
+    query.
+
+  * Don't remove double-slashes from the path.
+
+  * Make it easier to customize form error messages.
+
+  * Make Form and Widget new-style classes so that properties can be
+    used on them.
+
+  * Call maintain_session on "interrupted" requests, too.
+
+  * Add class variables with default values for content_type and charset.
+
+  * Add HTTPRequest.get_fields().
+
+  * Add HTTPRequest.get_cookies().
+
+  * Remove name keyword from Form constructor.
+
+2.0a4 (2005-1-19) r25893:
+
+  * Remove support for $-substition.
+    If you changed existing templates to work with 2.0a2 or 2.0a3 by
+    escaping $'s, then you should change them back. 
+
+  * Change simple_server so that the PATH_INFO value is unquoted.
+
+  * Add HTTPResponse.get_content_type().
+
+  * Update mod_python_handler.py to Quixote 2.
+
+2.0a3 (2004-12-09) r25738:
+
+  * Update most of the doc files.  Add q1 -> q2 upgrade notes.
+    Put notes at the start of the remaining doc files so that the reader knows
+    that they have not been updated.
+
+  * Make the simple_server provide remaining HTTP_* headers.
+
+  * Generate a valid HTML document when listing static directories.  Also, use
+    get_path() instead of REQUEST_URI.
+
+  * Work file upload into the basic forms demo.
+
+  * Remove old session demo.  The altdemo.py serves this purpose.
+
+  * Add mini_demo.
+
+  * Use the Twisted addCookie() method.  It allows multiple Set-Cookie
+    headers to end up in the response.
+
+  * Fix a string formatting but that affected the htmltext type.
+
+
+2.0a2 (2004-11-23) r25669:
+
+  * Refactor the Publisher object.  The new design gives "namespaces" more
+    control over traversal.  Packages are no longer imported automatically.
+    By default, namespaces must be 'Directory' instances.  The _q_access
+    hook is gone.  The 'namespace_stack' attribute is also gone.
+
+  * Provide a Publisher object that works more like Quixote 1 (available in
+    the 'publish1' module).  Also, restore the original form framework with
+    the name 'form1'.
+
+  * Stop passing HTTPRequest to exported functions and _q_lookup().  You
+    will need to use get_request() to access it.  Also, require that
+    _q_index be explicitly exported.
+
+  * Remove the HTTPRequest.redirect() method.
+
+  * Split error log and access log functionality into a separate class.
+    Try to simplify site configuration.  Configuration options can now be
+    passed as keyword args to the Publisher class.  The setup_logs() and
+    shutdown_logs() methods are gone.  Logs are now opened when the publisher
+    is initialized.
+
+  * Support $-substitution in templates, as in Python 2.4's string.Template
+    class.  $-substitution is applied to every '$'-containing literal in a
+    template.  Templates written before this change, if they contain literals
+    containing '$', *must* be converted by replacing each '$' with '$$'.
+
+  * Remove support for old style templates and support for versions of
+    Python older than 2.3.
+
+  * Use a common pattern for interfacing with HTTP servers.  Simplify
+    and cleanup the Medusa and Twisted code.  Add a SCGI server module
+    (it makes more sense to be part of Quixote rather than in the "scgi"
+    package).
+
+  * Rename HTTPRequest.get_form_var() to get_field().  That matches the
+    terminology used by RFCs.
+
+  * Add HTTPResponse.set_expires() method.
+
+  * Add HTTPRequest.get_query() method.  Use it instead of the QUERY_STRING
+    environment variable.  Add HTTPRequest.get_status_code().
+
+  * Compile .ptl files to .pyc files.  Also, remove 'htmltext' and
+    'TemplateIO' from the globals of .ptl modules.
+
+  * Move page compression functionality to http_response module.
+
+  * Add a 'content_type' attribute to HTTPResponse.  Refactor response
+    to make it harder to screw up the character set of the response.
+
+  * Add quixote.util.get_directory_path() for obtaining the list of
+    _q_traversed() Directories (essentially a replacement for
+    'namespace_stack')
+
+  * Move missing trailing slash detection and action to Directory.__call__()
+    and remove FIX_TRAILING_SLASH configuration option.
+
+  * Remove RUN_ONCE configuration variable and 'exit_now' attribute of
+    publisher.
+
+  * Stop generating 'Status' header for servers that don't need it.  Add
+    'include_status' keyword to HTTPResponse.write().
+
+  * Overhaul the demo.
+
+
+2.0a1 (2004-10-14) r25357:
+
+  * Remove form1 library and rename form2 to form.
+
+  * Remove HTTPRequest.dump_html() method and add dump_request to 'util'
+    module.  Remove obsolete functions from 'html' module (html_quote(), 
+    value_quote(), link() and render_tag()).
+
+  * Use bool objects where appropriate.  Prefer using builtin types over
+    using the 'types' module.
+
+  * Add support for unicode.  The HTTPResponse object now has a
+    set_charset() method.  Also, the htmltext and TemplateIO types
+    can contain unicode strings.
+
+  * Add support to HTTPRequest for multipart/form-data type requests.
+    Enhance MIME parsing so that it doesn't read huge lines into memory.
+    Also implement parsing of application/x-www-form-urlencoded data
+    rather than using the standard cgi.py module. Remove UPLOAD_DIR and
+    UPLOAD_DIR_MODE config options. Uploaded files are now created using
+    the tempfile module.
+
+  * Remove the DEBUG_LOG configuration option.  Debugging output now
+    always goes to the error log.
+
+  * Rewrite http_request.parse_cookie() and rename it to
+    parse_cookies().  When generating cookies, escape quote characters
+    that appear in cookie values.
+
+1.2 (2004-10-06) r25277:
+
+  * Fix Medusa server bug introduced in 1.1.  HTTP headers must have
+    "HTTP_" prepended to them.
+
+
+1.1 (2004-10-05) r25259:
+
+  * Fix example Apache directive for SCGI demo.
+
+  * On Windows, put both stdin and stdout in binary mode.
+
+  * Add 'buffered' flag to HTTPResponse (defaulting to True).
+
+  * Support for the Python 2.4 'compiler' package.
+
+  * Add HTTPRequest.get_scheme() method.
+
+  * Use os.urandom() if it is available.  Move randbytes() function
+    to quixote.util module.
+
+  * Convert tests to Sancho's utest framework.
+
+  * Add 'index_filenames' keyword option to StaticDirectory.
+
+  Medusa server:
+
+    * Unquote the PATH_INFO environment variable.
+
+    * Simplify propagation of HTTP headers.
+
+  Form2 library:
+
+    * Don't parse empty POSTs.
+
+    * Fix a subtle bug in the multiple select widget.  If nothing
+      is selected then the value should be None, not [None].
+
+    * Add Widget.set_title().
+
+
+1.0 (2004-07-01) r24581:
+
+  * No changes from 1.0c1.
+
+
+1.0c1 (2004-06-15) r24468:
+
+  * Fix some bugs in form2 library and improve the default look.
+
+  * Add a 'content_type' attribute to Upload instances.
+
+
+1.0b2 (2004-05-20) r24301:
+
+  * Pass along more request headers when using twisted_http.py.
+
+  * Add filter_output() hook (as suggested by Thomas Guettler).
+
+  * Use plain text for the content of redirections. It's extremely
+    unlikely that they will be seen anyhow. Use a modern DOCTYPE
+    declaration for other pages that Quixote itself generates.
+
+  * Fix code in upload.py that handles filename collisions.
+
+  * Use a twisted producer for twisted_server.py (allows Stream
+    responses to be efficient).  Use twisted reactor instead of
+    Application.  Thanks to Jason Sibre.
+
+  Form2 library changes:
+
+    * Change how form2 widgets render themselves.  The new approach
+      makes it easier to build composite widgets and also provides
+      more freedom to control the layout using CSS.  Unfortunately,
+      the forms will not look nice unless some CSS rules are provided.
+
+    * Add recursive .has_error() and .clear_error() to widgets.
+
+    * Ensure that has_errors() completely parse all the widgets.
+
+    * Fix .clear_errors() for form2 Form. Errors can only be reliably
+      cleared after the widget has parsed
+
+    * Fix OptionSelect to always return a value from the options list.
+
+    * Fix some bugs in WidgetList.
+
+    * Check form token validity if tokens are enabled.
+
+
+1.0b1 (2004-04-12) r23961:
+
+  * Remove an underscore from the Session attributes __remote_address,
+    __creation_time, and __access_time.  Note that if you have pickled
+    Session objects you will need to upgrade them somehow.
+
+  * Use a simpler version of ptl_compile.parse() if using Python >= 2.3.
+    Unfortunately, the hacks are still needed for older versions.
+
+  * Change the behavior of session cookies if SESSION_COOKIE_PATH is
+    unset.  The old behavior was to not set the 'path' attribute of the
+    session cookie.  The new behavior is to use SCRIPT_NAME.  Also, set
+    the 'path' attribute when revoking the session cookie.  Some
+    browsers treat it as a separate cookie if it has a different path.
+
+  * Don't try to compress stream responses.
+
+  * Refactor PublishError exception handling.  Requests will now be
+    logged even if they raise an exception.  This also allows some
+    simplification to the Medusa and Twisted server code.
+
+  * Make HTTPRequest.get_server() return HTTP_HOST if it is available
+    rather than using SERVER_NAME and SERVER_PORT.
+
+  * If "Host" header is present, use it to set SERVER_NAME and
+    SERVER_PORT.
+
+  * Make HTTPRequest.get_url() escape unsafe characters in the path part
+    of the URL.
+
+  * Use a simple counter instead of using the 'random' module when
+    trying to generate unique names for uploaded files.  
+
+  * Allow arbitrary mapping objects to be used as the right hand operand
+    when formating htmltext objects (i.e. as an argument to the
+    htmltext.__mod__ method).  The _c_htmltext implemention used to only
+    allow 'dict' instances.  Change _c_htmltext to allow any mapping.
+    Also, instead of accessing every item in the mapping, use
+    PyObject_GetItem() (aka __getitem__) to retrieve the values as they
+    are required.  That matches the behavior of PyString_Format().
+
+  * Don't set DEBUG_LOG in demo.conf.  Extra logs files are confusing
+    when people are starting out.
+
+  * Significant form2 package changes.  Remove FormComponent and related
+    machinery.  Allow widgets to control how they are rendered within
+    forms (by overriding the form_render() method.  Reorganize rendering
+    code in the form module so that it is easier to subclass form and
+    provide a different look.  Change the parsing behavior of widgets.
+    They no longer parse themselves when __init__ is called.  Instead,
+    each widget has a parse() method that calls _parse(), if it hasn't
+    been called already, and returns the widgets value.  Allow
+    Widget._parse() to raise WidgetValueError in order to signal a
+    parsing error.  Add a CompositeWidget class.  Remove
+    Widget.get_value() since parse() seems to be sufficient.
+
+  * Add HTTPS header when running under twisted_http.py.
+
+  * Add cimport as a standard Quixote extension.
+
+  * Disable FIX_TRAILING_SLASH in demo.conf.  It can be confusing when
+    trying to get the demo running.
+
+  * Allow _q_exports to contain mappings of external names to internal
+    names.
+
+  * Twisted does not unquote the path so make twisted_http.py do it.
+
+  * Implement error logging for mod_python handler.
+
+
+0.7a3 (2003-12-03) r23260:
+
+  * Improve init for ListWidget. The value of added_elements_widget
+    needs to be set in the request if the list widget was added to the
+    form after the first form submission.
+
+  * Rename Form.WIDGET_ROW_CLASS to COMPONENT_CLASS, since that's
+    what it really is.  Make it an instance attribute as well as a class
+    attribute, so it can be overridden at form construction time.
+
+  * Remove 'allowed_values' and 'descriptions' from
+    RadiobuttonsWidget.__init__.
+
+  * Make htmltag() more efficient by avoiding repeated string
+    concatenation.
+
+  * Establish a pattern for way to specify html attributes for form2
+    widget constructors.  The attributes may be provided in a dictionary
+    using the 'attr' keyword.  An html attribute 'foo' may also be
+    specified in the widget constructor using using keyword 'foo' or
+    'foo_'.
+
+
+0.7a2 (2003-11-11) r23130:
+
+  * Implement publish_fcgi().  Don't use fcgi module for publish_cgi()
+    since it's not completely portable.  If you want to use FastCGI, you
+    need to call publish_fcgi() instead of publish_cgi().  Don't import
+    fcgi unless it's needed (since it does stuff at import time).
+
+  * Allow StaticFile class to be overridden.  Also, make it easier to
+    subclass StaticDirectory.
+
+  * When loading a PTL module, check if it exists in sys.modules.  If it
+    does, exec the code in that namespace rather than creating a new
+    module.  This is necessary to make reload() work.
+
+  * Move HTTPUploadRequest import out of .create_request().
+
+  * Make HTTPRequest.guess_browser_version() more robust.
+
+  * Remove 'allowed_values' and 'description' parameters from form2
+    SelectWidget.
+
+  * Remove unused 'request' parameter from render() method of
+    form2 RadiobuttonsWidget and OptionSelectWidget.
+
+  * Improve form2 WidgetRow docstring.  Don't use apply().
+
+  * Fix 'required' check in form2 WidgetRow.
+
+  * Set the nb_inplace_add slot of TemplateIO types instead of
+    sq_inplace_concat.  nb_inplace_add takes precedence over __radd__
+    on instance types while sq_inplace_concat does not.
+
+  * Fix typo in repr of _c_htmltext TemplateIO.
+
+  * Use the quixote.sendmail module to send traceback email rather than
+    calling /usr/sbin/sendmail.
+
+  * Allow negative values to be passed to HTTPRequest.get_path().
+
+  * Add WidgetRow to form2.__init__.
+
+  * Implement add_button() and add_reset() methods for form2.Form and
+    rename Form._render_submit_buttons() to _render_button_widgets().
+
+
+0.7a1 (2003-10-09) r22720:
+
+  * By default, don't build _c_htmltext on Win32.
+
+  * In medusa_http.py, propagate 'GATEWAY_INTERFACE', 'SCRIPT_FILENAME',
+    and HTTP headers.
+
+  * Add HTTPRequest.get_method().
+
+  * Add support for keyword attributes on string widget.
+
+  * Add a CollapsibleListWidget.
+
+  * Allow HTTPResponse.body to be a Stream object as well as a string.
+    Stream objects are useful if the body of the response is very large.
+
+  * Change StaticFile to return Stream objects.  Also, fix a minor bug in
+    StaticDirectory (_q_lookup should return a namespace).
+
+  * Improve installation instructions.
+
+  * Add 'Redirector' helper class.
+
+  * In publish.py, call _q_lookup(request, "") if _q_index does not exist
+    and _q_lookup does exist.
+
+  * In medusa_http.py, strip fragments from URLs (some versions of MSIE
+    incorrectly send them at certain times; for example, a redirect
+    includes them).  Also, make REQUEST_URI contain the URI, not just the
+    path.
+
+  * In ptl_import, explicitly close the .ptlc file.  This fixes a bug
+    where a subsequent import may go for this .ptlc file and find it
+    incomplete.
+
+  * Add css_class keyword to htmltag so that class attributes can be
+    specified easily.
+
+  * Implement next generation form framework (currently called 'form2').
+
+
+0.6.1 (2003-07-14) r22004:
+
+  * Make Form.add_widget() return the widget.
+
+  * Allow the "Expires" header to be suppressed by setting the 'cache'
+    attribute of HTTPResponse to None.
+
+  * Use title case for header names added by HTTPResponse.set_headers().
+    Clients are not supposed to care about case but it's better to be
+    conservative.
+
+  * Catch IOError exceptions raised when writing the response and log a
+    message (rather than exiting with a traceback).
+
+  * Fix bug regarding _q_exception_handler.  namespace_stack needs to be
+    updated while the traversal is occuring.  Thanks to Jason Sibre for
+    spotting it and for the fix.
+
+  * Add If-Modified-Since support for StaticFile objects.  Also, don't
+    set the Expires header by default.  Instead, set the Last-Modified
+    header based on the modification time of the file.  The Expires
+    header can be enabled by providing a value for the 'cache_time'
+    argument.
+
+
+0.6 final (2003-04-30) r21480:
+
+  * Add a 'pass' to setup.py to make it easier to comment out the C
+    extension.
+
+  * Simplify 'From:' header in traceback e-mails.
+
+        
+0.6b6 (2003-04-15):
+
+  * Rename _q_getname() to _q_lookup().  The name '_q_getname' is still
+    supported, but will log a warning whenever it's encountered.
+    This change will require users to modify their applications.
+
+  * quixote.form.form has been translated from PTL to Python, meaning 
+    that you can now use the form framework without enabling PTL.
+    (Original suggestion by Jim Dukarm, who also provided a patch 
+    that underwent considerable tweaking.)
+
+  * Fix generation of temporary filenames in upload.py: filename
+    collisions should be impossible now.
+
+  * In medusa_http.py, convert HTTP headers into title case before
+    passing them to Medusa, fixing duplicate Content-length headers.  
+    (Fix by Graham Fawcett.)
+
+  * Added quixote.server.twisted_http, which serves a Quixote application
+    using the Twisted event-driven framework (www.twistedmatrix.com).
+    Contributed by Graham Fawcett.  We don't use this code ourselves,
+    but patches and bug fixes from Twisted users will be gratefully
+    accepted.
+
+
+0.6b5 (2003-03-13):
+
+  * Fix incorrect parameter name for _traverse_url()
+
+
+0.6b4 (2003-03-13):
+
+  * The C version of the htmltext type is now compiled by default;
+    you can edit setup.py manually to disable it.
+
+  * StaticDirectory's list_folder argument renamed to list_directory.
+
+  * StaticFile now supports the HTTP encoding for files.  
+    (Absence of this feature noted by Jim Dukarm.)
+
+  * If Quixote looks for _q_index() in a namespace and doesn't find
+    it, it raises AccessError (resulting in an HTTP 403 Forbidden error)
+    rather than failing with an ImportError.  A minor side effect of
+    this change: Quixote will never attempt to import a module named
+    '_q_index', nor will it pass '_q_index' to any _q_resolve() function.
+    We don't expect this to be a backward compatibility problem .
+
+  * Factored out the traverse_url() and get_component() method 
+    from the Publisher class.  
+
+  * Documented _q_exception_handler().
+
+
+0.6b3 (2003-03-07):
+
+  * Fixed errors in demo_scgi.py. (David M. Cooke)
+
+  * Avoid using True/False and enable nested scopes in _py_htmltext.py 
+    for Python 2.1 compatibility. (Noted by Jeff Bauer)
+
+    Note that this means HTML templates will not work with Python 2.0
+    unless you compile the C extension.
+
+  * Added StaticFile and StaticDirectory classes to quixote.util.
+    Consult doc/static-files.txt for examples.  (Contributed and
+    documented by Hamish Lawson.)
+
+
+0.6b2 (2003-01-27):
+
+  * Added a new hook, _q_resolve(), that can be used to delay 
+    importing modules until they're actually accessed.  Consult
+    doc/programming.txt for an explanation.  (Original
+    suggestion and patch by Jon Corbet.  In the process of adding it,
+    Publisher.get_component() was rearranged to clarify the logic.)
+
+  * Fixed the Medusa HTTP server to work with HTML templates (David M. Cooke)
+    and to call finish_failed_request (pointed out by Graham Fawcett).
+
+  * Added HTTP_USER_AGENT and ACCEPT_ENCODING to Medusa HTTP server. 
+    (Graham Fawcett)
+
+  * Fixed _c_htmltext.c to compile on Windows.  (Graham Fawcett)
+
+  * Fixed two bugs in _c_htmltext.c found by code review,
+    and one bug in _py_htmltext.py found by Nicola Larosa.  
+    (Neil Schemenauer)
+
+  * Added a page to the demo that dumps the contents of the HTTPRequest.
+
+  * Made upload.py write out HTTP upload data in binary mode, so
+    binary content-types work correctly on Windows.  (Graham Fawcett)
+
+  * Added classifiers for use with Python 2.3's "register" command.
+
+
+0.6b1 (2003-01-09):
+
+  * Merged form/form.py and form/form_templates.ptl into
+    form/form.ptl. (This means that you should completely remove (or
+    rename) your old Quixote installation directory *before* installing
+    0.6, or the old form/form.py will shadow the new form.ptl.)
+
+  * A new and preferred syntax for declaring PTL templates has been added.
+    Instead of 'template func(): ...', the new form is 'def func [plain] ()'.
+
+    This uses a notation that's been suggested for adding type
+    information to Python functions.  The Emacs Python mode already handles 
+    this properly, and it may be more compatible with future versions of 
+    Python.
+
+    The 'template' keyword is still supported, but we encourage you 
+    to switch to the new syntax when you get a chance.
+
+  * Quixote now supports a new kind of template that automatically performs
+    HTML escaping.  Here's an example.  (Notice that the '[plain]'
+    annotation is changed to '[html]' to enable this feature.)
+
+        def header [html] (title):
+            "<title>%s</title>" % title
+
+    If the 'title' argument is something like "R&D", it will    
+    automatically be converted to "R&amp;D" following the rules 
+    for escaping HTML special characters.  The aim is to avoid cross-site 
+    scripting attacks by removing the need for the programmer to remember
+    to HTML-escape unsafe text, instead relying on Quixote to 
+    escape text where necessary.
+
+    See doc/PTL.txt for more information about how this works.
+
+    This escaping is implemented using a 'htmltext' class implemented in 
+    Python, and is currently in production use on our web site.
+
+  * An experimental C implementation of the 'htmltext' type is also
+    included; it hasn't been put into production use yet.  Edit 
+    setup.py and uncomment the appropriate line if you want to try the
+    C implementation.
+    
+  * The form framework now uses automatic HTML escaping.  This
+    means that applications using the form framework will have 
+    to either be changed to use automatic HTML escaping themselves, 
+    or to use str() to convert 'htmltext' instances back to Python
+    strings.
+    
+    See doc/upgrading.txt for more information.
+
+  * Make Quixote a bit more friendly to multi-threaded applications
+    by allowing multiple simultaneous requests (patch by Titus Brown).
+
+  * Make util.xmlrpc() return an HTTP 405 Method Not Allowed error
+    if the method isn't a POST.
+
+  * Added demo/run_cgi.py, a script that makes it easy to write one
+    file CGI applications that use Quixote.  See the comments at the 
+    top of the demo/run_cgi.py file for instructions.
+
+
+0.5.1 (2002-10-08):
+
+  * (incompatible change for anyone doing HTTP upload with Quixote)
+    Improved support for HTTP upload requests: any HTTP request with
+    a Content-Type of "multipart/form-data" -- which is generally only
+    used for uploads -- is now represented by HTTPUploadRequest, a
+    subclass of HTTPRequest, and the uploaded files themselves are
+    represented by Upload objects.  See doc/upload.txt for details.
+
+  * (possible incompatible changes for anyone subclassing Publisher,
+    or using it for custom purposes)
+    Various rearrangements and refactoring in the Publisher class.
+    Added create_request() method, which takes responsibility for
+    creating the HTTPRequest (or HTTPUploadRequest) object away
+    from parse_request().  As a consequence, the signature of
+    parse_request() has changed.  Added process_request() method.
+    Changed publish() so it catches exceptions coming from either
+    parse_request() or process_request().  Consult the source code
+    (publish.py) for details.
+
+  * A new subpackage, quixote.server, is intended for code that
+    publishes a Quixote application through HTTP, making it possible
+    to run Quixote applications without having to configure Apache or
+    some other full-blown Web server.  Right now there's only an
+    implementation on top of Medusa; contributions of support for
+    Python's BaseHTTPServer, Twisted, or other frameworks would be
+    welcome.
+
+  * Modified SessionManager.maintain_session() so it explicitly removes
+    a session if that session used to have useful info (ie. exists in
+    the session manager), but no longer does (patch by Jon Corbet).
+
+  * Make the PTL compiler a bit smarter about recognizing "template"
+    lines; PTL code should now be able to use 'template' as an
+    identifier, which is handy when converting existing Python code
+    to PTL.
+
+  * Replaced HTTPRequest.redirect() with a cleaner, more general
+    version supplied by Andreas Kostyrka <andreas@kostyrka.priv.at>.
+    Redirects to fully relative URLs (no leading slash) now work.
+
+  * Added support for putting bits of JavaScript into HTML form
+    documents: added HTTPResponse.add_javascript() to collect snippts
+    of JavaScript code, and Form._render_javascript() to emit them
+    as part of the HTML document.
+
+  * Added global convenience functions get_path() and redirect().
+
+  * Change Publisher so it never modifies SCRIPT_NAME or PATH_INFO.
+
+  * Fixed bug in quixote.sendmail._add_recip_headers(): it crashed
+    if passed an empty list.
+
+  * Factor out get_action_url() method in Form class.
+
+  * Add the HTML version of the documentation to the source release.
+
+
+0.5 (2002-06-10):
+
+  * To fix installation problems on Win98 and Mac OS (pre OS X), 
+    setup.py now uses os.curdir instead of ''.
+
+  * Overhauled handling of PublishError exceptions: Quixote now 
+    looks for the nearest _q_exception_handler() function in your
+    application's namespace; the format_*error() methods of Publisher
+    are gone.
+
+  * Documented and overhauled the session management API.  If you
+    were previously using session management, you will almost certainly
+    need to change your code; see doc/session-mgmt.txt and
+    doc/session-upgrade.txt.  If you've been wanting to use session
+    management in your application but were put off by the lack of
+    documentation, see doc/session-mgmt.txt.
+
+    Specific changes:
+      * removed the global singleton SessionManager object in session.py
+        and several related functions
+      * removed everything having to do with "application state", an
+        unnecessary abstraction caused by premature over-generalization
+      * removed the 'actual_user' attribute from Session -- it is
+        specific to the MEMS Exchange and just confuses matters
+        in Quixote
+      * made most instance attributes of Session private
+      * defined a sensible persistence API that should work with
+        a wide variety of session persistence schemes
+      * COOKIE_* config variables renamed to SESSION_COOKIE_*
+
+  * Fix HTTPResponse so that the cookie domain and path can be None,
+    and they will simply not be set in the cookie sent to the client --
+    that way the browser will simply do the right thing.  Set
+    COOKIE_DOMAIN and COOKIE_PATH in config.py to None, since that's
+    usually fine.  (You may need to set COOKIE_PATH to "/".)
+
+  * Subtle but far-reaching change to the publishing algorithm: objects
+    found by the publisher to handle the terminal component of a URL can
+    now be strings as well as callables; a string simply substitutes for
+    a callable's return value.  The immediate reason for this was to
+    allow _q_lookup() functions to return a string, but a consequence
+    is that you can now put static text in global variables and simply
+    publish them.
+
+  * Add CHECK_SESSION_ADDR config variable to control whether we
+    check that requests in a session all come from the same IP address,
+    as a defence against playback attacks.  (Thanks to Jonathan Corbet.)
+
+  * In error reports, print the traceback first, ahead of form variables,
+    cookies, and the environment.
+
+  * Include the HTTP_USER_AGENT variable in access log lines.
+
+  * Add 'sort' option to SelectWidget class, to force the list of
+    allowed values to be sorted in case-insensitive lexicographic order,
+    with None first.
+
+
+0.4.7 (2002-04-18):
+
+  * Move ACCESS_TIME_RESOLUTION to SessionManager class.  This was another
+    embarrassing bug introduced in 0.4.5.
+
+  * In http_request.py, make the test that prevents stdin from being consumed
+    less restrictive (e.g.  for PUT methods).
+
+  * Add some simple test code.
+
+
+0.4.6 (2002-04-12):
+
+  * a last-minute patch to http_request.py just before release 0.4.5 broke
+    extracting form data from GET requests -- fixed that
+
+
+0.4.5 (2002-04-11):
+
+  * The meaning of the DISPLAY_EXCEPTIONS configuration variable has
+    changed.  It's no longer a Boolean, and instead can take three
+    different values:
+      None (or any false value) [default]
+        an "Internal Server Error" page that exposes no information
+        about the traceback
+      'plain'
+        a plain text page showing the traceback and the request variables
+      'html'
+        a more elaborate HTML display showing the local variables and a
+        few lines of context for each level of the traceback.  (This
+        setting requires the cgitb module that comes with Python 2.2.)
+
+    (Idea and first version of the patch by David Ascher)
+
+  * Fixed SessionManager.expire_session() method so it actually works
+    (spotted by Robin Wohler).
+
+  * Fixed docs so they don't refer to the obsolete URL_PREFIX
+    configuration variable (spotted by Robin Wohler).
+
+  * Various other documentation tweaks and improvements.
+
+  * Fixed sample Apache rewrite rules in demo.txt and web-server.txt
+    (spotted by Joel Shprentz).
+
+  * Generate new form tokens when rendering a form rather then when
+    intializing it.  This prevents an extra token from being created when
+    processing a valid form (suggested by Robin Wohler).
+
+  * Ensure filenames are included in SyntaxError tracebacks from PTL modules.
+
+  * Changed format of session cookies: they're now just random 64-bit
+    numbers in hex.
+
+  * Use HTTP 1.1 cache control headers ("Date" and "Expires") instead
+    of the older "Pragma: no-cache".
+
+  * In the form/widget library: make some effort to generate HTML that
+    is XHTML-compliant.
+
+  * New method: HTTPRequest.get_accepted_types() returns the
+    MIME content types a client will accept as a dictionary mapping
+    MIME type to the quality factor.  (Example: {'text/html':1.0,
+    'text/plain':0.5, ...})
+
+  * Changed escape hatch for XML-RPC handlers; standard input will
+    only be consumed when the HTTP method is POST and the Content-Type 
+    is either application/x-www-form-urlencoded or multipart/form-data.
+
+  * Added quixote.util module to contain various miscellaneous utility
+    functions.  Right now, it contains a single function for 
+    processing requests as XML-RPC invocations.
+
+
+0.4.4 (2002-01-29):
+
+  * Simplify munging of SCRIPT_NAME variable, fixing a bug.
+    Depending on how Quixote was called, the path could have been
+    appended to SCRIPT_NAME without a separating slash.  (Found by
+    Quinn Dunkan.)
+
+  * On Windows, set mode of sys.stdout to binary.  This is important
+    because responses may contain binary data.  Also, EOL translation
+    can throw off content length calculations.  (Found by David Ascher)
+
+  * Added a demonstration of the form framework. (Neil)
+
+  * Added an escape hatch for XML-RPC handlers;
+    http_request.process_inputs() will no longer consume all of standard
+    input when the Content-Type is text/xml.
+
+  * Removed a debug print from form.widget.
+
+
+0.4.3 (2001-12-17):
+
+  * Removed the URL_PREFIX configuration variable; it's not actually
+    needed anywhere, and caused some user confusion.
+
+  * Added FORM_TOKENS configuration variable to enable/disable
+    unique form identifiers.  (These are useful as a measure against
+    cross-site request forgery [CSRF] attacks, but disabled by default
+    because some form of persistent session management is required,
+    which is not currently included with Quixote.)
+
+  * Added demonstration and documentation for the widget classes
+    (the first part of the Quixote Form Library).
+
+  * Added HTTPResponse.set_content_type() method.
+
+  * Fixed some minor bugs in the widget library.
+
+  * Fixed to work with Python 2.2.
+
+  * Greatly reduced the set of symbols imported by
+    "from quixote import *" -- it's useful for interactive sessions.
+
+
+0.4.2 (2001-11-14):
+
+  * Made the quixote.sendmail module a bit more flexible and robust.
+
+  * Fix so it doesn't blow up under Windows if debug logging is disabled
+    (ie. write to NUL, not /dev/null).
+
+  * Clarified some documenation inconsistencies, and added description
+    of logging to doc/programming.txt.
+
+  * Fixed some places that we forgot to update when the PTL-related
+    modules were renamed.
+
+  * Fixed ptl_compile.py so PTL tracebacks include the full path of
+    source file(s).
+
+  * Fixed bug where a missing _q_index() triggered a confusing
+    ImportError; now it triggers a TraversalError, as expected.
+
+  * Various fixes and improvements to the Config class.
+
+  * Miscellaneous fixes to session.py.
+
+  * Miscellaneous fixes to widget classes.
+
+  * Reorganized internal PTL methods of the Form class.
+
+  * Removed the "test" directory from the distribution, since it's not
+    used for anything -- ie., there's no formal test suite yet ;-(
+
+
+0.4.1 (2001-10-10):
+
+  * Made access logging a little more portable (don't depend on Apache's
+    REQUEST_URI environment variable).
+
+  * Work around the broken value of PATH_INFO returned by IIS.
+
+  * Work around IIS weird handling of SERVER_SECURE_PORT (for non-SSL
+    requests, it is set to "0").
+
+  * Reassign sys.stderr so all application output to stderr goes to the
+    Quixote error log.
+
+
+0.4 (2001-10-04):
+
+  * TraversalError now takes a public and a private message, instead of
+    just a single message string.  The private message is shown if
+    SECURE_ERRORS is false; otherwise, the public message is shown.  See
+    the class docstring for TraversalError for more details.
+
+  * Add the Quixote Form Library, a basic form and widget framework
+    for HTML.
+
+  * Allow classes and functions inside PTL modules.
+
+  * Return a string object from templates rather than a TemplateIO
+    instance.
+
+  * Improve the security of session cookies.
+
+  * Don't save empty sessions.
+
+  * Detect expired sessions.
+
+  * Add the quixote.sendmail module, useful for applications that need
+    to send outgoing mail (as many web apps do).
+
+  * Code reorganization -- various modules moved or renamed:
+      quixote.util.fcgi        -> quixote.fcgi
+      quixote.compile_template -> quixote.ptl_compile
+      quixote.imphooks         -> quixote.ptl_import
+      quixote.dumpptlc         -> quixote.ptcl_dump
+
+  * More code reorganization: the quixote.zope package is gone, as are
+    the BaseRequest and BaseResponse modules.  Only HTTPRequest and
+    HTTPResponse survive, in the quixote.http_request and
+    quixote.http_response modules.  All remaining Zope-isms have been
+    removed, so the code now looks much like the rest of Quixote.  Many
+    internal interfaces changed.
+
+  * Added the quixote.mod_python module, contributed by Erno Kuusela
+    <erno@iki.fi>.  Allows Quixote applications to be driven by the
+    Apache module mod_python, so no CGI or or FastCGI driver script is
+    required.
+
+
+0.3 (2001-06-11):
+
+  * Now supports Python 2.1.
+
+  * Names of the form __*__ are reserved for Python, and 2.1 is
+    beginning to enforce this rule.  Accordingly the Quixote special
+    methods have been renamed:
+        __access__     -> _q_access
+        __exports__    -> _q_exports
+        __getname__    -> _q_getname
+        index          -> _q_index
+
+  * Massive changes to quixote.publisher and quixote.config, to make the
+    publishing loop more flexible and more easily changed by
+    applications.  For example, it's now possible to catch the ZODB's
+    ConflictErrors and retry an operation.
+
+  * Added an ACCESS_LOG configuration setting, which allows setting up a
+    file logging every call made to Quixote.
+
+  * The error log now contains the time of each error, and a dump of the
+    user's session object.
+
+  * Added handy functions for getting request, session, user, etc.:
+    quixote.get_publisher(), quixote.get_request(),
+    quixote.get_session(), quixote.get_user().
+
+  * quixote.publish can now gzip-compress its output if the browser
+    claims to support it.  Only the 'gzip' and 'x-gzip' content
+    encodings are supported; 'deflate' isn't because we couldn't get it
+    to work reliably.  Compression can be enabled by setting the
+    'compress_pages' config option to true.
+
+  * Some fixes and minor optimizations to the FCGI code.
+
+  * Added HTTPRequest.get_encoding() method to find the encodings a
+    client accepts.
+
+
+0.2 (2001-01-16):
+
+  * Only pass HTTPRequest object to published functions.  The
+    HTTPResponse object is available as an attribute of the request.
+
+  * Removed more unused Zope code from HTTPRequest.  Add redirect()
+    method to HTTPRequest.
+
+  * Simplify HTTPResponse.  __init__() no longer requires the server
+    name.  redirect() requires a full URL.
+
+  * Fix a bug in the PTL compiler.  PTL modules can now have doc
+    strings.
+
+  * Added a config parser.  Individual Quixote applications can now have
+    their own configuration settings (overriding the Quixote defaults).
+    See the config.py module for details.
+
+  * Re-wrote the exception handling code for exceptions raised inside of
+    published functions.
+
+  * Non-empty PATH_INFO is no longer supported.  __getname__ or query
+    strings are a cleaner solution.
+
+  * Add FIX_TRAILING_SLASH option and make code changes to carefully
+    preserve trailing slashes (ie. an empty component on the end of
+    paths).
+
+  * Session management has been over-hauled.  DummySessionManager can be
+    used for applications that don't require sessions.
+
+  * Set Content-length header correctly in HTTPResponse object
+
+  * Added a demo application.
+
+0.1:
+
+  * Officially given a license (the Python 1.6 license, so it's free
+    software).
+
+  * Added SECURE_ERRORS variable to prevent exception tracebacks from
+    being returned to the Web browser
+
+  * Added a __getname__() function to traversal, which is called if the
+    current name isn't in the current namespace's export list. This
+    allows interpolation of arbitrary user object IDs into the URL,
+    which is why it has to circumvent the __exports__ check: the object
+    IDs won't be known until runtime, so it would be silly to add them
+    to __exports__.  Very useful and powerful feature, but it has
+    security implications, so be careful!
+
+  * compile_template.py should now work for both Python 1.5.2 or 2.0.
+    
+  * Better reporting of syntax errors in PTL
+    
+  * Always assume regular CGI on Windows
+
+0.02 (2000-08-12):
+
+  * Neil Schemenauer has completely rewritten the PTL compiler and
+    changed the syntax to match Python's.  The compiler now relies on
+    Jeremy Hylton's compiler code from the Python 2.0 CVS tree.
+
+  * Added functions to quixote.sessions: get_session(), has_session(),
+    get_app_state()
+
+  * Simplified reload-checking logic 
+
+  * Added .browser_version() method to HTTPRequest
+
+  * Various bugfixes
+
+  * session classes slightly tweaked, so you can subclass them
+
+  * Added .session attribute to request object
+
+  * Added quixote.errors module to hold exceptions
+
+0.01:
+
+  * Initial release.

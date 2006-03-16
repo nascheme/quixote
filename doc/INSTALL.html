@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="us-ascii" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+<meta name="generator" content="Docutils 0.3.0: http://docutils.sourceforge.net/" />
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document">
+<div class="section" id="installing-quixote">
+<h1><a name="installing-quixote">Installing Quixote</a></h1>
+<p>Quixote requires Python 2.3 or later.</p>
+<p>If you have a previously installed quixote, we strongly recommend that
+you remove it before installing a new one.
+First, find out where your old Quixote installation is:</p>
+<blockquote>
+python -c &quot;import os, quixote; print os.path.dirname(quixote.__file__)&quot;</blockquote>
+<p>and then remove away the reported directory.  (If the import fails, then
+you don't have an existing Quixote installation.)</p>
+<p>Now install the new version by running (in the distribution directory),</p>
+<blockquote>
+python setup.py install</blockquote>
+<p>and you're done.</p>
+</div>
+<div class="section" id="quick-start">
+<h1><a name="quick-start">Quick start</a></h1>
+<p>In a terminal window, run server/simple_server.py.
+In a browser, open <a class="reference" href="http://localhost:8080">http://localhost:8080</a></p>
+</div>
+<div class="section" id="upgrading-a-quixote-1-application-to-quixote-2">
+<h1><a name="upgrading-a-quixote-1-application-to-quixote-2">Upgrading a Quixote 1 application to Quixote 2.</a></h1>
+<p>See upgrading.txt for details.</p>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,6 @@
+global-include *.py *.ptl
+include README LICENSE MANIFEST.in MANIFEST CHANGES TODO ACKS
+include doc/*.txt doc/*.css doc/Makefile
+recursive-include doc *.html
+include demo/*.cgi demo/*.conf demo/*.sh
+include src/*.c src/Makefile

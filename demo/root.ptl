@@ -1,0 +1,103 @@
+"""$URL: svn+ssh://svn.mems-exchange.org/repos/trunk/quixote/demo/root.ptl $
+$Id: root.ptl 25577 2004-11-11 18:58:30Z dbinger $
+
+The root directory for the Quixote demo.
+"""
+from quixote import get_response
+from quixote.directory import Directory
+from quixote.errors import PublishError
+from quixote.util import dump_request
+from quixote.demo.extras import ExtraDirectory
+
+class RootDirectory(Directory):
+
+    _q_exports = ["", "simple", "plain", "error", "publish_error", "css",
+                  "dumpreq", "extras", ("favicon.ico", "favicon_ico")]
+
+    def _q_index [html] (self):
+        print "debug message from the index page"
+        """
+        <html>
+        <head>
+        <title>Quixote Demo</title>
+        <link rel="stylesheet" href="css" type="text/css" />
+        </head>
+        <body>
+        <h1>Hello, world!</h1>
+
+        <p>To understand what's going on here, be sure to read the
+        <code>doc/demo.txt</code> file included with Quixote.</p>
+
+        <p>
+        Here are some features of this demo:
+          <ul>
+            <li><a href="simple">simple</a>:
+                A Python function that generates a very simple document.
+            <li><a href="plain">plain</a>:
+                A Python function that generates a plain text document.
+            <li><a href="error">error</a>:
+                A Python function that raises an exception.
+            <li><a href="publish_error">publish_error</a>:
+                A Python function that raises
+                a <code>PublishError</code> exception.  This exception
+                will be caught by a <code>_q_exception_handler</code> method.
+            <li><a href="dumpreq">dumpreq</a>:
+                Print out the contents of the HTTPRequest object.
+            <li><a href="css">css</a>:
+                The stylesheet for this document.
+            <li><a href="extras/">extras/</a>:
+                Demos of some of Quixote's more advanced features.
+          </ul>
+        </p>
+        </body>
+        </html>
+        """
+
+    def simple [html] (self):
+        '<html><body>Hello!</body></html>'
+
+    def plain(self):
+        get_response().set_content_type("text/plain")
+        return "This is a plain text document."
+
+    def error(self):
+        raise ValueError, "this is a Python exception"
+
+    def publish_error(self):
+        raise PublishError("Publishing error raised by publish_error")
+
+    def dumpreq [html] (self):
+        """
+        <html>
+        <head><title>HTTPRequest Object</title></head>
+        <body>
+        <h1>HTTPRequest Object</h1>
+        """
+        dump_request()
+        """
+        </body>
+        </html>
+        """
+
+    def css(self):
+        get_response().set_content_type("text/css")
+        # on a real site we would also set the expires header
+        return 'body { border: thick solid green; padding: 2em; }'
+
+    def favicon_ico(self):
+        response = get_response()
+        response.set_content_type("image/x-icon")
+        response.set_expires(days=1)
+        return FAVICON
+
+    extras = ExtraDirectory()
+
+
+FAVICON = """\
+AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAADJZmEA4KilAMJQSwDZko8Aujo0AOi9uwDRfHgA9+npAP///wDw1NIAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAiIiIiIiIiIiIiIiIiIiIiIiIiIiSQDiIiIiIiGRYSIiIiIYkRFiIiIiFQlhk
+RYiIiIBAeGRAiIiIFEE2aUQYiIhkSHV4RGiIiGRIiIhEaIiIZEiIiERoiIiUSYiJRJiIiIZDiING
+iIiIh2RlEmeIiIiIiBYYiIiIiIiIiIiIiIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+""".decode('base64')
