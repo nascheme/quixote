@@ -1,0 +1,19 @@
+Summary of changes
+------------------
+
+2.5 (released 2006-MM-DD):
+
+  * Remove Subversion keywords.  Update README. --Neil Schemenauer
+
+
+Author index
+------------
+
+  Neil Schemenauer <nas@arctrix.com>
+
+
+Older changes
+-------------
+
+  See doc/CHANGES_24.txt for changes up to version 2.4.
+

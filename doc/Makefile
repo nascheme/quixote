@@ -3,7 +3,7 @@
 #
 
 TXT_FILES = $(wildcard *.txt)
-HTML_FILES = $(filter-out ZPL%,$(TXT_FILES:%.txt=%.html))
+HTML_FILES = $(filter-out LICENSE_24%,$(TXT_FILES:%.txt=%.html))
 
 RST2HTML = /www/python/bin/rst2html
 RST2HTML_OPTS = -o us-ascii
