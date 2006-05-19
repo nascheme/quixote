@@ -703,7 +703,7 @@ class OptionSelectWidget(SingleSelectWidget):
     def render_content(self):
         return (SingleSelectWidget.render_content(self) +
                 htmltext('<noscript>'
-                         '<input type="submit" name="" value="apply" />'
+                         '<input type="submit" value="apply" />'
                          '</noscript>'))
 
 

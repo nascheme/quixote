@@ -5,6 +5,11 @@ Summary of changes
 -------------------------
 
 Neil Schemenauer <nas@arctrix.com>:
+    Remove name="" from the noscript input tag rendered for
+    OptionSelectWidget.  This change does not seem to effect behavior
+    and makes Tidy happier.
+
+Neil Schemenauer <nas@arctrix.com>:
     Add get_size() method to the Upload class.
 
 Neil Schemenauer <nas@arctrix.com>:
