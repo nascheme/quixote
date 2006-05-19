@@ -5,6 +5,10 @@ Summary of changes
 -------------------------
 
 Neil Schemenauer <nas@arctrix.com>:
+    In simple_server.py, ensure that server_close() gets called, as
+    requested by Michele Simionato.
+
+Neil Schemenauer <nas@arctrix.com>:
     Remove name="" from the noscript input tag rendered for
     OptionSelectWidget.  This change does not seem to effect behavior
     and makes Tidy happier.

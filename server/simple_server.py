@@ -97,8 +97,10 @@ def run(create_publisher, host='', port=80, https=False):
             raise
     httpd.handle_error = handle_error
     publisher = create_publisher()
-    httpd.serve_forever()
-
+    try:
+        httpd.serve_forever()
+    finally:
+        httpd.server_close()
 
 if __name__ == '__main__':
     from quixote.server.util import get_server_parser
