@@ -1,19 +1,18 @@
 Summary of changes
-------------------
+==================
 
-2.5 (released 2006-MM-DD):
+2.5 (released 2006-MM-DD)
+-------------------------
 
-  * Remove Subversion keywords.  Update README. --Neil Schemenauer
+Neil Schemenauer <nas@arctrix.com>:
+    Add get_size() method to the Upload class.
 
-
-Author index
-------------
-
-  Neil Schemenauer <nas@arctrix.com>
+Neil Schemenauer <nas@arctrix.com>:
+    Remove Subversion keywords.  Update README.
 
 
 Older changes
--------------
+=============
 
   See doc/CHANGES_24.txt for changes up to version 2.4.
 

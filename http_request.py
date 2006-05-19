@@ -6,6 +6,7 @@ requests, such as the Upload class.
 
 import re
 import string
+import os
 import tempfile
 import urllib
 import rfc822
@@ -673,6 +674,15 @@ class Upload:
 
     def close(self):
         self.fp.close()
+
+    def get_size(self):
+        """Return the size of the file, in bytes.
+        """
+        if self.fp is None:
+            return 0
+        else:
+            return os.fstat(self.fp.fileno()).st_size
+
 
 
 class LineInput:

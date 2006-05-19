@@ -104,7 +104,7 @@ def form_demo():
                 "<i>None</i>"
             elif isinstance(widget, FileWidget):
                 repr(value)
-                ' (%s bytes)' % len(value.fp.read())
+                ' (%s bytes %s)' % (len(value.fp.read()), value.get_size())
             else:
                 repr(value)
             '</td>'
