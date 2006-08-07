@@ -3,6 +3,12 @@
 #include "Python.h"
 #include "structmember.h"
 
+#if PY_VERSION_HEX < 0x02050000
+typedef int Py_ssize_t;
+typedef intargfunc ssizeargfunc; 
+typedef inquiry lenfunc;
+#endif
+
 typedef struct {
 	PyObject_HEAD
 	PyObject *s;
@@ -96,7 +102,7 @@ escape_string(PyObject *obj)
 {
 	char *s;
 	PyObject *newobj;
-	size_t i, j, extra_space, size, new_size;
+	Py_ssize_t i, j, extra_space, size, new_size;
 	assert (PyString_Check(obj));
 	size = PyString_GET_SIZE(obj);
 	extra_space = 0;
@@ -166,7 +172,7 @@ escape_unicode(PyObject *obj)
 {
 	Py_UNICODE *u;
 	PyObject *newobj;
-	size_t i, j, extra_space, size, new_size;
+	Py_ssize_t i, j, extra_space, size, new_size;
 	assert (PyUnicode_Check(obj));
 	size = PyUnicode_GET_SIZE(obj);
 	extra_space = 0;
@@ -453,7 +459,7 @@ htmltext_richcompare(PyObject *a, PyObject *b, int op)
 	return PyObject_RichCompare(a, b, op);
 }
 
-static long
+static Py_ssize_t
 htmltext_length(htmltextObject *self)
 {
 	return PyObject_Size(htmltext_STR(self));
@@ -474,7 +480,7 @@ htmltext_format(htmltextObject *self, PyObject *args)
 		assert (PyString_Check(self->s));
 	}
 	if (PyTuple_Check(args)) {
-		long i, n = PyTuple_GET_SIZE(args);
+		Py_ssize_t i, n = PyTuple_GET_SIZE(args);
 		wargs = PyTuple_New(n);
 		for (i=0; i < n; i++) {
 			PyObject *v = PyTuple_GET_ITEM(args, i);
@@ -543,7 +549,7 @@ htmltext_add(PyObject *v, PyObject *w)
 }
 
 static PyObject *
-htmltext_repeat(htmltextObject *self, int n)
+htmltext_repeat(htmltextObject *self, Py_ssize_t n)
 {
 	PyObject *s = PySequence_Repeat(htmltext_STR(self), n);
 	if (s == NULL)
@@ -554,7 +560,7 @@ htmltext_repeat(htmltextObject *self, int n)
 static PyObject *
 htmltext_join(PyObject *self, PyObject *args)
 {
-	int i;
+	Py_ssize_t i;
 	PyObject *quoted_args, *rv;
 
 	quoted_args = PySequence_List(args);
@@ -644,9 +650,14 @@ static PyObject *
 htmltext_replace(PyObject *self, PyObject *args)
 {
 	PyObject *old, *new, *q_old, *q_new, *rv;
-	int maxsplit = -1;
+	Py_ssize_t maxsplit = -1;
+#if PY_HEX_VERSION >= 0x02050000	
+	if (!PyArg_ParseTuple(args,"OO|n:replace", &old, &new, &maxsplit))
+		return NULL;
+#else	
 	if (!PyArg_ParseTuple(args,"OO|i:replace", &old, &new, &maxsplit))
 		return NULL;
+#endif
 	q_old = quote_arg(old);
 	if (q_old == NULL)
 		return NULL;
@@ -655,8 +666,14 @@ htmltext_replace(PyObject *self, PyObject *args)
 		Py_DECREF(q_old);
 		return NULL;
 	}
+#if PY_HEX_VERSION >= 0x02050000		
+	rv = PyObject_CallMethod(htmltext_STR(self), "replace", "OOn",
+				 q_old, q_new, maxsplit);
+#else
 	rv = PyObject_CallMethod(htmltext_STR(self), "replace", "OOi",
 				 q_old, q_new, maxsplit);
+#endif
+
 	Py_DECREF(q_old);
 	Py_DECREF(q_new);
 	return htmltext_from_string(rv);
@@ -788,9 +805,9 @@ static PyMemberDef htmltext_members[] = {
 };
 
 static PySequenceMethods htmltext_as_sequence = {
-	(inquiry)htmltext_length,	/*sq_length*/
+	(lenfunc)htmltext_length,	/*sq_length*/
 	0,				/*sq_concat*/
-	(intargfunc)htmltext_repeat,	/*sq_repeat*/
+	(ssizeargfunc)htmltext_repeat,	/*sq_repeat*/
 	0,				/*sq_item*/
 	0,				/*sq_slice*/
 	0,				/*sq_ass_item*/

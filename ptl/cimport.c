@@ -8,6 +8,10 @@
 #include <unistd.h>
 #endif
 
+#if PY_VERSION_HEX < 0x02050000
+typedef int Py_ssize_t;
+#endif
+
 /* Python function to find and load a module. */
 static PyObject *loader_hook;
 
@@ -227,7 +231,7 @@ static int
 ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, int buflen,
 		int recursive)
 {
-	int i;
+	Py_ssize_t i;
 
 	if (!PyObject_HasAttrString(mod, "__path__"))
 		return 1;

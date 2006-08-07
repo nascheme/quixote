@@ -48,10 +48,17 @@ class TemplateTransformer(transformer.Transformer):
 
     def file_input(self, nodelist):
         doc = None # self.get_docstring(nodelist, symbol.file_input)
-
-        html_imp = ast.From('quixote.html', [('TemplateIO', '_q_TemplateIO'),
-                                             ('htmltext', '_q_htmltext')])
-        vars_imp = ast.From("__builtin__", [("vars", "_q_vars")])
+        if sys.hexversion >= 0x02050000:
+            html_imp = ast.From(
+                'quixote.html',
+                [('TemplateIO', '_q_TemplateIO'), ('htmltext', '_q_htmltext')],
+                0)
+            vars_imp = ast.From("__builtin__", [("vars", "_q_vars")], 0)
+        else:
+            html_imp = ast.From(
+                'quixote.html',
+                [('TemplateIO', '_q_TemplateIO'), ('htmltext', '_q_htmltext')])
+            vars_imp = ast.From("__builtin__", [("vars", "_q_vars")])
         stmts = [ vars_imp, html_imp ]
 
         for node in nodelist:

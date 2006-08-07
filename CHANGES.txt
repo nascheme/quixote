@@ -5,6 +5,9 @@ Summary of changes
 -------------------------
 
 Neil Schemenauer <nas@arctrix.com>:
+    Update PTL to work with Python 2.5.
+
+Neil Schemenauer <nas@arctrix.com>:
     In simple_server.py, ensure that server_close() gets called, as
     requested by Michele Simionato.
 
