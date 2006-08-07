@@ -2,10 +2,18 @@
 
 # Setup script for Quixote
 
-import sys, os
+import sys
+import os
+import re
 from distutils import core
 from distutils.extension import Extension
 from ptl.qx_distutils import qx_build_py
+from __init__ import __version__
+
+# Ensure that version number is correct.
+PAT = re.compile(r'\b%s\b' % re.escape(__version__))
+if not PAT.search(open("CHANGES.txt").read(400)):
+    raise AssertionError("version number mismatch in CHANGES.txt")
 
 # a fast htmltext type
 htmltext = Extension(name="quixote.html._c_htmltext",
@@ -16,7 +24,7 @@ cimport = Extension(name="quixote.ptl.cimport",
                     sources=["ptl/cimport.c"])
 
 kw = {'name': "Quixote",
-      'version': "2.4",
+      'version': __version__,
       'description': "A highly Pythonic Web application framework",
       'author': "MEMS Exchange",
       'author_email': "quixote@mems-exchange.org",
