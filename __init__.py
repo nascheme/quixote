@@ -3,7 +3,7 @@
 A highly Pythonic web application framework.
 """
 
-__version__ = '2.5'
+__version__ = '2.5a1'
 
 # These are frequently needed by Quixote applications.
 from quixote.publish import \

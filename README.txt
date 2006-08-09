@@ -49,3 +49,6 @@ The Quixote home page is:
 
 Discussion of Quixote occurs on the quixote-users mailing list:
     http://mail.mems-exchange.org/mailman/listinfo/quixote-users/
+
+The source code is managed using bazaar-ng:
+    http://quixote.python.ca/quixote.dev/

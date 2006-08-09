@@ -1,15 +1,14 @@
 Summary of changes
 ==================
 
-2.5 (released 2006-MM-DD)
+2.5a1 (released 2006-08-08)
 -------------------------
 
 Neil Schemenauer <nas@arctrix.com>:
     Update PTL to work with Python 2.5.
 
 Neil Schemenauer <nas@arctrix.com>:
-    In simple_server.py, ensure that server_close() gets called, as
-    requested by Michele Simionato.
+    In simple_server.py, ensure that server_close() gets called.
 
 Neil Schemenauer <nas@arctrix.com>:
     Remove name="" from the noscript input tag rendered for

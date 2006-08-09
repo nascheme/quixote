@@ -11,7 +11,7 @@ from ptl.qx_distutils import qx_build_py
 from __init__ import __version__
 
 # Ensure that version number is correct.
-PAT = re.compile(r'\b%s\b' % re.escape(__version__))
+PAT = re.compile(r'^%s\b' % re.escape(__version__), re.MULTILINE)
 if not PAT.search(open("CHANGES.txt").read(400)):
     raise AssertionError("version number mismatch in CHANGES.txt")
 
