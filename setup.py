@@ -11,9 +11,14 @@ from ptl.qx_distutils import qx_build_py
 from __init__ import __version__
 
 # Ensure that version number is correct.
-PAT = re.compile(r'^%s\b' % re.escape(__version__), re.MULTILINE)
-if not PAT.search(open("CHANGES.txt").read(400)):
-    raise AssertionError("version number mismatch in CHANGES.txt")
+def _check_version_numbers():
+    import re
+    PAT = re.compile(r'^%s\b' % re.escape(__version__), re.MULTILINE)
+    if not PAT.search(open("CHANGES.txt").read(400)):
+        raise AssertionError("version number mismatch in CHANGES.txt")
+
+if 'sdist' in sys.argv[1:]:
+    _check_version_numbers()
 
 # a fast htmltext type
 htmltext = Extension(name="quixote.html._c_htmltext",
@@ -31,7 +36,7 @@ kw = {'name': "Quixote",
       'url': "http://www.mems-exchange.org/software/quixote/",
       'license': "CNRI Open Source License (see LICENSE.txt)",
 
-      'package_dir': {'quixote':os.curdir},
+      'package_dir': {'quixote': os.curdir},
       'packages': ['quixote',  'quixote.demo', 'quixote.form',
                    'quixote.html', 'quixote.ptl',
                    'quixote.server'],
