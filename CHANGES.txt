@@ -1,6 +1,14 @@
 Summary of changes
 ==================
 
+2.5a2 (released 2006-MM-DD)
+-------------------------
+
+Neil Schemenauer <nas@arctrix.com>:
+    Allow setup.py to work without the "quixote" package being
+    available.
+
+
 2.5a1 (released 2006-08-08)
 -------------------------
 

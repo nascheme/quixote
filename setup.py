@@ -4,16 +4,18 @@
 
 import sys
 import os
-import re
 from distutils import core
 from distutils.extension import Extension
 from ptl.qx_distutils import qx_build_py
-from __init__ import __version__
+
+VERSION = '2.5a1'
 
 # Ensure that version number is correct.
 def _check_version_numbers():
+    from __init__ import __version__
     import re
-    PAT = re.compile(r'^%s\b' % re.escape(__version__), re.MULTILINE)
+    assert VERSION == __version__
+    PAT = re.compile(r'^%s\b' % re.escape(VERSION), re.MULTILINE)
     if not PAT.search(open("CHANGES.txt").read(400)):
         raise AssertionError("version number mismatch in CHANGES.txt")
 
@@ -29,12 +31,12 @@ cimport = Extension(name="quixote.ptl.cimport",
                     sources=["ptl/cimport.c"])
 
 kw = {'name': "Quixote",
-      'version': __version__,
+      'version': VERSION,
       'description': "A highly Pythonic Web application framework",
       'author': "MEMS Exchange",
       'author_email': "quixote@mems-exchange.org",
-      'url': "http://www.mems-exchange.org/software/quixote/",
-      'license': "CNRI Open Source License (see LICENSE.txt)",
+      'url': "http://www.quixote.ca/",
+      'license': "DFSG approved open source (see LICENSE.txt)",
 
       'package_dir': {'quixote': os.curdir},
       'packages': ['quixote',  'quixote.demo', 'quixote.form',
@@ -60,7 +62,7 @@ if hasattr(core, 'setup_keywords'):
     if 'classifiers' in core.setup_keywords:
         kw['classifiers'] = ['Development Status :: 5 - Production/Stable',
           'Environment :: Web Environment',
-          'License :: OSI Approved :: Python License (CNRI Python License)',
+          'License :: DFSG approved',
           'Intended Audience :: Developers',
           'Operating System :: Unix',
           'Operating System :: Microsoft :: Windows',
@@ -68,7 +70,7 @@ if hasattr(core, 'setup_keywords'):
           'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
           ]
     if 'download_url' in core.setup_keywords:
-        kw['download_url'] = ('http://www.mems-exchange.org/software/files'
-                              '/quixote/Quixote-%s.tar.gz' % kw['version'])
+        kw['download_url'] = ('http://quixote.python.ca/releases/'
+                              'Quixote-%s.tar.gz' % kw['version'])
 
 core.setup(**kw)
