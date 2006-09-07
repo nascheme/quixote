@@ -299,6 +299,8 @@ class SelectWidget(Widget):
         Widget.__init__(self, name, value, **kwargs)
         self.options = []
         if not options:
+            # The HTML and XHTML specifications require select elements to
+            # contain at least one option.
             raise ValueError, "a non-empty list of 'options' is required"
         else:
             self.set_options(options, sort)
