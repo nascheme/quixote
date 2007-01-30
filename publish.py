@@ -349,3 +349,11 @@ def get_user():
         return None
     else:
         return session.user
+
+def get_wsgi_app():
+    from quixote.wsgi import QWIP
+    return QWIP(_publisher)
+
+def cleanup():
+    global _publisher
+    _publisher = None

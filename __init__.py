@@ -8,7 +8,8 @@ __version__ = '2.5a1'
 # These are frequently needed by Quixote applications.
 from quixote.publish import \
      get_publisher, get_request, get_response, get_path, redirect, \
-     get_session, get_session_manager, get_user, get_field, get_cookie
+     get_session, get_session_manager, get_user, get_field, get_cookie, \
+     get_wsgi_app, cleanup
 
 
 # This is the default charset used by the HTTPRequest, HTTPResponse,

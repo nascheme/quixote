@@ -103,3 +103,27 @@ def url_quote(value, fallback=None):
         else:
             return fallback
     return urllib.quote(stringify(value))
+
+_saved = None
+def use_qpy():
+    """
+    Switch to using 'qpy' as an alternative.
+    """
+    import qpy
+    from qpy_templateio import qpy_TemplateIO
+    
+    global _saved, htmltext, stringify, htmlescape, TemplateIO
+    if not _saved:
+        _saved = (htmltext, stringify, htmlescape, TemplateIO)
+        
+        htmltext = qpy.h8
+        stringify = qpy.stringify
+        htmlescape = qpy.h8.quote
+        TemplateIO = qpy_TemplateIO
+
+def cleanup_qpy():
+    global _saved, htmltext, stringify, htmlescape, TemplateIO
+    
+    (htmltext, stringify, htmlescape, TemplateIO) = _saved
+    _saved = None
+    

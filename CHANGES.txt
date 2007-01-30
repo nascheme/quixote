@@ -4,6 +4,16 @@ Summary of changes
 2.5a2 (released 2006-MM-DD)
 -------------------------
 
+C. Titus Brown <titus@idyll.org>:
+    Added quixote.html.use_qpy to switch Quixote over to using qpy
+    instead of htmltext.  (Code contributed by Mike Orr.)
+
+C. Titus Brown <titus@idyll.org>:
+    Added quixote.cleanup() to clear _publisher to support test fixtures.
+
+C. Titus Brown <titus@idyll.org>:
+    Added wsgi.py, quixote.get_wsgi_app() for WSGI support.
+
 Neil Schemenauer <nas@arctrix.com>:
     In scgi_server.py, make the "host" default to "localhost" for
     the run() function.
