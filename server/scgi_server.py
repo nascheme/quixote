@@ -35,7 +35,8 @@ class QuixoteHandler(scgi_server.SCGIHandler):
                                "ignored: %s" % err)
 
 
-def run(create_publisher, host='', port=3000, script_name=None, max_children=5):
+def run(create_publisher, host='localhost', port=3000, script_name=None,
+        max_children=5):
     def create_handler(parent_fd):
         return QuixoteHandler(parent_fd, create_publisher, script_name)
     s = scgi_server.SCGIServer(create_handler, host=host, port=port,

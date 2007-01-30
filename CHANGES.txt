@@ -5,6 +5,10 @@ Summary of changes
 -------------------------
 
 Neil Schemenauer <nas@arctrix.com>:
+    In scgi_server.py, make the "host" default to "localhost" for
+    the run() function.
+
+Neil Schemenauer <nas@arctrix.com>:
     Allow setup.py to work without the "quixote" package being
     available.
 
