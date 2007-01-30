@@ -72,5 +72,7 @@ if hasattr(core, 'setup_keywords'):
     if 'download_url' in core.setup_keywords:
         kw['download_url'] = ('http://quixote.python.ca/releases/'
                               'Quixote-%s.tar.gz' % kw['version'])
+    if 'url' in core.setup_keywords:
+        kw['url'] = 'http://www.quixote.ca/'
 
 core.setup(**kw)
