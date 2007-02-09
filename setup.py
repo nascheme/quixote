@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+#try:
+#    from setuptools import setup
+#except ImportError:
+#    print '(WARNING: importing distutils, not setuptools!)'
+#    from distutils.core import setup
 
 # Setup script for Quixote
 
@@ -6,7 +11,7 @@ import sys
 import os
 from distutils import core
 from distutils.extension import Extension
-from ptl.qx_distutils import qx_build_py
+from quixote.ptl.qx_distutils import qx_build_py
 
 VERSION = '2.5a1'
 
@@ -24,11 +29,11 @@ if 'sdist' in sys.argv[1:]:
 
 # a fast htmltext type
 htmltext = Extension(name="quixote.html._c_htmltext",
-                     sources=["html/_c_htmltext.c"])
+                     sources=["quixote/html/_c_htmltext.c"])
 
 # faster import hook for PTL modules
 cimport = Extension(name="quixote.ptl.cimport",
-                    sources=["ptl/cimport.c"])
+                    sources=["quixote/ptl/cimport.c"])
 
 kw = {'name': "Quixote",
       'version': VERSION,
@@ -38,7 +43,7 @@ kw = {'name': "Quixote",
       'url': "http://www.quixote.ca/",
       'license': "DFSG approved open source (see LICENSE.txt)",
 
-      'package_dir': {'quixote': os.curdir},
+      'package_dir': {'quixote': 'quixote'},
       'packages': ['quixote',  'quixote.demo', 'quixote.form',
                    'quixote.html', 'quixote.ptl',
                    'quixote.server'],
@@ -46,6 +51,8 @@ kw = {'name': "Quixote",
       'ext_modules': [],
 
       'cmdclass': {'build_py': qx_build_py},
+
+#      'test_suite' : 'nose.collector'
      }
 
 

@@ -5,6 +5,13 @@ Summary of changes
 -------------------------
 
 C. Titus Brown <titus@idyll.org>:
+    Added some simple WSGI documentation; cleaned up test code a bit.
+
+C. Titus Brown <titus@idyll.org>:
+    Moved package contents into quixote/ subdirectory; added tests/
+    subdirectory with some minimal tests.
+
+C. Titus Brown <titus@idyll.org>:
     Added quixote.html.use_qpy to switch Quixote over to using qpy
     instead of htmltext.  (Code contributed by Mike Orr.)
 

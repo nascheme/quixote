@@ -1,0 +1,23 @@
+WSGI and Quixote
+================
+
+"WSGI" stands for the Python Web Server Gateway Interface, defined in
+`PEP 333 <http://www.python.org/dev/peps/pep-0333/>`__.
+
+The function ``quixote.get_wsgi_app()`` returns a WSGI application
+object for the current publisher instance.
+
+This WSGI application ties into the publisher at the ``process_request``
+method, and bypasses the ``process`` method completely.
+
+An Example
+----------
+
+For example, you can use the ``wsgiref`` module (included with
+Python 2.5 and later) to serve a Quixote application. ::
+
+   your_app.create_publisher()
+   wsgi_app = quixote.get_wsgi_app()
+
+   from wsgiref.simple_server import make_server
+   make_server('', 8000, wsgi_app)

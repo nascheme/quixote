@@ -5,7 +5,7 @@
 TXT_FILES = $(wildcard *.txt)
 HTML_FILES = $(filter-out LICENSE_24% CHANGES_24%,$(TXT_FILES:%.txt=%.html))
 
-RST2HTML = /www/python/bin/rst2html
+RST2HTML = rst2html.py
 RST2HTML_OPTS = -o us-ascii
 
 DEST_HOST = staging.mems-exchange.org
