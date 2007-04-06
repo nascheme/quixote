@@ -12,15 +12,12 @@ import os
 from distutils import core
 from distutils.extension import Extension
 from quixote.ptl.qx_distutils import qx_build_py
-
-VERSION = '2.5a1'
+from quixote import __version__
 
 # Ensure that version number is correct.
 def _check_version_numbers():
-    from __init__ import __version__
     import re
-    assert VERSION == __version__
-    PAT = re.compile(r'^%s\b' % re.escape(VERSION), re.MULTILINE)
+    PAT = re.compile(r'^%s\b' % re.escape(__version__), re.MULTILINE)
     if not PAT.search(open("CHANGES.txt").read(400)):
         raise AssertionError("version number mismatch in CHANGES.txt")
 
@@ -36,10 +33,10 @@ cimport = Extension(name="quixote.ptl.cimport",
                     sources=["quixote/ptl/cimport.c"])
 
 kw = {'name': "Quixote",
-      'version': VERSION,
+      'version': __version__,
       'description': "A highly Pythonic Web application framework",
-      'author': "MEMS Exchange",
-      'author_email': "quixote@mems-exchange.org",
+      'author': "The Quixote developers",
+      'author_email': "webmaster@quixote.ca",
       'url': "http://www.quixote.ca/",
       'license': "DFSG approved open source (see LICENSE.txt)",
 
@@ -77,9 +74,11 @@ if hasattr(core, 'setup_keywords'):
           'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
           ]
     if 'download_url' in core.setup_keywords:
-        kw['download_url'] = ('http://quixote.python.ca/releases/'
+        kw['download_url'] = ('http://quixote.ca/releases/'
                               'Quixote-%s.tar.gz' % kw['version'])
     if 'url' in core.setup_keywords:
         kw['url'] = 'http://www.quixote.ca/'
+    if 'platforms' in core.setup_keywords:
+        kw['platforms'] = 'Most'
 
 core.setup(**kw)
