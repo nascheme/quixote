@@ -1,8 +1,8 @@
 Summary of changes
 ==================
 
-2.5a2 (released 2006-MM-DD)
--------------------------
+2.5b1 (released 2007-04-05)
+---------------------------
 
 C. Titus Brown <titus@idyll.org>:
     Added some simple WSGI documentation; cleaned up test code a bit.
