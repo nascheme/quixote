@@ -59,12 +59,20 @@ class TemplateTransformer(transformer.Transformer):
                 'quixote.html',
                 [('TemplateIO', '_q_TemplateIO'), ('htmltext', '_q_htmltext')])
             vars_imp = ast.From("__builtin__", [("vars", "_q_vars")])
-        stmts = [ vars_imp, html_imp ]
 
+        ptl_imports = [ vars_imp, html_imp ]
+        stmts = []
         for node in nodelist:
             if node[0] != token.ENDMARKER and node[0] != token.NEWLINE:
                 self.com_append_stmt(stmts, node)
-
+        # count __future__ statements
+        i = 0
+        for stmt in stmts:
+            if isinstance(stmt, ast.From) and stmt.modname == '__future__':
+                i += 1
+            else:
+                break
+        stmts[i:i] = ptl_imports
         return ast.Module(doc, ast.Stmt(stmts))
 
     def funcdef(self, nodelist):
