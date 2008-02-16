@@ -81,6 +81,9 @@ _GZIP_EXCLUDE = Set(["application/pdf",
                      "video/x-msvideo",
                      ])
 
+def _LOWU32(i):
+    return i & 0xFFFFFFFFL
+
 class HTTPResponse:
     """
     An object representation of an HTTP response.
@@ -250,10 +253,11 @@ class HTTPResponse:
         n = len(body)
         co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
                               zlib.DEF_MEM_LEVEL, 0)
+        crc = zlib.crc32(body)
         chunks = [_GZIP_HEADER,
                   co.compress(body),
                   co.flush(),
-                  struct.pack("<ll", zlib.crc32(body), n)]
+                  struct.pack("<LL", _LOWU32(crc), _LOWU32(n))]
         compressed_body = "".join(chunks)
         ratio = float(n) / len(compressed_body)
         #print "gzip original size %d, ratio %.1f" % (n, ratio)

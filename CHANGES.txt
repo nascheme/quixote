@@ -1,6 +1,14 @@
 Summary of changes
 ==================
 
+2.6 (released 2008-xx-xx)
+-------------------------
+
+Neil Schemenauer <nas@arctrix.com>:
+    Silence struct.pack warning by forcing gzipped response CRC to
+    look positive.
+
+
 2.5 (released 2007-11-16)
 -------------------------
 
