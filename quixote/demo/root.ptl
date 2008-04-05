@@ -37,7 +37,8 @@ class RootDirectory(Directory):
             <li><a href="publish_error">publish_error</a>:
                 A Python function that raises
                 a <code>PublishError</code> exception.  This exception
-                will be caught by a <code>_q_exception_handler</code> method.
+                will be caught and formatted by the
+                <code>Publisher.format_publish_error()</code> method.
             <li><a href="dumpreq">dumpreq</a>:
                 Print out the contents of the HTTPRequest object.
             <li><a href="css">css</a>:
