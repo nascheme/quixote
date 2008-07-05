@@ -3,9 +3,6 @@ A simple test server for testing Quixote functionality.
 """
 
 import os
-import quixote
-assert quixote.__version__ == '2.5a1'
-
 from quixote.publish import Publisher
 from quixote.directory import Directory
 
