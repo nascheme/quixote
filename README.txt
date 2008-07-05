@@ -3,32 +3,25 @@ Quixote
 
 Quixote is a framework for developing Web applications in Python.
 The target is web applications that are developed and maintained by
-Python programmers.  See http://www.quixote.ca/users for a list of
+Python programmers.  See http://quixote.ca/users for a list of some
 applications using Quixote.
 
-Quixote requires Python 2.3 or greater to run.  For installation
-instructions, see the doc/INSTALL.txt file.
+For installation instructions, see the doc/INSTALL.txt file.  For
+the impatient, install the package using setup.py and then run:
+
+    python quixote/demo/mini_demo.py
+
+Note that you can copy the mini_demo.py somewhere and use it as a
+starting point for your application if you like.  See the Quixote
+wiki page <http://quixote.ca/qx/MiniDemo> for more hints.
+
+Documentation is available in the doc/ directory and on the Quixote
+web site.
 
 Quixote includes PTL, the Python Template Language for producing
 HTML with Python code.  Note that the use of PTL is not required in
 Quixote applications.  Details about PTL are provided in
 doc/PTL.txt.
-
-If you're switching to a newer version of Quixote from an older
-version, please refer to doc/upgrading.txt for explanations of any
-backward-incompatible changes.  
-
-
-Installation
-=============
-
-See doc/INSTALL.txt.
-
-
-Documentation
-=============
-
-Look in the doc/ directory.
 
 
 Authors, copyright, and license
@@ -45,10 +38,16 @@ Availability, home page, and mailing lists
 ==========================================
 
 The Quixote home page is:
-    http://www.quixote.ca/
+    http://quixote.ca/
+
+There is wiki at:
+
+    http://quixote.ca/qx/
 
 Discussion of Quixote occurs on the quixote-users mailing list:
     http://mail.mems-exchange.org/mailman/listinfo/quixote-users/
 
-The source code is managed using bazaar-ng:
-    http://quixote.python.ca/quixote.dev/
+The source code is managed using git.  You can checkout a copy using
+the command:
+
+    git clone http://quixote.ca/src/quixote.git
