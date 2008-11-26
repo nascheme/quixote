@@ -225,18 +225,15 @@ have seen production use.
 PTL modules
 -----------
 
-PTL templates are kept in files with the extension .ptl.  Like Python
-files, they are byte-compiled on import, and the byte-code is written to
+PTL templates are kept in files with the extension .ptl.  Like
+Python files, they are byte-compiled and the byte-code is written to
 a compiled file with the extension ``.pyc``.  Since vanilla Python
-doesn't know anything about PTL, this package provides an import hook to let
-you import PTL files just like regular Python modules.  The import
-hook is installed when you import *this* package.
+doesn't know anything about PTL, this package provides a function
+that compiles a package containing PTL files.  To use it, add these
+lines to the __init__ module of the package:
 
-(Note: if you're using ZODB, always import ZODB *before* installing the
-PTL import hook.  There's some interaction which causes importing the
-TimeStamp module to fail when the PTL import hook is installed; we
-haven't debugged the problem.  A similar problem has been reported for
-BioPython and win32com.client imports.)
+    from quixote.ptl import compile_package
+    compile_package(__path__)
+
 '''
-
-
+from quixote.ptl.ptl_compile import compile_package

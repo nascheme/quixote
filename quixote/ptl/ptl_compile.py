@@ -254,6 +254,20 @@ def compile(inputname, outputname):
         os.unlink(outputname)
         raise
 
+def compile_file(filename, force=0, verbose=0):
+    if filename.endswith(PTL_EXT):
+        cfile = filename[:-4] + '.pyc'
+        ftime = os.stat(filename)[stat.ST_MTIME]
+        try:
+            ctime = os.stat(cfile)[stat.ST_MTIME]
+        except os.error:
+            ctime = 0
+        if (ctime > ftime) and not force:
+            return
+        if verbose:
+            print 'Compiling', filename, '...'
+        ok = compile(filename, cfile)
+
 def compile_dir(dir, maxlevels=10, force=0):
     """Byte-compile all PTL modules in the given directory tree.
        (Adapted from compile_dir in Python module: compileall.py)
@@ -275,36 +289,39 @@ def compile_dir(dir, maxlevels=10, force=0):
     for name in names:
         fullname = os.path.join(dir, name)
         if os.path.isfile(fullname):
-            head, tail = name[:-4], name[-4:]
-            if tail == PTL_EXT:
-                cfile = fullname[:-4] + '.pyc'
-                ftime = os.stat(fullname)[stat.ST_MTIME]
-                try:
-                    ctime = os.stat(cfile)[stat.ST_MTIME]
-                except os.error: ctime = 0
-                if (ctime > ftime) and not force:
-                    continue
-                print 'Compiling', fullname, '...'
-                try:
-                    ok = compile(fullname, cfile)
-                except KeyboardInterrupt:
-                    raise KeyboardInterrupt
-                except:
-                    # XXX compile catches SyntaxErrors
-                    if type(sys.exc_type) == type(''):
-                        exc_type_name = sys.exc_type
-                    else: exc_type_name = sys.exc_type.__name__
-                    print 'Sorry:', exc_type_name + ':',
-                    print sys.exc_value
+            try:
+                ok = compile_filename(fullname, force=force, verbose=1)
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
+            except:
+                # XXX compile catches SyntaxErrors
+                if type(sys.exc_type) == type(''):
+                    exc_type_name = sys.exc_type
+                else: exc_type_name = sys.exc_type.__name__
+                print 'Sorry:', exc_type_name + ':',
+                print sys.exc_value
+                success = 0
+            else:
+                if ok == 0:
                     success = 0
-                else:
-                    if ok == 0:
-                        success = 0
         elif (maxlevels > 0 and name != os.curdir and name != os.pardir and
               os.path.isdir(fullname) and not os.path.islink(fullname)):
             if not compile_dir(fullname, maxlevels - 1, force):
                 success = 0
     return success
+
+def compile_package(path, force=0, verbose=0):
+    """Compile all PTL files in a package.  'path' should be a list
+    of directory names containing the files of the package (i.e. __path__).
+    """
+    for package_dir in path:
+        for dirpath, dirnames, filenames in os.walk(package_dir):
+            for dirname in dirnames:
+                compile_file(os.path.join(dirpath, dirname), force=force,
+                             verbose=verbose)
+            for filename in filenames:
+                compile_file(os.path.join(dirpath, filename), force=force,
+                             verbose=verbose)
 
 def main():
     args = sys.argv[1:]
