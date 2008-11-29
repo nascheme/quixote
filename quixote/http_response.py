@@ -4,7 +4,6 @@ Provides the HTTPResponse class.
 """
 
 import time
-from sets import Set
 try:
     import zlib
 except ImportError:
@@ -70,7 +69,7 @@ _GZIP_HEADER = ("\037\213" # magic
                 "\002"
                 "\377")
 
-_GZIP_EXCLUDE = Set(["application/pdf",
+_GZIP_EXCLUDE = set(["application/pdf",
                      "application/zip",
                      "audio/mpeg",
                      "image/gif",
