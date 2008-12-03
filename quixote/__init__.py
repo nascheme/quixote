@@ -1,9 +1,9 @@
-"""quixote
+"""Quixote
 
-A highly Pythonic web application framework.
+A small and flexible Python web application framework.
 """
 
-__version__ = '2.6'
+__version__ = '2.7'
 
 # These are frequently needed by Quixote applications.
 from quixote.publish import \
@@ -14,7 +14,7 @@ from quixote.publish import \
 
 # This is the default charset used by the HTTPRequest, HTTPResponse,
 # DefaultLogger, and sendmail components.
-DEFAULT_CHARSET = 'iso-8859-1'
+DEFAULT_CHARSET = 'utf-8'
 
 def enable_ptl():
     """
