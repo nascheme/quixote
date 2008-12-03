@@ -199,7 +199,8 @@ def HandleManTypes(r, conn):
                 'FCGI_MAX_REQS'  : FCGI_MAX_REQS,
                 'FCGI_MPXS_CONNS': FCGI_MPXS_CONNS}
         for i in r.values.keys():
-            if vars.has_key(i): v[i] = vars[i]
+            if i in vars:
+                v[i] = vars[i]
         r.values = vars
         r.writeRecord(conn)
 
@@ -233,7 +234,7 @@ class FCGI:
             self.env = os.environ
             return
 
-        if os.environ.has_key('FCGI_WEB_SERVER_ADDRS'):
+        if 'FCGI_WEB_SERVER_ADDRS' in os.environ:
             good_addrs = string.split(os.environ['FCGI_WEB_SERVER_ADDRS'], ',')
             good_addrs = map(string.strip, good_addrs)        # Remove whitespace
         else:
@@ -357,7 +358,7 @@ class FCGI:
 
     def getFieldStorage(self):
         method = 'GET'
-        if self.env.has_key('REQUEST_METHOD'):
+        if 'REQUEST_METHOD' in self.env:
             method = string.upper(self.env['REQUEST_METHOD'])
         if method == 'GET':
             return cgi.FieldStorage(environ=self.env, keep_blank_values=1)
@@ -415,7 +416,7 @@ def _test():
                 doc.append('<H2>FCGI TestApp</H2><P>')
                 doc.append('<b>request count</b> = %d<br>' % counter)
                 doc.append('<b>pid</b> = %s<br>' % os.getpid())
-                if req.env.has_key('CONTENT_LENGTH'):
+                if 'CONTENT_LENGTH' in req.env:
                     cl = string.atoi(req.env['CONTENT_LENGTH'])
                     doc.append('<br><b>POST data (%s):</b><br><pre>' % cl)
                     keys = fs.keys()

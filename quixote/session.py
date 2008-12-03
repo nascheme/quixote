@@ -152,11 +152,13 @@ class SessionManager:
         Return true if a session identified by 'session_id' exists in
         the session manager.
         """
-        return self.sessions.has_key(session_id)
+        return session_id in self.sessions
 
-    # has_session() is a synonym for has_key() -- if you override
-    # has_key(), be sure to repeat this alias!
-    has_session = has_key
+    def __contains__(self, session_id):
+        return self.has_key(session_id)
+
+    def has_session(self, session_id):
+        return self.has_key(session_id)
 
     def __setitem__(self, session_id, session):
         """(session_id : string, session : Session)

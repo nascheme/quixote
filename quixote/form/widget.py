@@ -266,7 +266,7 @@ class CheckboxWidget(Widget):
     """
 
     def _parse(self, request):
-        self.value = request.form.has_key(self.name)
+        self.value = self.name in request.form
 
     def render_content(self):
         return htmltag("input", xml_end=True,
@@ -342,7 +342,7 @@ class SelectWidget(Widget):
         used_keys = {}
         keys = map(stringify, descriptions)
         for key in keys:
-            if used_keys.has_key(key):
+            if key in used_keys:
                 raise ValueError, "duplicated descriptions (provide keys)"
             used_keys[key] = 1
         return keys
@@ -584,7 +584,7 @@ class ButtonWidget(Widget):
                        name=self.name, value=value, **self.attrs)
 
     def _parse(self, request):
-        self.value = request.form.has_key(self.name)
+        self.value = self.name in request.form
 
 
 class SubmitWidget(ButtonWidget):
@@ -757,7 +757,7 @@ class CompositeWidget(Widget):
         return has_error
 
     def add(self, widget_class, name, *args, **kwargs):
-        if self._names.has_key(name):
+        if name in self._names:
             raise ValueError, 'the name %r is already used' % name
         if self.attrs.get('disabled') and 'disabled' not in kwargs:
             kwargs['disabled'] = True

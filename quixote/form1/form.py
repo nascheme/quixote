@@ -375,7 +375,7 @@ class Form:
         the request, use the first submit button registered.
         """
         for button in self.submit_buttons:
-            if request.form.has_key(button.name):
+            if button.name in request.form:
                 return button.name
         else:
             if request.form and self.submit_buttons:
@@ -478,7 +478,7 @@ class Form:
 
         Returns the new Widget.
         """
-        if self.widgets.has_key(name):
+        if name in self.widgets:
             raise ValueError, "form already has '%s' variable" % name
         klass = get_widget_class(widget_type)
         new_widget = apply(klass, (name, value), args)
@@ -492,7 +492,7 @@ class Form:
 
     def add_submit_button(self, name, value):
         global _widget_class
-        if self.widgets.has_key(name):
+        if name in self.widgets:
             raise ValueError, "form already has '%s' variable" % name
         new_widget = _widget_class['submit_button'](name, value)
 

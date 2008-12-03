@@ -302,7 +302,7 @@ class StaticDirectory(Directory):
         """
         if name in ('.', '..'):
             raise errors.TraversalError(private_msg="Attempt to use '.', '..'")
-        if self.cache.has_key(name):
+        if name in self.cache:
             # Get item from cache
             item = self.cache[name]
         else:

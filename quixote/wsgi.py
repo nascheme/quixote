@@ -29,7 +29,7 @@ class QWIP:
             getattr(self.publisher, 'is_thread_safe', False):
             reason =  "%r is not thread safe" % self.publisher
             raise AssertionError(reason)
-        if not env.has_key('REQUEST_URI'):
+        if 'REQUEST_URI' not in env:
             env['REQUEST_URI'] = env['SCRIPT_NAME'] + env['PATH_INFO']
         input = env['wsgi.input']
         request = self.request_class(input, env)

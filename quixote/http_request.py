@@ -408,7 +408,7 @@ class HTTPRequest:
         found_encodings = self._parse_pref_header(accept_encoding)
         if found_encodings:
             for encoding in encodings:
-                if found_encodings.has_key(encoding):
+                if encoding in found_encodings:
                     return encoding
         return None
 

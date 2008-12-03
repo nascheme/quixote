@@ -27,7 +27,7 @@ from quixote.ptl.ptl_compile import compile_template, PTL_EXT
 assert sys.hexversion >= 0x20000b1, "need Python 2.0b1 or later"
 
 def _exec_module_code(code, name, filename):
-    if sys.modules.has_key(name):
+    if name in sys.modules:
         mod = sys.modules[name] # necessary for reload()
     else:
         mod = new.module(name)

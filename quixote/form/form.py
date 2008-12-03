@@ -121,7 +121,10 @@ class Form(object):
 
     def has_key(self, name):
         """Return true if the widget named 'name' is in the form."""
-        return self._names.has_key(name)
+        return name in self._names
+
+    def __contains__(self, name):
+        return self.has_key(name)
 
     def get(self, name, default=None):
         """(name:string, default=None) -> any
@@ -226,7 +229,7 @@ class Form(object):
     # -- Form population methods ---------------------------------------
 
     def add(self, widget_class, name, *args, **kwargs):
-        if self._names.has_key(name):
+        if name in self._names:
             raise ValueError, "form already has '%s' widget" % name
         widget = widget_class(name, *args, **kwargs)
         self._names[name] = widget

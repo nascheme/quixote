@@ -238,7 +238,7 @@ class CheckboxWidget (Widget):
 
 
     def parse(self, request):
-        self.value = request.form.has_key(self.name)
+        self.value = self.name in request.form
         return self.value
 
 
@@ -327,7 +327,7 @@ class SelectWidget (Widget):
         used_keys = {}
         keys = map(str, descriptions)
         for key in keys:
-            if used_keys.has_key(key):
+            if key in used_keys:
                 raise ValueError, "duplicated descriptions (provide keys)"
             used_keys[key] = 1
         return keys

@@ -197,7 +197,7 @@ class HTTPResponse:
 
         self.status_code = status
         if reason is None:
-            if status_reasons.has_key(status):
+            if status in status_reasons:
                 reason = status_reasons[status]
             else:
                 # Eg. for generic 4xx failures, use the reason
@@ -309,7 +309,7 @@ class HTTPResponse:
         call.
         """
         cookies = self.cookies
-        if cookies.has_key(name):
+        if name in cookies:
             cookie = cookies[name]
         else:
             cookie = cookies[name] = {}
@@ -329,7 +329,7 @@ class HTTPResponse:
         """
         if self.javascript_code is None:
             self.javascript_code = {code_id: code}
-        elif not self.javascript_code.has_key(code_id):
+        elif code_id not in self.javascript_code:
             self.javascript_code[code_id] = code
 
     def redirect(self, location, permanent=False):
