@@ -63,7 +63,7 @@ class Directory(object):
                 return obj._q_traverse(path)
             else:
                 raise TraversalError
-        elif callable(obj):
+        elif hasattr(obj, '__call__'):
             return obj()
         else:
             return obj

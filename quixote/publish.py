@@ -94,7 +94,7 @@ class Publisher:
             raise RuntimeError, "only one instance of Publisher allowed"
         _publisher = self
 
-        if not callable(getattr(root_directory, '_q_traverse')):
+        if not hasattr(getattr(root_directory, '_q_traverse'), '__call__'):
             raise TypeError(
                 'Expected something with a _q_traverse method, got %r' %
                 root_directory)

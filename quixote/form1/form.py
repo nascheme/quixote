@@ -519,7 +519,7 @@ def register_widget_class(klass, widget_type=None):
 
 def get_widget_class(widget_type):
     global _widget_class
-    if callable(widget_type):
+    if hasattr(widget_type, '__call__'):
         # Presumably someone passed a widget class object to
         # Widget.create_subwidget() or Form.add_widget() --
         # don't bother with the widget class registry at all.

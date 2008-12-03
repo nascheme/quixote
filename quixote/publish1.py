@@ -64,7 +64,7 @@ class RootDirectory(Directory):
             output = object
 
         # ...or a callable.
-        elif callable(object):
+        elif hasattr(object, '__call__'):
             output = object(request)
             if output is None:
                 raise RuntimeError, 'callable %s returned None' % repr(object)
@@ -133,7 +133,7 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
             component = "_q_index"
         object = _get_component(object, component, request, namespace_stack)
 
-    if not (isstring(object) or callable(object)):
+    if not (isstring(object) or hasattr(object, '__call__')):
         # We went through all the components of the path and ended up at
         # something which isn't callable, like a module or an instance
         # without a __call__ method.

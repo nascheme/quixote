@@ -272,7 +272,8 @@ class StaticDirectory(Directory):
                     obj = self._q_lookup(name)
                 except errors.TraversalError:
                     continue
-                if not isinstance(obj, StaticDirectory) and callable(obj):
+                if (not isinstance(obj, StaticDirectory)
+                        and hasattr(obj, '__call__')):
                     return obj()
         r = TemplateIO(html=True)
         if self.list_directory:
