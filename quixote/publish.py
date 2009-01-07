@@ -245,7 +245,7 @@ class Publisher:
         """
         self.start_request()
         path = request.get_environ('PATH_INFO', '')
-        if path[:1] != '/':
+        if path and path[:1] != '/':
             return redirect(
                 request.get_environ('SCRIPT_NAME', '') + '/' + path,
                 permanent=True)
