@@ -155,7 +155,7 @@ class HTTPRequest:
         # sets this environment variable to "0" for non-SSL requests
         # (most web servers -- well, Apache at least -- simply don't set
         # it in that case).
-        if (environ.get('HTTPS', 'off').lower() == 'on' or
+        if (environ.get('HTTPS', 'off').lower() in ('on', 'yes', '1') or
             environ.get('SERVER_PORT_SECURE', '0') != '0'):
             self.scheme = "https"
         else:
@@ -363,6 +363,17 @@ class HTTPRequest:
         Return the query component of the URL.
         """
         return self.environ.get('QUERY_STRING', '')
+
+    def get_path_query(self):
+        """() -> string
+
+        Return the path and the query string (if any).
+        """
+        path = self.get_path()
+        query = self.get_query()
+        if query:
+            path += '?' + query
+        return path
 
     def get_url(self, n=0):
         """get_url(n : int = 0) -> string
