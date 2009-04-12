@@ -868,7 +868,7 @@ class WidgetDict(CompositeWidget):
       element_names : [string]
     """
 
-    def __init__(self, name, value=None, title='', hint='',
+    def __init__(self, name, value=None,
                  element_key_type=StringWidget,
                  element_value_type=StringWidget,
                  element_key_kwargs={},
