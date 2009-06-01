@@ -308,6 +308,11 @@ class SessionManager:
             if not path.endswith("/"):
                 path += "/"
         domain = config.session_cookie_domain
+        attrs = attrs.copy()
+        if config.session_cookie_secure:
+            attrs['secure'] = 1
+        if config.session_cookie_httponly:
+            attrs['httponly'] = 1
         get_response().set_cookie(name, value, domain=domain,
                                   path=path, **attrs)
         return name

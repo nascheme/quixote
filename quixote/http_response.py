@@ -296,15 +296,13 @@ class HTTPResponse:
         self.set_cookie(name, "deleted", **dict)
 
     def set_cookie(self, name, value, **attrs):
-        """set_cookie(name : string, value : string, **attrs)
-
-        Set an HTTP cookie on the browser.
+        """Set an HTTP cookie on the browser.
 
         The response will include an HTTP header that sets a cookie on
         cookie-enabled browsers with a key "name" and value "value".
         Cookie attributes such as "expires" and "domains" may be
         supplied as keyword arguments; see RFC 2109 for a full list.
-        (For the "secure" attribute, use any true value.)
+        (For the "secure" and httponly attributes, use any true value.)
 
         This overrides any previous value for this cookie.  Any
         previously-set attributes for the cookie are preserved, unless
@@ -389,6 +387,8 @@ class HTTPResponse:
                     chunks.append('%s=%s' % (name, val))
                 elif name == 'secure' and val:
                     chunks.append("secure")
+                elif name == 'httponly' and val:
+                    chunks.append("httponly")
             cookie_headers.append(("Set-Cookie", '; '.join(chunks)))
         return cookie_headers
 

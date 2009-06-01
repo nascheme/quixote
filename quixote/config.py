@@ -70,6 +70,8 @@ SESSION_COOKIE_NAME = "QX_session"
 # controlled by your application, but no other.
 SESSION_COOKIE_DOMAIN = None    # eg. ".example.com"
 SESSION_COOKIE_PATH = None      # eg. "/"
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_HTTPONLY = False
 
 
 # Mail-related variables
@@ -123,6 +125,8 @@ class Config:
         'session_cookie_domain',
         'session_cookie_name',
         'session_cookie_path',
+        'session_cookie_secure',
+        'session_cookie_httponly',
         'mail_from',
         'mail_server',
         'mail_debug_addr',
