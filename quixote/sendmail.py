@@ -115,17 +115,9 @@ def sendmail(subject, msg_body, to_addrs,
              from_addr=None, cc_addrs=None,
              extra_headers=None,
              smtp_sender=None, smtp_recipients=None,
+             mail_server=None, mail_debug_addr=None,
              config=None):
-    """sendmail(subject : string,
-                msg_body : string,
-                to_addrs : [email_address],
-                from_addr : email_address = config.MAIL_SENDER,
-                cc_addrs : [email_address] = None,
-                extra_headers : [string] = None,
-                smtp_sender : email_address = (derived from from_addr)
-                smtp_recipients : [email_address] = (derived from to_addrs),
-                config : quixote.config.Config = (current publisher's config)):
-
+    """
     Send an email message to a list of recipients via a local SMTP
     server.  In normal use, you supply a list of primary recipient
     e-mail addresses in 'to_addrs', an optional list of secondary
@@ -192,9 +184,14 @@ def sendmail(subject, msg_body, to_addrs,
     Generally raises an exception on any SMTP errors; see smtplib (in
     the standard library documentation) for details.
     """
-    if config is None:
+    if not mail_server and config is None:
         from quixote import get_publisher
         config = get_publisher().config
+
+    from_addr = from_addr or config.mail_from
+    mail_server = mail_server or config.mail_server
+    if config is not None:
+        mail_debug_addr = mail_debug_addr or config.mail_debug_addr
 
     if not isinstance(to_addrs, ListType):
         raise TypeError("'to_addrs' must be a list")
@@ -202,8 +199,6 @@ def sendmail(subject, msg_body, to_addrs,
         raise TypeError("'cc_addrs' must be a list or None")
 
     # Make sure we have a "From" address
-    if from_addr is None:
-        from_addr = config.mail_from
     if from_addr is None:
         raise RuntimeError(
             "no from_addr supplied, and MAIL_FROM not set in config file")
@@ -218,18 +213,15 @@ def sendmail(subject, msg_body, to_addrs,
     headers = ["From: %s" % from_addr.format(),
                "Subject: %s" % subject]
     _add_recip_headers(headers, "To", to_addrs)
-    if quixote.DEFAULT_CHARSET != 'iso-8859-1':
-        headers.append('Content-Type: text/plain; charset=%s' %
-                       quixote.DEFAULT_CHARSET)
     if cc_addrs:
         _add_recip_headers(headers, "Cc", cc_addrs)
 
     if extra_headers:
         headers.extend(extra_headers)
 
-    if config.mail_debug_addr:
+    if mail_debug_addr:
         debug1 = ("[debug mode, message actually sent to %s]\n"
-                  % config.mail_debug_addr)
+                  % mail_debug_addr)
         if smtp_recipients:
             debug2 = ("[original SMTP recipients: %s]\n"
                       % ", ".join(smtp_recipients))
@@ -239,7 +231,7 @@ def sendmail(subject, msg_body, to_addrs,
         sep = ("-"*72) + "\n"
         msg_body = debug1 + debug2 + sep + msg_body
 
-        smtp_recipients = [config.mail_debug_addr]
+        smtp_recipients = [mail_debug_addr]
 
     if smtp_sender is None:
         smtp_sender = from_addr.addr_spec
@@ -255,10 +247,8 @@ def sendmail(subject, msg_body, to_addrs,
                            for recip in smtp_recipients]
 
     message = "\n".join(headers) + "\n\n" + msg_body
-    if quixote.DEFAULT_CHARSET != 'iso-8859-1':
-        message = message.encode(quixote.DEFAULT_CHARSET)
 
-    smtp = SMTP(config.mail_server)
+    smtp = SMTP(mail_server)
     smtp.sendmail(smtp_sender, smtp_recipients, message)
     smtp.quit()
 
