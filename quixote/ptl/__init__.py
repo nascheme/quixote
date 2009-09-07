@@ -219,7 +219,7 @@ resulting string isn't HTML-escaped again.
 
 Two implementations of ``htmltext`` are provided, one written in pure
 Python and a second one implemented as a C extension.  Both versions
-have seen production use.  
+have seen production use.
 
 
 PTL modules
@@ -228,9 +228,18 @@ PTL modules
 PTL templates are kept in files with the extension .ptl.  Like
 Python files, they are byte-compiled and the byte-code is written to
 a compiled file with the extension ``.pyc``.  Since vanilla Python
-doesn't know anything about PTL, this package provides a function
-that compiles a package containing PTL files.  To use it, add these
-lines to the __init__ module of the package:
+doesn't know anything about PTL, this package provides an import hook.  To
+enable it, use the following code in the __init__ module of a package
+containing PTL:
+
+    from quixote.ptl import enable_ptl
+    enable_ptl()
+
+Python's import mechanism is complicated and it is possible that certain
+combinations of packages do not work well with an import hook.  An
+alternative mechanism is provided that does not use an import hook.  To
+compile all the PTL files in a package, use the following code in the
+__init__ module:
 
     from quixote.ptl import compile_package
     compile_package(__path__)

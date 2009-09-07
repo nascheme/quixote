@@ -13,6 +13,15 @@ import struct
 import marshal
 import __builtin__
 
+# Check for a deficient ihooks module.  Python 2.6 was released without
+# ihooks.py being updated to support relative imports. Any library that uses
+# relative imports will cause the import hook to fail.  Use our local copy of
+# ihooks module which does have support for relative imports.
+if sys.hexversion >= 0x20600b0:
+    _m = ihooks.ModuleImporter.import_module
+    if _m.im_func.func_code.co_argcount == 5:
+        import ihooks_local as ihooks
+
 from quixote.ptl.ptl_compile import compile_template, PTL_EXT
 
 assert sys.hexversion >= 0x20000b1, "need Python 2.0b1 or later"
