@@ -138,6 +138,9 @@ class SessionManager:
         """
         return self.sessions.get(session_id, default)
 
+    def __iter__(self):
+        return self.sessions.itervalues()
+
     def __getitem__(self, session_id):
         """(session_id : string) -> Session
 
