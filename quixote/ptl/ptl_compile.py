@@ -290,7 +290,7 @@ def compile_dir(dir, maxlevels=10, force=0):
         fullname = os.path.join(dir, name)
         if os.path.isfile(fullname):
             try:
-                ok = compile_filename(fullname, force=force, verbose=1)
+                ok = compile_file(fullname, force=force, verbose=1)
             except KeyboardInterrupt:
                 raise KeyboardInterrupt
             except:
