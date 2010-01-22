@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from sancho.utest import UTest
 from quixote.ptl.ptl_compile import compile_template
-from cStringIO import StringIO
+from StringIO import StringIO
 from quixote.html import TemplateIO, htmltext
 
 def run_ptl(*source):

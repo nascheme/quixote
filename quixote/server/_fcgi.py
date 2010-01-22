@@ -33,7 +33,7 @@
 #------------------------------------------------------------------------
 
 import  os, sys, string, socket, errno, struct
-from    cStringIO   import StringIO
+from    StringIO   import StringIO
 import  cgi
 
 #---------------------------------------------------------------------------

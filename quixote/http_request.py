@@ -10,7 +10,7 @@ import os
 import tempfile
 import urllib
 import rfc822
-from cStringIO import StringIO
+from StringIO import StringIO
 
 import quixote
 from quixote.http_response import HTTPResponse

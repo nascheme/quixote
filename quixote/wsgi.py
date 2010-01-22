@@ -12,7 +12,7 @@ Last updated 2005-05-03.
 import sys
 
 from http_request import HTTPRequest
-from cStringIO import StringIO
+from StringIO import StringIO
 
 ###### QWIP: WSGI COMPATIBILITY WRAPPER FOR QUIXOTE #####################
 

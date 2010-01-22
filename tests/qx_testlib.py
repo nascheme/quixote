@@ -2,7 +2,7 @@ import sys, subprocess
 
 import quixote
 from quixote.server.simple_server import run
-from cStringIO import StringIO
+from StringIO import StringIO
 import os
 import socket
 import urllib
