@@ -124,10 +124,10 @@ class HTTPResponse:
         future requests.  The cookie value is stored as the "value"
         attribute.  The other attributes are as specified by RFC 2109.
       cache : int | None
-        the number of seconds the response may be cached.  The default is 0,
-        meaning don't cache at all.  This variable is used to set the HTTP
-        expires header.  If set to None then the expires header will not be
-        added.
+        the number of seconds the response may be cached.  The default
+        is 0, meaning don't cache at all.  This variable is used to set
+        the HTTP expires and cache-control headers.  If set to None then
+        no headers will be added.
       javascript_code : { string : string }
         a collection of snippets of JavaScript code to be included in
         the response.  The collection is built by calling add_javascript(),
@@ -138,7 +138,7 @@ class HTTPResponse:
     DEFAULT_CONTENT_TYPE = 'text/html'
     DEFAULT_CHARSET = None # defaults to quixote.DEFAULT_CHARSET
 
-    
+
     def __init__(self, status=200, body=None, content_type=None, charset=None):
         """
         Creates a new HTTP response.
@@ -412,14 +412,38 @@ class HTTPResponse:
 
         # Cache directives
         if self.cache is None:
-            pass # don't mess with the expires header
-        elif "expires" not in self.headers:
+            pass # don't mess with the expires or cache control header
+        else:
+            # We add both an Expires header and a Cache-Control header
+            # with a max-age directive.  The max-age directive takes
+            # priority when both Expires and max-age are present (even
+            # if Expires is more restrictive, RFC 2616 section 14.9.3).
             if self.cache > 0:
                 expire_date = formatdate(now + self.cache)
+                cache_control = "max-age=%d" % self.cache
             else:
-                expire_date = "-1" # allowed by HTTP spec and may work better
-                                   # with some clients
-            headers.append(("Expires", expire_date))
+                # This is the default case and makes sense for a
+                # dynamically generated response that can change on each
+                # request.
+                #
+                # Using the current date is not a good idea since clocks
+                # might not be synchronized. Any invalid date is treated
+                # as in the past but Microsoft recommends "-1" for
+                # Internet Explorer so that's what we use.
+                expire_date = "-1"
+                # The Expires header is sufficient for HTTP 1.0 but
+                # for HTTP 1.1 we must add a must-revalidate directive.
+                # Clients and proxies are allowed to ignore Expires in
+                # certain cases and use stale pages (RFC 2616 sections
+                # 13.1.5 and 14.9.4).
+                cache_control = "max-age=0, must-revalidate"
+            if ("expires" not in self.headers and
+                    "cache-control" not in self.headers):
+                # If either of these headers are set then don't add
+                # any of them. We assume the programmer knows what he
+                # is doing in that case.
+                headers.append(("Expires", expire_date))
+                headers.append(("Cache-Control", cache_control))
 
         # Content-type
         if "content-type" not in self.headers:
