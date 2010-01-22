@@ -108,9 +108,13 @@ class PTLLoader(ihooks.ModuleLoader):
             # Otherwise, use the default handler for loading
             return ihooks.ModuleLoader.load_module(self, name, stuff)
 
-try:
-    import cimport
-except ImportError:
+if sys.hexversion <= 0x20600b0:
+    try:
+        import cimport
+    except ImportError:
+        cimport = None
+else:
+    # cimport module doesn't handle relative imports
     cimport = None
 
 class cModuleImporter(ihooks.ModuleImporter):
