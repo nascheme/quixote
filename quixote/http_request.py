@@ -747,12 +747,12 @@ class LineInput:
 class MIMEInput:
     """
     Split a MIME input stream into parts.  Note that this class does not
-    handle headers, transfer encoding, etc.  
+    handle headers, transfer encoding, etc.
     """
 
     def __init__(self, fp, boundary, length):
         self.lineinput = LineInput(fp, length)
-        self.pat = re.compile(r'--%s(--)?[ \t]*\r\n' % re.escape(boundary))
+        self.pat = re.compile(r'--%s(--)?' % re.escape(boundary))
         self.done = False
 
     def moreparts(self):
