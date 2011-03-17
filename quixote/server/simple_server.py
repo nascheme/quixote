@@ -12,6 +12,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
     required_cgi_environment = {}
 
+    protocol_version = 'HTTP/1.1'
+
     def get_cgi_env(self, method):
         env = dict(
             SERVER_SOFTWARE="Quixote/%s" % quixote.__version__,
@@ -50,6 +52,9 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
     def process(self, env, include_body=True):
         response = get_publisher().process(self.rfile, env)
+        if self.protocol_version == 'HTTP/1.1':
+            # single threaded server, persistent connections will block others
+            response.set_header('connection', 'close')
         try:
             self.send_response(response.get_status_code(),
                                response.get_reason_phrase())

@@ -260,10 +260,12 @@ class Publisher:
             output = self.finish_failed_request()
         output = self.filter_output(request, output)
         if output:
-            if self.config.compress_pages and request.get_encoding(["gzip"]):
-                compress = True
-            else:
-                compress = False
+            compress = False
+            if self.config.compress_pages:
+                if request.get_encoding(['gzip']):
+                    compress = True
+            if request.environ.get('SERVER_PROTOCOL') == 'HTTP/1.1':
+                request.response.enable_transfer_chunked()
             request.response.set_body(output, compress)
         self.logger.log_request(request, start_time)
         self._clear_request()

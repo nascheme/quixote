@@ -69,6 +69,7 @@ _GZIP_HEADER = ("\037\213" # magic
                 "\002"
                 "\377")
 
+# content that is already compressed, don't bother trying
 _GZIP_EXCLUDE = set(["application/pdf",
                      "application/zip",
                      "audio/mpeg",
@@ -159,6 +160,7 @@ class HTTPResponse:
         self.cache = 0
         self.buffered = True
         self.javascript_code = None
+        self._allow_chunked = False
 
     def set_content_type(self, content_type, charset=None):
         """(content_type : string, charset : string = None)
@@ -250,32 +252,45 @@ class HTTPResponse:
         """(body: str) -> str
         """
         n = len(body)
-        co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
-                              zlib.DEF_MEM_LEVEL, 0)
-        crc = zlib.crc32(body)
-        chunks = [_GZIP_HEADER,
-                  co.compress(body),
-                  co.flush(),
-                  struct.pack("<LL", _LOWU32(crc), _LOWU32(n))]
-        compressed_body = "".join(chunks)
+        compressed_body = ''.join(self._generate_compressed([body]))
         ratio = float(n) / len(compressed_body)
         #print "gzip original size %d, ratio %.1f" % (n, ratio)
         if ratio > 1.0:
+            # only compress if we save space
             self.set_header("Content-Encoding", "gzip")
             return compressed_body
         else:
             return body
 
+    def _generate_compressed(self, body):
+        co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
+                                  zlib.DEF_MEM_LEVEL, 0)
+        crc = zlib.crc32('') & 0xffffffffL
+        n = 0
+        yield _GZIP_HEADER
+        for chunk in body:
+            if not isinstance(chunk, str):
+                chunk = self._encode_chunk(stringify(chunk))
+            crc = zlib.crc32(chunk, crc) & 0xffffffffL
+            n += len(chunk)
+            yield co.compress(chunk)
+        crc = struct.pack("<LL", _LOWU32(crc), _LOWU32(n))
+        yield co.flush() + crc
+
     def set_body(self, body, compress=False):
         """(body : any, compress : bool = False)
 
         Sets the response body equal to the argument 'body'.  If 'compress'
-        is true then the body may be compressed using 'gzip'.
+        is true then the body may be compressed.
         """
         if not isinstance(body, Stream):
             body = self._encode_chunk(stringify(body))
             if compress and self.content_type not in _GZIP_EXCLUDE:
                 body = self._compress_body(body)
+        else:
+            if compress and self.content_type not in _GZIP_EXCLUDE:
+                self.set_header("Content-Encoding", "gzip")
+                body = Stream(self._generate_compressed(body))
         self.body = body
 
     def expire_cookie(self, name, **attrs):
@@ -365,6 +380,11 @@ class HTTPResponse:
         else:
             return len(self.body)
 
+    def enable_transfer_chunked(self):
+        """Allow response to be sent as "Transfer-Encoding: chunked"
+        """
+        self._allow_chunked = True
+
     def _gen_cookie_headers(self):
         """_gen_cookie_headers() -> [string]
 
@@ -396,19 +416,10 @@ class HTTPResponse:
 
         Generate a list of headers to be returned as part of the response.
         """
-        headers = []
-
-        for name, value in self.headers.items():
-            headers.append((name.title(), value))
-
-        # All the "Set-Cookie" headers.
-        if self.cookies:
-            headers.extend(self._gen_cookie_headers())
-
         # Date header
         now = time.time()
         if "date" not in self.headers:
-            headers.append(("Date", formatdate(now)))
+            self.headers['date'] =  formatdate(now)
 
         # Cache directives
         if self.cache is None or self.headers.has_key("expires"):
@@ -442,8 +453,8 @@ class HTTPResponse:
                 # If either of these headers are set then don't add
                 # any of them. We assume the programmer knows what he
                 # is doing in that case.
-                headers.append(("Expires", expire_date))
-                headers.append(("Cache-Control", cache_control))
+                self.headers['expires'] = expire_date
+                self.headers['cache-control'] = cache_control
 
         # Content-type
         if "content-type" not in self.headers:
@@ -451,26 +462,61 @@ class HTTPResponse:
                 value = '%s; charset=%s' % (self.content_type, self.charset)
             else:
                 value = '%s' % self.content_type
-            headers.append(('Content-Type', value))
+            self.headers['content-type'] = value
 
         # Content-Length
         if "content-length" not in self.headers:
             length = self.get_content_length()
             if length is not None:
-                headers.append(('Content-Length', str(length)))
+                self.headers['content-length'] = str(length)
+            elif self._allow_chunked:
+                # No content-length and chunked encoding possible,
+                # use it.
+                self.headers['transfer-encoding'] = 'chunked'
+            else:
+                self.headers['connection'] = 'close'
 
+        headers = []
+        for name, value in self.headers.items():
+            headers.append((name.title(), value))
+        if self.cookies:
+            # All the "Set-Cookie" headers.
+            headers.extend(self._gen_cookie_headers())
         return headers
 
-    def generate_body_chunks(self):
+    def _generate_encoded_body(self):
         """Return a sequence of body chunks, encoded using 'charset'.
         """
         if self.body is None:
             pass
         elif isinstance(self.body, Stream):
             for chunk in self.body:
-                yield self._encode_chunk(chunk)
+                if not isinstance(chunk, str):
+                    chunk = self._encode_chunk(chunk)
+                yield chunk
         else:
             yield self.body # already encoded
+
+    def _generate_transfer_chunked(self, stream):
+        """Convert a sequence of encoded body data into the format
+        # expected by "Transfer-Encoding: chunked".
+        """
+        # Each chunk is as follows:
+        #    <length of data hex><CRLF>
+        #    <data><CRLF>
+        #    <CRLF>
+        # The stream is terminated by a zero length chunk.
+        for chunk in stream:
+            if chunk:
+                yield ''.join(['%x\r\n' % len(chunk), chunk, '\r\n'])
+        yield '0\r\n\r\n'
+
+    def generate_body_chunks(self):
+        stream = self._generate_encoded_body()
+        if self.headers.get('transfer-encoding') == 'chunked':
+            return self._generate_transfer_chunked(stream)
+        else:
+            return stream
 
     def write(self, output, include_status=True, include_body=True):
         """(output:file, include_status:bool=True, include_body:bool=True)
