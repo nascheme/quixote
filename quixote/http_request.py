@@ -188,13 +188,34 @@ class HTTPRequest:
             length = int(length)
         except ValueError:
             raise RequestError('invalid content-length header')
+        read_body = length > 0
         ctype = self.environ.get("CONTENT_TYPE")
         if ctype:
             ctype, ctype_params = parse_header(ctype)
             if ctype == 'application/x-www-form-urlencoded':
                 self._process_urlencoded(length, ctype_params)
+                read_body = False
             elif ctype == 'multipart/form-data':
                 self._process_multipart(length, ctype_params)
+                read_body = False
+        if read_body:
+            # We must consume entire request body as some clients and
+            # middleware expect that.  We cannot rely on the application to
+            # read it completely (e.g. if there is some PublishError raised).
+            if length < 20000:
+                fp = StringIO()
+            else:
+                fp = tempfile.TemporaryFile("w+b")
+            remaining = length
+            while remaining > 0:
+                s = self.stdin.read(min(remaining, 10000))
+                if not s:
+                    raise RequestError('unexpected end of request body')
+                fp.write(s)
+                remaining -= len(s)
+            fp.seek(0)
+            self._stdin = self.stdin
+            self.stdin = fp
 
     def _process_urlencoded(self, length, params):
         query = self.stdin.read(length)
