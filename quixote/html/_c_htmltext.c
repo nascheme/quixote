@@ -634,6 +634,21 @@ htmltext_call_method1(PyObject *self, PyObject *s, char *method)
 	return rv;
 }
 
+#if PY_VERSION_HEX >= 0x02060000
+static PyObject *
+call_method_kwargs(PyObject *self, char *method, PyObject *args,
+		   PyObject *kwargs)
+{
+	PyObject *m, *rv;
+	m = PyObject_GetAttrString(self, method);
+	if (m == NULL)
+		return NULL;
+	rv = PyObject_Call(m, args, kwargs);
+	Py_DECREF(m);
+	return rv;
+}
+#endif
+
 static PyObject *
 htmltext_startswith(PyObject *self, PyObject *s)
 {
@@ -651,7 +666,7 @@ htmltext_replace(PyObject *self, PyObject *args)
 {
 	PyObject *old, *new, *q_old, *q_new, *rv;
 	Py_ssize_t maxsplit = -1;
-#if PY_HEX_VERSION >= 0x02050000	
+#if PY_VERSION_HEX >= 0x02050000
 	if (!PyArg_ParseTuple(args,"OO|n:replace", &old, &new, &maxsplit))
 		return NULL;
 #else	
@@ -666,7 +681,7 @@ htmltext_replace(PyObject *self, PyObject *args)
 		Py_DECREF(q_old);
 		return NULL;
 	}
-#if PY_HEX_VERSION >= 0x02050000		
+#if PY_VERSION_HEX >= 0x02050000
 	rv = PyObject_CallMethod(htmltext_STR(self), "replace", "OOn",
 				 q_old, q_new, maxsplit);
 #else
@@ -700,6 +715,55 @@ htmltext_capitalize(PyObject *self)
 	return htmltext_from_string(PyObject_CallMethod(htmltext_STR(self),
 							"capitalize", ""));
 }
+
+#if PY_VERSION_HEX >= 0x02060000
+static PyObject *
+htmltext_format_method(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+	PyObject *rv, *wargs, *wkwargs, *k, *v;
+	Py_ssize_t i, n;
+	rv = NULL;
+	wargs = NULL;
+	wkwargs = NULL;
+	if (args != NULL) {
+		n = PyTuple_GET_SIZE(args);
+		wargs = PyTuple_New(n);
+		for (i=0; i < n; i++) {
+			PyObject *v = PyTuple_GET_ITEM(args, i);
+			v = quote_wrapper_new(v);
+			if (v == NULL) {
+				goto error;
+			}
+			PyTuple_SetItem(wargs, i, v);
+		}
+	}
+	if (kwargs != NULL) {
+		i = 0;
+		wkwargs = PyDict_New();
+		if (wkwargs == NULL) {
+			goto error;
+		}
+		while (PyDict_Next(kwargs, &i, &k, &v)) {
+			PyObject *wv = quote_wrapper_new(v);
+			if (wv == NULL) {
+				goto error;
+			}
+			if (PyDict_SetItem(wkwargs, k, wv) < 0) {
+				Py_DECREF(wv);
+				goto error;
+			}
+		}
+	}
+	rv = call_method_kwargs(htmltext_STR(self), "format", wargs, wkwargs);
+	if (rv && string_check(rv))
+	       rv = htmltext_from_string(rv);
+error:
+	Py_DECREF(wargs);
+	Py_XDECREF(wkwargs);
+	return rv;
+}
+#endif
+
 
 static PyObject *
 template_io_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -796,6 +860,10 @@ static PyMethodDef htmltext_methods[] = {
 	{"lower", (PyCFunction)htmltext_lower, METH_NOARGS, ""},
 	{"upper", (PyCFunction)htmltext_upper, METH_NOARGS, ""},
 	{"capitalize", (PyCFunction)htmltext_capitalize, METH_NOARGS, ""},
+#if PY_VERSION_HEX >= 0x02060000
+	{"format", (PyCFunction)htmltext_format_method,
+		METH_VARARGS | METH_KEYWORDS, ""},
+#endif
 	{NULL, NULL}
 };
 

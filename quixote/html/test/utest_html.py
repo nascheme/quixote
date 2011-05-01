@@ -212,6 +212,19 @@ class HTMLTextTest (UTest):
         assert htmltext('') % {} == ''
         assert htmltext('%%') % {} == '%'
 
+    def check_format_method(self):
+        assert htmltext('{}').format('foo') == 'foo'
+        assert htmltext('{}').format('foo', **{}) == 'foo'
+        try:
+            htmltext('{}').format()
+            assert 0
+        except IndexError:
+            pass
+        assert htmltext('{a}').format(a='foo') == 'foo'
+        args = {'a': 'foo&', 'b': htmltext('bar&')}
+        result = "foo&amp; bar&"
+        assert htmltext('{a} {b}').format(**args) == result
+
     def check_join(self):
         assert htmltext(' ').join(['foo', 'bar']) == "foo bar"
         assert htmltext(' ').join(['foo', markupchars]) == \

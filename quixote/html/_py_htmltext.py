@@ -70,6 +70,13 @@ class htmltext(object):
         else:
             return htmltext(self.s % _wraparg(args))
 
+    def format(self, *args, **kwargs):
+        args = map(_wraparg, args)
+        newkw = {}
+        for k, v in kwargs.iteritems():
+            newkw[k] = _wraparg(v)
+        return htmltext(self.s.format(*args, **newkw))
+
     def __add__(self, other):
         if isinstance(other, basestring):
             return htmltext(self.s + _escape_string(other))
