@@ -7,36 +7,12 @@ import urlparse
 import cgitb
 
 from quixote.errors import PublishError, MethodNotAllowedError, \
-        format_publish_error
+        format_publish_error, INTERNAL_ERROR_MESSAGE
 from quixote import util
 from quixote.config import Config
 from quixote.http_response import HTTPResponse
 from quixote.http_request import HTTPRequest
 from quixote.logger import DefaultLogger
-
-# Error message to dispay when DISPLAY_EXCEPTIONS in config file is not
-# true.  Note that SERVER_ADMIN must be fetched from the environment and
-# plugged in here -- we can't do it now because the environment isn't
-# really setup for us yet if running as a FastCGI script.
-INTERNAL_ERROR_MESSAGE = """\
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN"
-        "http://www.w3.org/TR/REC-html40/strict.dtd">
-<html>
-<head><title>Internal Server Error</title></head>
-<body>
-<h1>Internal Server Error</h1>
-<p>An internal error occurred while handling your request.</p>
-
-<p>The server administrator should have been notified of the problem.
-You may wish to contact the server administrator (%s) and inform them of
-the time the error occurred, and anything you might have done to trigger
-the error.</p>
-
-<p>If you are the server administrator, more information may be
-available in either the server's error log or Quixote's error log.</p>
-</body>
-</html>
-"""
 
 class Publisher:
     """
@@ -205,9 +181,7 @@ class Publisher:
 
 
     def _generate_internal_error(self, request):
-        admin = request.get_environ('SERVER_ADMIN',
-                                    "<i>email address unknown</i>")
-        return INTERNAL_ERROR_MESSAGE % admin
+        return INTERNAL_ERROR_MESSAGE
 
 
     def _generate_plaintext_error(self, request, original_response,

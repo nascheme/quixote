@@ -30,7 +30,8 @@ class PublishError(Exception):
 
     status_code = 400 # bad request
     title = "Publishing error"
-    description = "no description"
+    description = ("An error occured while generating the requested page. "
+                   "For help, please contact the site administrator.")
 
     def __init__(self, public_msg=None, private_msg=None):
         self.public_msg = public_msg
@@ -135,20 +136,68 @@ class MethodNotAllowedError(PublishError):
         return 'Allowed methods are: %s' % allowed_methods
 
 
+PAGE_TEMPLATE = htmltext('''\
+<!DOCTYPE html>
+<html>
+<head>
+<title>%(title)s</title>
+<style type="text/css">
+body {
+    font: 13px arial,helvetica,clean,sans-serif;
+}
+h1 {
+    font-size: 24px;
+}
+p {
+    width: 40em;
+}
+</style>
+</head>
+<body>
+    <h1>%(title)s</h1>
+    %(body)s
+</body>
+</html>
+''')
+
+
+def format_page(title, body):
+    """Used for Quixote generated HTML pages.  This function can be replaced to
+    ensure you application has a consistent look to web pages.  Be aware
+    that this function should do a minimal amount of processing since it
+    can be called when the server encounters an error.
+    """
+    return PAGE_TEMPLATE % dict(title=title, body=body)
+
+
+ERROR_BODY = htmltext('''
+    <p>%(description)s</p>
+    <p>%(details)s</p>
+''')
+
+
+def format_error_page(title, description, details):
+    body = ERROR_BODY % dict(description=description, details=details)
+    return format_page(title=title, body=body)
+
+
+# Error message to dispay for non-PublishError exception when
+# DISPLAY_EXCEPTIONS is set to None.  If DISPLAY_EXCEPTIONS is not
+# None than a traceback will displayed.
+INTERNAL_ERROR_MESSAGE = format_error_page(
+    title='Internal Server Error',
+    description=('An internal error occured while handling your page '
+                 'request.'),
+    details=('The error has been logged but you may wish to contact the '
+             'server administrator and inform them of the time the error '
+             'occurred, and anything you might have done to trigger the '
+             'error.'))
 
 def format_publish_error(exc):
     """(exc : PublishError) -> string
 
     Format a PublishError exception as a web page.
     """
-    return htmltext("""\
-    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN"
-        "http://www.w3.org/TR/REC-html40/strict.dtd">
-    <html>
-      <head><title>Error: %s</title></head>
-      <body>
-      <p>%s</p>
-      <p>%s</p>
-      </body>
-    </html>
-    """) % (exc.title, exc.description, exc.format())
+    return format_error_page(title='Error: %s' % exc.title,
+                             description=exc.description,
+                             details=exc.format())

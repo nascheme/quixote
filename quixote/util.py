@@ -245,20 +245,6 @@ class StaticDirectory(Directory):
             self.file_class = self.FILE_CLASS
         self.index_filenames = index_filenames
 
-    def _render_header(self, title):
-        r = TemplateIO(html=True)
-        r += htmltext('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 '
-                      'Transitional//EN" '
-                      '"http://www.w3.org/TR/REC-html40/loose.dtd">')
-        r += htmltext('<html>')
-        r += htmltext('<head><title>%s</title></head>') % title
-        r += htmltext('<body>')
-        r += htmltext("<h1>%s</h1>") % title
-        return r.getvalue()
-
-    def _render_footer(self):
-        return htmltext('</body></html>')
-
     def _q_index(self):
         """
         If directory listings are allowed, generate a simple HTML
@@ -275,9 +261,9 @@ class StaticDirectory(Directory):
                 if (not isinstance(obj, StaticDirectory)
                         and hasattr(obj, '__call__')):
                     return obj()
-        r = TemplateIO(html=True)
         if self.list_directory:
-            r += self._render_header('Index of %s' % quixote.get_path())
+            title = 'Index of %s' % quixote.get_path()
+            r = TemplateIO(html=True)
             template = htmltext('<a href="%s">%s</a>%s\n')
             r += htmltext('<pre>')
             r += template % ('..', '..', '')
@@ -288,13 +274,12 @@ class StaticDirectory(Directory):
                 marker = os.path.isdir(filepath) and "/" or ""
                 r += template % (urllib.quote(filename), filename, marker)
             r += htmltext('</pre>')
-            r += self._render_footer()
+            body = r.getvalue()
         else:
-            r += self._render_header('Directory listing denied')
-            r += htmltext('<p>This directory does not allow its contents '
-                          'to be listed.</p>')
-            r += self._render_footer()
-        return r.getvalue()
+            title = 'Directory listing denied'
+            body = htmltext('<p>This directory does not allow its contents '
+                            'to be listed.</p>')
+        return errors.format_page(title, body)
 
     def _q_lookup(self, name):
         """
