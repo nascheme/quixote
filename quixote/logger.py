@@ -89,7 +89,7 @@ class DefaultLogger:
         if query:
             request_uri += "?" + query
         proto = request.get_environ('SERVER_PROTOCOL')
-        self.access_log.write('%s %s %s %d "%s %s %s" %s %r %0.2fsec%s' %
+        self.access_log.write('%s %s %s %d "%s %s %s" %s %r %0.3fs%s' %
                                (request.get_environ('REMOTE_ADDR'),
                                 user,
                                 timestamp,

@@ -280,13 +280,13 @@ class Publisher:
             # Some other exception, generate error messages to the logs, etc.
             output = self.finish_failed_request()
         output = self.filter_output(request, output)
-        self.logger.log_request(request, start_time)
         if output:
             if self.config.compress_pages and request.get_encoding(["gzip"]):
                 compress = True
             else:
                 compress = False
             request.response.set_body(output, compress)
+        self.logger.log_request(request, start_time)
         self._clear_request()
         return request.response
 
