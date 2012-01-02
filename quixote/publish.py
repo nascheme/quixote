@@ -6,7 +6,8 @@ import time
 import urlparse
 import cgitb
 
-from quixote.errors import PublishError, format_publish_error
+from quixote.errors import PublishError, MethodNotAllowedError, \
+        format_publish_error
 from quixote import util
 from quixote.config import Config
 from quixote.http_response import HTTPResponse
@@ -244,6 +245,10 @@ class Publisher:
         Exceptions are handled by the caller.
         """
         self.start_request()
+        method = request.get_method()
+        allowed_methods = self.config.allowed_methods
+        if allowed_methods is not None and method not in allowed_methods:
+            raise MethodNotAllowedError(allowed_methods)
         path = request.get_environ('PATH_INFO', '')
         if path and path[:1] != '/':
             return redirect(

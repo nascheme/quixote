@@ -5,6 +5,16 @@ This document lists backward-incompatible changes in Quixote, and
 explains how to update application code to work with the newer
 version.
 
+Changes from 2.7 to 2.8
+-----------------------
+
+Stricter handling of HTTP request methods has been enabled.  By default
+only the GET, HEAD, and POST methods are allowed.  To enable more
+methods, change the ``ALLOWED_METHODS`` attribute of the config.  To
+disable method checking (i.e. pre-2.8 behavior), set ``ALLOWED_METHODS``
+to ``None``.
+
+
 Changes from 1.0 to 2.0
 -------------------------
 

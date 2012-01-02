@@ -118,6 +118,23 @@ class AccessError(PublishError):
                    "Access to the requested resource was not permitted.")
 
 
+class MethodNotAllowedError(PublishError):
+    status_code = 405
+    title = "Method not allowed"
+    description = ("The method specified in the request is not allowed for "
+                   "the resource identified by the URI.")
+
+    def __init__(self, allowed_methods):
+        self.allowed_methods = allowed_methods
+        self.public_msg = self.private_msg = None
+
+    def format(self):
+        import quixote
+        allowed_methods = ', '.join(self.allowed_methods)
+        quixote.get_response().set_header('Allow', allowed_methods)
+        return 'Allowed methods are: %s' % allowed_methods
+
+
 
 def format_publish_error(exc):
     """(exc : PublishError) -> string

@@ -55,6 +55,12 @@ COMPRESS_PAGES = False
 # since it doesn't work if sessions are not persistent across requests.
 FORM_TOKENS = False
 
+# A list of the HTTP request methods supported by the application.  Note that
+# Quixote's support for different request methods is relatively ad hoc at
+# the moment (i.e. it must be handled by application code).  If this
+# variable is set to None then any method is allowed.
+ALLOWED_METHODS = ['GET', 'HEAD', 'POST']
+
 # Session-related variables
 # =========================
 
@@ -122,6 +128,7 @@ class Config:
         'error_log',
         'compress_pages',
         'form_tokens',
+        'allowed_methods',
         'session_cookie_domain',
         'session_cookie_name',
         'session_cookie_path',
