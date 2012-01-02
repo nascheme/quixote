@@ -10,13 +10,12 @@ will be sent to the terminal.
 """
 
 from quixote.publish import Publisher
-from quixote.directory import Directory
+from quixote.directory import Directory, export
 
 class RootDirectory(Directory):
 
-    _q_exports = ['', 'hello']
-
-    def _q_index(self):
+    @export(name='')
+    def index(self):
         return '''<html>
                     <body>Welcome to the Quixote demo.  Here is a
                     <a href="hello">link</a>.
@@ -24,6 +23,7 @@ class RootDirectory(Directory):
                   </html>
                 '''
 
+    @export
     def hello(self):
         return '<html><body>Hello world!</body></html>'
 

@@ -1,6 +1,6 @@
 import sys
 from quixote import get_response, redirect
-from quixote.directory import Directory
+from quixote.directory import Directory, export
 from quixote.errors import TraversalError
 
 def fact(n):
@@ -12,14 +12,13 @@ def fact(n):
 
 class IntegerUI(Directory):
 
-    _q_exports = ["", "factorial", "prev", "next"]
-
     def __init__(self, component):
         try:
             self.n = int(component)
         except ValueError, exc:
             raise TraversalError(str(exc))
 
+    @export
     def factorial(self):
         if self.n > 10000:
             sys.stderr.write("warning: possible denial-of-service attack "
@@ -27,7 +26,8 @@ class IntegerUI(Directory):
         get_response().set_content_type("text/plain")
         return "%d! = %d\n" % (self.n, fact(self.n))
 
-    def _q_index(self):
+    @export(name='')
+    def index(self):
         return """\
         <html>
         <head><title>The Number %d</title></head>
@@ -54,8 +54,10 @@ class IntegerUI(Directory):
         </html>
         """ % (self.n, self.n, self.n, self.n-1, self.n+1)
 
+    @export
     def prev(self):
         return redirect("../%d/" % (self.n-1))
 
+    @export
     def next(self):
         return redirect("../%d/" % (self.n+1))

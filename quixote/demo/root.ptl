@@ -1,17 +1,18 @@
 """The root directory for the Quixote demo.
 """
+import time
 from quixote import get_response
-from quixote.directory import Directory
+from quixote.directory import Directory, export, subdir
 from quixote.errors import PublishError
 from quixote.util import dump_request
 from quixote.demo.extras import ExtraDirectory
 
 class RootDirectory(Directory):
 
-    _q_exports = ["", "simple", "plain", "error", "publish_error", "css",
-                  "dumpreq", "extras", ("favicon.ico", "favicon_ico")]
+    _q_exports = ['extras']
 
-    def _q_index [html] (self):
+    @export(name='')
+    def index [html] (self):
         print "debug message from the index page"
         """
         <html>
@@ -43,6 +44,8 @@ class RootDirectory(Directory):
                 Print out the contents of the HTTPRequest object.
             <li><a href="css">css</a>:
                 The stylesheet for this document.
+            <li><a href="dynamic/">dynamic/</a>:
+                A sub-directory object that gets created for each request.
             <li><a href="extras/">extras/</a>:
                 Demos of some of Quixote's more advanced features.
           </ul>
@@ -51,19 +54,24 @@ class RootDirectory(Directory):
         </html>
         """
 
+    @export
     def simple [html] (self):
         '<html><body>Hello!</body></html>'
 
+    @export
     def plain(self):
         get_response().set_content_type("text/plain")
         return "This is a plain text document."
 
+    @export
     def error(self):
         raise ValueError, "this is a Python exception"
 
+    @export
     def publish_error(self):
         raise PublishError("Publishing error raised by publish_error")
 
+    @export
     def dumpreq [html] (self):
         """
         <html>
@@ -77,18 +85,40 @@ class RootDirectory(Directory):
         </html>
         """
 
+    @export
     def css(self):
         get_response().set_content_type("text/css")
         # on a real site we would also set the expires header
         return 'body { border: thick solid green; padding: 2em; }'
 
+    @export(name='favicon.ico')
     def favicon_ico(self):
         response = get_response()
         response.set_content_type("image/x-icon")
         response.set_expires(days=1)
         return FAVICON
 
+    @subdir
+    def dynamic(self):
+        # created fresh for each request
+        return DynamicDirectory()
+
+    # We don't use the subdir() decorator here because we want to keep
+    # the ExtraDirectory() instance between requests (e.g. for efficiency).
+    # Note that we have to explicitly list 'extras' in _q_exports.
     extras = ExtraDirectory()
+
+
+class DynamicDirectory(Directory):
+
+    def __init__(self):
+        self.birthday = time.asctime()
+
+    @export(name='')
+    def index(self):
+        get_response().set_content_type("text/plain")
+        return "This little page was created on %s." % self.birthday
+
 
 
 FAVICON = """\
