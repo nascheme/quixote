@@ -1,6 +1,5 @@
 global-include *.py *.ptl
 include *.txt MANIFEST.in TODO
-include doc/*.txt doc/*.css doc/Makefile
-recursive-include doc *.html
+include doc/*.txt doc/*.css doc/*.html doc/Makefile
 include demo/*.cgi demo/*.conf demo/*.sh
 include src/*.c src/Makefile
