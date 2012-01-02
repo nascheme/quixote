@@ -3,10 +3,35 @@
 import quixote
 from quixote.errors import TraversalError
 
+class DirectoryClass(type):
+    """A meta-class for Directory.  It's purpose is to process methods
+    that are exported using the export() and subdir() decorators.
+    """
+
+    def __new__(meta, classname, bases, classdict):
+        if '_q_exports' not in classdict:
+            # make Directory subclasses always have a _q_exports attribute
+            exports = classdict['_q_exports'] = []
+        else:
+            exports = classdict['_q_exports']
+        for k, v in classdict.items():
+            if isinstance(v, property):
+                # might be a property from subdir(), get the original method
+                v = v.fget
+            if hasattr(v, '_q_name'):
+                if v._q_name == k:
+                    exports.append(k)
+                else:
+                    exports.append((v._q_name, k))
+        return type.__new__(meta, classname, bases, classdict)
+
+
 class Directory(object):
     """
     Instance attributes: none
     """
+
+    __metaclass__ = DirectoryClass
 
     # A list containing strings or 2-tuples of strings that map external
     # names to internal names.  Note that the empty string will be
@@ -107,3 +132,37 @@ class Resolving(object):
             obj = self._q_resolve(name)
             setattr(self, name, obj)
         return name
+
+
+def export(func=None, name=None):
+    """Export a function that generates a page.  If 'name' is not
+    provided then the name of the page defaults to the name of the
+    function (method).
+    """
+    def do_export(func):
+        if name is None:
+            func._q_name = func.func_name
+        else:
+            func._q_name = name
+        return func
+    if func is None:
+        return do_export
+    else:
+        return do_export(func)
+
+
+def subdir(func=None, name=None):
+    """Export a function that returns a sub-directory object.  If 'name'
+    is not provided then the name of the directory defaults to the name
+    of the function (method).
+    """
+    def do_export(func):
+        if name is None:
+            func._q_name = func.func_name
+        else:
+            func._q_name = name
+        return property(func)
+    if func is None:
+        return do_export
+    else:
+        return do_export(func)
