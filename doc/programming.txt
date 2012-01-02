@@ -100,7 +100,7 @@ it handles; we have split that line up here to make it easier to read::
 
     127.0.0.1 - 2001-10-15 09:48:43
       2504 "GET /catalog/ HTTP/1.1"
-      200 'Opera/6.0 (Linux; U)' 0.10sec
+      200 'Opera/6.0 (Linux; U)' 0.100s
 
 This line consists of:
 

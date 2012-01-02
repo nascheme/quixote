@@ -6,7 +6,7 @@ TXT_FILES = $(wildcard *.txt)
 HTML_FILES = $(filter-out LICENSE_24% CHANGES_24%,$(TXT_FILES:%.txt=%.html))
 
 RST2HTML = rst2html.py
-RST2HTML_OPTS = -o us-ascii
+RST2HTML_OPTS = -o us-ascii --link-stylesheet --stylesheet-path=default.css
 
 DEST_HOST = staging.mems-exchange.org
 DEST_DIR = /www/www-docroot/software/quixote/doc

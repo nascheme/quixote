@@ -4,7 +4,7 @@ Just overrides what I don't like about the standard docutils
 stylesheet.
 */
 
-@import url(/misc/docutils.css);
+@import url(docutils.css);
 
 pre.literal-block, pre.doctest-block {
   margin-left: 1em ;

@@ -10,103 +10,87 @@ quixote publisher to a web server, and you will ultimately want to
 choose the one that matches your needs. More information about the
 different server scripts may be found in the scripts themselves and in
 web-server.txt.  To start, though, the easiest way to view the demos
-is as follows: in a terminal window, run server/simple_server.py, and
-in a browser, open http://localhost:8080.
+is as follows: in a terminal window, run::
 
-The simple_server.py script prints a usage message if you run it with
-a '--help' command line argument.  You can run different demos by 
-using the '--factory' option to identify a callable that creates the
-publisher you want to use.  In particular, you might try these demos:
+    python -m quixote.server.simple_server
 
-  simple_server.py --factory quixote.demo.mini_demo.create_publisher
+and in a browser, open http://localhost:8080.  If you wish to run the
+demo on a remote computer, you will need to ask the server to listen
+on a public network interface.  Usually::
 
-or
+    python -m quixote.server.simple_server --host=0
 
-  simple_server.py --factory quixote.demo.altdemo.create_publisher
+In your browser, replace `localhost` with the name of the server.
+
+The simple_server.py script prints a usage message if you run it with a
+``--help`` command line argument.  You can run different Quixote
+applications by using the ``--factory`` option to identify a callable
+that creates the publisher you want to use.  In particular, you might
+try these demos::
+
+  python -m quixote.server.simple_server \
+    --factory quixote.demo.mini_demo.create_publisher
+
+or::
+
+  python -m quixote.server.simple_server \
+    --factory quixote.demo.altdemo.create_publisher
 
 
 
 Understanding the mini_demo
 ---------------------------
 
-Start the mini demo by running the command:
-  simple_server.py --factory quixote.demo.mini_demo.create_publisher
+Start the mini demo by running the command::
+
+  python -m quixote.server.simple_server \
+    --factory quixote.demo.mini_demo.create_publisher
 
 In a browser, load http://localhost:8080.  In your browser, you should
-see "Welcome ..." page.  In your terminal window, you will see a
-"localhost - - ..." line for each request.  These are access log
+see ``Welcome ...`` page.  In your terminal window, you will see a
+``localhost - - ...`` line for each request.  These are access log
 messages from the web server.
 
-Look at the source code in demo/mini_demo.py.  Near the bottom you
+Look at the source code in `demo/mini_demo.py`.  Near the bottom you
 will find the create_publisher() function.  The create_publisher()
 function creates a Publisher instance whose root directory is an
-instance of the RootDirectory class defined just above.  When a
-request arrives, the Publisher calls the _q_traverse() method on the
-root directory.  In this case, the RootDirectory is using the standard
-_q_traverse() implementation, inherited from Directory.
+instance of the RootDirectory class defined just above.  Each Quixote
+application has one Publisher instance.  When a request arrives, the
+Publisher traverses the path of the URL, using the RootDirectory object.
 
-Look, preferably in another window, at the source code for
-_q_traverse() in directory.py.  The path argument provided to
-_q_traverse() is a list of string components of the path part of the
-URL, obtained by splitting the request location at each '/' and
-dropping the first element (which is always '') For example, if the
-path part of the URL is '/', the path argument to _q_traverse() is
-[''].  If the path part of the URL is '/a', the path argument to
-_q_traverse() is ['a'].  If the path part of the URL is '/a/', the
-path argument to _q_traverse() is ['a', ''].
+For the URL http://localhost:8080, Quixote traverses the path list::
 
-Looking at the code of _q_traverse(), observe that it starts by
-splitting off the first component of the path and calling
-_q_translate() to see if there is a designated attribute name
-corresponding to this component.  For the '/' page, the component is
-'', and _q_translate() returns the attribute name '_q_index'.  The
-_q_traverse() function goes on to lookup the _q_index method and
-return the result of calling it.
+    ['']
 
-Looking back at mini_demo.py, you can see that the RootDirectory class
-includes a _q_index() method, and this method does return the HTML for
-http://localhost:8080/
+This path results in the function exported using the empty string as
+its name being called.  The return value is send back to the browser,
+after adding some basic HTTP headers.
 
-As mentioned above, the _q_translate() identifies a "designated"
-attribute name for a given component.  The default implementation uses
-self._q_exports to define this designation.  In particular, if the
-component is in self._q_exports, then it is returned as the attribute
-name, except in the special case of '', which is translated to the
-special attribute name '_q_index'.
+To prevent potentially sensitive internal parts of your application are
+not exposed as callable URLs, Quixote requires that each Directory
+component must be explictly exported.  Internally this is done using the
+_q_exports attribute of Directory objects.  For convenience, a decorator
+function called 'export' is made available which takes care of updating
+the _q_exports list.
 
-When you click on the link on the top page, you get
-http://localhost:8080/hello.  In this case, the path argument to the
-_q_traverse() call is ['hello'], and the return value is the result of
-calling the hello() method.
+The 'export' decorator takes a single, optional keyword argument 'name'.
+If not provided, the exported name defaults to the name of the function.
 
-Feeling bold?  (Just kidding, this won't hurt at all.)  Try opening
-http://localhost:8080/bogus.  This is what happens when _q_traverse()
-raises a TraversalError.  A TraversalError is no big deal, but how
-does quixote handle more exceptional exceptions?  To see, you can
-introduce one by editing mini_demo.py.  Try inserting the line "raise
-'ouch'" into the hello() method.  Kill the demo server (Control-c) and
-start a new one with the same command as before.  Now load the
-http://localhost:8080/hello page.  You should see a plain text python
-traceback followed by some information extracted from the HTTP
-request.  This information is always printed to the error log on an
-exception.  Here, it is also displayed in the browser because the
-create_publisher() function made a publisher using the 'plain' value
-for the display_exceptions keyword argument.  If you omit that keyword
-argument from the Publisher constructor, the browser will get an
-"Internal Server Error" message instead of the full traceback.  If you
-provide the value 'html', the browser displays a prettier version of
-the traceback.
+The mini demo contains only a single page besides the root page.  The
+URL is http://localhost:8080/hello.  Quixote traverses the path list::
 
-One more thing to try here.  Replace your 'raise "ouch"' line in the hello() method with 'print "ouch"'.  If you restart the server and load the /hello page,
-you will see that print statements go the the error log (in this case, your
-terminal window).  This can be useful.
+    ['hello']
+
+and finds the ``hello`` method of the ``RootDirectory`` object.  It
+calls the method and returns the result as page.
 
 
 Understanding the root demo
 ---------------------------
 
-Start the root demo by running the command:
-  simple_server.py --factory quixote.demo.create_publisher
+Start the root demo by running the command::
+
+  python -m quixote.server.simple_server
 
 In a browser, open http://localhost:8080 as before.
 Click around at will.
@@ -124,35 +108,27 @@ Take a look at the source code in root.ptl.  You will see code that
 looks like regular python, except that some function definitions have
 "[html]" between the function name and the parameter list.  These
 functions are ptl templates.  For details about PTL, see the PTL.txt
-file.  
+file.
 
 This RootDirectory class is similar to the one in mini_demo.py, in
-that it has a _q_index() method and '' appears in the _q_exports list.
-One new feature here is the presence of a tuple in the _q_exports
-list.  Most of the time, the elements of the _q_exports lists are just
-strings that name attributes that should be available as URL
-components.  This pattern does not work, however, when the particular
-URL component you want to use includes characters (like '.') that
-can't appear in Python attribute names.  To work around these cases,
-the _q_exports list may contain tuples such as ("favicon.ico",
-"favicon_ico") to designate "favicon_ico" as the attribute name
-corresponding the the "favicon.ico" URL component.
+that it has a index() method and it is exported with the name '' (i.e.
+the empty string).
 
 Looking at the RootDirectoryMethods, including plain(), css() and
-favon_ico(), you will see examples where, in addition to returning a
+favicon_ico(), you will see examples where, in addition to returning a
 string containing the body of the HTTP response, the function also
 makes side-effect modifications to the response object itself, to set
 the content type and the expiration time for the response.
-Most of the time, these direct modifications to the response are 
-not needed.  When they are, though, the get_response() function 
+Most of the time, these direct modifications to the response are
+not needed.  When they are, though, the get_response() function
 gives you direct access to the response instance.
 
 The RootDirectory here also sets an 'extras' attribute to be an
 instance of ExtraDirectory, imported from the quixote.demo.extras
-module.  Note that 'extras' also appears in the _q_exports list.  This
-is the ordinary way to extend your URL space through another '/'.
-For example, the URL path '/extras/' will result in a call to
-the ExtraDirectory instance's _q_index() method.
+module.  Note that 'extras' explicitly appears in the _q_exports list.
+This is the ordinary way to extend your URL space through another '/'.
+For example, the URL path '/extras/' will result in a call to the
+ExtraDirectory instance's index() method.
 
 The _q_lookup() method
 ----------------------
@@ -167,7 +143,7 @@ calling self._q_lookup() to see if the object of interest can be found
 in a different way.  Note that _q_lookup() takes the component as an
 argument and must return either (if there is more path to traverse) a
 Directory instance, or else (if the component is the last in the path)
-a callable or a string.  
+a callable or a string.
 
 In this particular case, the ExtrasDirectory._q_lookup() call returns
 an instance of IntegerUI (a subclass of Directory).  The interest
@@ -176,7 +152,7 @@ on-the-fly during the traversal, especially for this particular
 component.  Try loading http://localhost:8080/extras/12/ to see how
 this behaves.
 
-Note that the correct URL to get to the IntegerUI(12)._q_index() call
+Note that the correct URL to get to the IntegerUI(12).index() call
 ends with a '/'.  This can sometimes be confusing to people who expect
 http://localhost:8080/extras/12 to yield the same page as
 http://localhost:8080/extras/12/.  If given the path ['extras', '12'],
@@ -216,4 +192,4 @@ Forms
 You can't get very far writing web applications without writing forms.
 The root demo includes, at http://localhost:8080/extras/form, a page
 that demonstrates basic usage of the Form class and widgets defined in
-the quixote.form package.  
+the quixote.form package.
