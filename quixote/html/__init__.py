@@ -37,6 +37,7 @@ the copyright character.  XML processors should treat it as an invalid entity
 reference.
 """
 
+import re
 import urllib
 
 try:
@@ -111,11 +112,11 @@ def use_qpy():
     """
     import qpy
     from qpy_templateio import qpy_TemplateIO
-    
+
     global _saved, htmltext, stringify, htmlescape, TemplateIO
     if not _saved:
         _saved = (htmltext, stringify, htmlescape, TemplateIO)
-        
+
         htmltext = qpy.h8
         stringify = qpy.stringify
         htmlescape = qpy.h8.quote
@@ -123,7 +124,20 @@ def use_qpy():
 
 def cleanup_qpy():
     global _saved, htmltext, stringify, htmlescape, TemplateIO
-    
+
     (htmltext, stringify, htmlescape, TemplateIO) = _saved
     _saved = None
-    
+
+
+_ETAGO_PAT = re.compile(r'</')
+
+def js_escape(s):
+    """Escape Javascript code to be embedded in HTML.
+
+    When embedding Javascript code inside a <script> tag, the ETAGO
+    (i.e. the two character sequence "</") must be escaped to avoid
+    premature ending of the script element.
+    """
+    # assume the sequence occurs inside a string, use backslash escape
+    s = stringify(s)
+    return htmltext(_ETAGO_PAT.sub(r'<\/', s))
