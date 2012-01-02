@@ -411,7 +411,7 @@ class HTTPResponse:
             headers.append(("Date", formatdate(now)))
 
         # Cache directives
-        if self.cache is None:
+        if self.cache is None or self.headers.has_key("expires"):
             pass # don't mess with the expires or cache control header
         else:
             # We add both an Expires header and a Cache-Control header
