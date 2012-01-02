@@ -231,6 +231,9 @@ class Form(object):
     def add(self, widget_class, name, *args, **kwargs):
         if name in self._names:
             raise ValueError, "form already has '%s' widget" % name
+        # add 'id' attribute if not already present
+        if 'id' not in kwargs:
+            kwargs['id'] = name
         widget = widget_class(name, *args, **kwargs)
         self._names[name] = widget
         if isinstance(widget, SubmitWidget):
