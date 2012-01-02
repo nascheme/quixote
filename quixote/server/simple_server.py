@@ -71,9 +71,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         """
         Copied, with regret, from BaseHTTPRequestHandler, except that the line
         that adds the 'Date' header is removed to avoid duplicating the one
-        that Quixote adds.
+        that Quixote adds and the log_request() call has been removed.
         """
-        self.log_request(code)
         if message is None:
             if code in self.responses:
                 message = self.responses[code][0]
@@ -97,6 +96,8 @@ def run(create_publisher, host='', port=80, https=False):
             raise
     httpd.handle_error = handle_error
     publisher = create_publisher()
+    if publisher.logger.access_log is None:
+        publisher.logger.access_log = sys.stdout
     try:
         httpd.serve_forever()
     finally:
