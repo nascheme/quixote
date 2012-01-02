@@ -234,6 +234,7 @@ class Form(object):
         # add 'id' attribute if not already present
         if 'id' not in kwargs:
             kwargs['id'] = name
+        kwargs['form'] = self
         widget = widget_class(name, *args, **kwargs)
         self._names[name] = widget
         if isinstance(widget, SubmitWidget):

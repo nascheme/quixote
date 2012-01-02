@@ -52,6 +52,7 @@ class Widget(object):
       required : bool
       attrs : {string: any}
       _parsed : bool
+      _form : Form
 
     Feel free to access these directly; to set them, use the 'set_*()'
     modifier methods.
@@ -60,7 +61,7 @@ class Widget(object):
     REQUIRED_ERROR = 'required'
 
     def __init__(self, name, value=None, title="", hint="", required=False,
-                 render_br=True, attrs=None, **kwattrs):
+                 render_br=True, form=None, attrs=None, **kwattrs):
         assert self.__class__ is not Widget, "abstract class"
         self.name = name
         self.value = value
@@ -70,6 +71,7 @@ class Widget(object):
         self.required = required
         self.render_br = render_br
         self.attrs = merge_attrs(attrs, kwattrs)
+        self._form = form
         self._parsed = False
 
     def __repr__(self):
@@ -120,7 +122,15 @@ class Widget(object):
             self._parsed = True
             if request is None:
                 request = get_request()
-            if request.form or request.get_method() == 'POST':
+            if self._form is not None:
+                # use the form to determine if form data was submitted.  It
+                # is possible that there is a query string, the request method
+                # is GET and the form method is POST.  In that case the form
+                # should not be considered submitted.
+                submitted = self._form.is_submitted()
+            else:
+                submitted = request.form or request.get_method() == 'POST'
+            if submitted:
                 try:
                     self._parse(request)
                 except WidgetValueError, exc:
