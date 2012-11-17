@@ -4,16 +4,13 @@ import quixote
 from quixote.errors import TraversalError
 
 class DirectoryClass(type):
-    """A meta-class for Directory.  It's purpose is to process methods
+    """A meta-class for Directory.  Its purpose is to process methods
     that are exported using the export() and subdir() decorators.
     """
 
     def __new__(meta, classname, bases, classdict):
-        if '_q_exports' not in classdict:
-            # make Directory subclasses always have a _q_exports attribute
-            exports = classdict['_q_exports'] = []
-        else:
-            exports = classdict['_q_exports']
+        cls = type.__new__(meta, classname, bases, classdict)
+        exports = []
         for k, v in classdict.items():
             if isinstance(v, property):
                 # might be a property from subdir(), get the original method
@@ -23,7 +20,12 @@ class DirectoryClass(type):
                     exports.append(k)
                 else:
                     exports.append((v._q_name, k))
-        return type.__new__(meta, classname, bases, classdict)
+        if exports:
+            # Only monkey with _q_exports if names are exported using the
+            # decorators.
+            exports += getattr(cls, '_q_exports', [])
+            cls._q_exports = exports
+        return cls
 
 
 class Directory(object):
