@@ -3,8 +3,7 @@
 """
 
 import urllib
-from twisted.protocols import http
-from twisted.web import server
+from twisted.web import http, server
 from twisted.python import threadable
 from twisted.internet import reactor
 
@@ -53,7 +52,7 @@ class QuixoteRequest(server.Request):
                "SERVER_NAME":       serverName,
                "GATEWAY_INTERFACE": "CGI/1.1",
                "SERVER_PROTOCOL":   self.clientproto,
-               "SERVER_PORT":       str(self.getHost()[2]),
+               "SERVER_PORT":       str(self.getHost().port),
                "REQUEST_METHOD":    self.method,
                "SCRIPT_NAME":       '',
                "SCRIPT_FILENAME":   '',
@@ -77,7 +76,7 @@ class QuixoteRequest(server.Request):
         ip = self.getClientIP()
         if ip is not None:
             env['REMOTE_ADDR'] = ip
-        _, _, remote_port = self.transport.getPeer()
+        remote_port = self.transport.getPeer().port
         env['REMOTE_PORT'] = remote_port
         env["PATH_INFO"] = self.path
 
