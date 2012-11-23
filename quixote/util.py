@@ -182,7 +182,10 @@ class StaticFile:
             # to contact the server
             response.set_expires(seconds=self.cache_time)
 
-        stat = os.stat(self.path)
+        try:
+            stat = os.stat(self.path)
+        except OSError:
+            raise errors.TraversalError
         last_modified = formatdate(stat.st_mtime)
         if last_modified == request.get_header('If-Modified-Since'):
             # handle exact match of If-Modified-Since header
