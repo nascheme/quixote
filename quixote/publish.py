@@ -296,7 +296,24 @@ def get_response():
     return _publisher.get_request().response
 
 def get_field(name, default=None):
+    '''Return the query parameter or form field named 'name'.  If
+    it doesn't exist then return 'default'.  If a query parameter
+    is appears multiple times, a list of values is returned.
+    '''
     return _publisher.get_request().get_field(name, default)
+
+def get_param(name, default=None):
+    '''Return the query parameter or form field named 'name'.  If
+    it doesn't exist then return 'default'.  If a query parameter
+    is appears multiple times, return the last value specified.
+    '''
+    value = _publisher.get_request().get_field(name, default)
+    if isinstance(value, list):
+        if value:
+            return value[-1]
+        else:
+            return default
+    return value
 
 def get_cookie(name, default=None):
     return _publisher.get_request().get_cookie(name, default)
