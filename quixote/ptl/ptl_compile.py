@@ -126,6 +126,7 @@ class TemplateTransformer(transformer.Transformer):
 
             # wrap original function code
             code = ast.Stmt([assign, code, ret])
+            code.lineno = lineno
 
             if sys.hexversion >= 0x20400a2:
                 n = ast.Function(decorators, name, names, defaults, flags, doc,
