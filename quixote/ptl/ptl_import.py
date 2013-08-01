@@ -42,7 +42,7 @@ def _timestamp(filename):
         s = os.stat(filename)
     except OSError:
         return None
-    return s.st_mtime
+    return int(s.st_mtime) & 0xffffffff
 
 def _load_pyc(name, filename, pyc_filename):
     try:
@@ -52,7 +52,7 @@ def _load_pyc(name, filename, pyc_filename):
     if fp.read(4) == imp.get_magic():
         mtime = struct.unpack('<I', fp.read(4))[0]
         ptl_mtime = _timestamp(filename)
-        if ptl_mtime is not None and mtime >= ptl_mtime:
+        if ptl_mtime is not None and mtime == ptl_mtime:
             code = marshal.load(fp)
             return _exec_module_code(code, name, filename)
     return None
