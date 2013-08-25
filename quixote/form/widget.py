@@ -497,6 +497,7 @@ class RadiobuttonsWidget(SingleSelectWidget):
             self.delim = "\n"
         else:
             self.delim = delim
+        self.attrs = merge_attrs(self.attrs, {'id': None})
 
     def render_content(self):
         tags = []
