@@ -5,6 +5,13 @@ This document lists backward-incompatible changes in Quixote, and
 explains how to update application code to work with the newer
 version.
 
+Changes from 2.8 to 2.9
+-----------------------
+
+util.randbytes() returns a URL-safe base64 encoded token rather than
+a hex encoded token.  The session module now uses 128-bit random tokens
+rather than 64-bit.
+
 Changes from 2.7 to 2.8
 -----------------------
 
