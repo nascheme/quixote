@@ -243,7 +243,7 @@ class SessionManager:
         # used with the session manager mapping interface.)
         id = None
         while id is None or self.has_session(id):
-            id = randbytes(8)  # 64-bit random number
+            id = randbytes(16)  # 128-bit random number
         return id
 
     def _create_session(self):
@@ -552,7 +552,7 @@ class Session:
         tokens for this session.  A maximum of MAX_FORM_TOKENS are saved.
         The new token is returned.
         """
-        token = randbytes(8)
+        token = randbytes(16)
         self._form_tokens.append(token)
         extra = len(self._form_tokens) - self.MAX_FORM_TOKENS
         if extra > 0:
