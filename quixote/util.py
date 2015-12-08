@@ -27,22 +27,28 @@ from quixote.directory import Directory
 from quixote.html import htmltext, TemplateIO
 from quixote.http_response import Stream
 
+def _encode_base64(s):
+    s = binascii.b2a_base64(s).strip('=\n')
+    s = s.replace('+', '-').replace('/', '_') # URL safe
+    return s
+
 if hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
     def randbytes(bytes):
-        """Return bits of random data as a hex string."""
-        return binascii.hexlify(os.urandom(bytes))
+        """Return bytes of random data as a text string."""
+        return _encode_base64(os.urandom(bytes))
 
 elif os.path.exists('/dev/urandom'):
     # /dev/urandom is just as good as /dev/random for cookies (assuming
     # SHA-1 is secure) and it never blocks.
     def randbytes(bytes):
-        """Return bits of random data as a hex string."""
-        return binascii.hexlify(open("/dev/urandom").read(bytes))
+        """Return bytes of random data as a text string."""
+        return _encode_base64(open("/dev/urandom").read(bytes))
 
 else:
     # this is much less secure than the above function
     import sha
+    import warnings
     class _PRNG:
         def __init__(self):
             self.state = sha.new(str(time.time() + time.clock()))
@@ -52,15 +58,15 @@ else:
             self.state.update('%s %d' % (time.time() + time.clock(),
                                          self.count))
             self.count += 1
-            return self.state.hexdigest()
+            return self.state.digest()
 
         def randbytes(self, bytes):
-            """Return bits of random data as a hex string."""
+            """Return bytes of random data as a text string."""
+            warnings.warn('insecure randbytes(), os.urandom() missing')
             s = ""
-            chars = 2*bytes
-            while len(s) < chars:
+            while len(s) < bytes:
                 s += self._get_bytes()
-            return s[:chars]
+            return _encode_base64(s[:bytes])
 
     randbytes = _PRNG().randbytes
 
