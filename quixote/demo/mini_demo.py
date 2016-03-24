@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 A minimal Quixote demo.  If you have the 'quixote' package in your Python
 path, you can run it like this:
@@ -35,5 +35,5 @@ def create_publisher():
 
 if __name__ == '__main__':
     from quixote.server.simple_server import run
-    print 'creating demo listening on http://localhost:8080/'
+    print('creating demo listening on http://localhost:8080/')
     run(create_publisher, host='localhost', port=8080)

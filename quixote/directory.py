@@ -28,12 +28,10 @@ class DirectoryClass(type):
         return cls
 
 
-class Directory(object):
+class Directory(object, metaclass=DirectoryClass):
     """
     Instance attributes: none
     """
-
-    __metaclass__ = DirectoryClass
 
     # A list containing strings or 2-tuples of strings that map external
     # names to internal names.  Note that the empty string will be
@@ -99,7 +97,7 @@ class Directory(object):
         if "" in self._q_exports and not quixote.get_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
-            print "Adding slash to: %r " % path
+            print("Adding slash to: %r " % path)
             return quixote.redirect(path + "/", permanent=True)
         else:
             raise TraversalError(private_msg=('directory %r is not '
@@ -143,7 +141,7 @@ def export(func=None, name=None):
     """
     def do_export(func):
         if name is None:
-            func._q_name = func.func_name
+            func._q_name = func.__name__
         else:
             func._q_name = name
         return func
@@ -160,7 +158,7 @@ def subdir(func=None, name=None):
     """
     def do_export(func):
         if name is None:
-            func._q_name = func.func_name
+            func._q_name = func.__name__
         else:
             func._q_name = name
         return property(func)

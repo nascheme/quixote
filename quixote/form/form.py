@@ -88,7 +88,7 @@ class Form(object):
 
         if enctype is not None and enctype not in (
             "application/x-www-form-urlencoded", "multipart/form-data"):
-            raise ValueError, ("Form enctype must be "
+            raise ValueError("Form enctype must be "
                                "'application/x-www-form-urlencoded' or "
                                "'multipart/form-data', not %r" % enctype)
         self.enctype = enctype
@@ -117,14 +117,11 @@ class Form(object):
         try:
             return self._names[name].parse()
         except KeyError:
-            raise KeyError, 'no widget named %r' % name
-
-    def has_key(self, name):
-        """Return true if the widget named 'name' is in the form."""
-        return name in self._names
+            raise KeyError('no widget named %r' % name)
 
     def __contains__(self, name):
-        return self.has_key(name)
+        """Return true if the widget named 'name' is in the form."""
+        return name in self._names
 
     def get(self, name, default=None):
         """(name:string, default=None) -> any
@@ -156,7 +153,7 @@ class Form(object):
         does not include sub-widgets (e.g. widgets that are part of
         CompositeWidgets)
         """
-        return self._names.values()
+        return list(self._names.values())
 
     # -- Form processing and error checking ----------------------------
 
@@ -223,14 +220,14 @@ class Form(object):
         """
         widget = self._names.get(name)
         if not widget:
-            raise KeyError, "unknown name %r" % name
+            raise KeyError("unknown name %r" % name)
         widget.set_error(error)
 
     # -- Form population methods ---------------------------------------
 
     def add(self, widget_class, name, *args, **kwargs):
         if name in self._names:
-            raise ValueError, "form already has '%s' widget" % name
+            raise ValueError("form already has '%s' widget" % name)
         # add 'id' attribute if not already present
         if 'id' not in kwargs:
             kwargs['id'] = name
@@ -348,8 +345,7 @@ class Form(object):
         sorted by code_id.
         """
         form_code = []
-        code_ids = javascript_code.keys()
-        code_ids.sort()
+        code_ids = sorted(javascript_code.keys())
         for code_id in code_ids:
             code = javascript_code[code_id]
             if code:

@@ -92,7 +92,9 @@ def parse_query(qs, charset):
     Parse a query given as a string argument and return a dictionary.
     """
     fields = {}
-    for chunk in filter(None, qs.split('&')):
+    for chunk in qs.split('&'):
+        if not chunk:
+            continue
         if '=' not in chunk:
             name = chunk
             value = ''
@@ -309,7 +311,7 @@ class HTTPRequest:
         return self.environ.get('REQUEST_METHOD', 'GET')
 
     def formiter(self):
-        return self.form.iteritems()
+        return self.form.items()
 
     def get_scheme(self):
         return self.scheme
@@ -370,7 +372,7 @@ class HTTPRequest:
         else:
             path_comps = path.split('/')
             if abs(n) > len(path_comps)-1:
-                raise ValueError, "n=%d too big for path '%s'" % (n, path)
+                raise ValueError("n=%d too big for path '%s'" % (n, path))
             if n > 0:
                 return '/'.join(path_comps[:-n])
             elif n < 0:
@@ -471,21 +473,18 @@ class HTTPRequest:
         row='%-15s %s'
 
         result.append("Form:")
-        L = self.form.items() ; L.sort()
-        for k,v in L:
+        for k, v in sorted(self.form.items()):
             result.append(row % (k,v))
 
         result.append("")
         result.append("Cookies:")
-        L = self.cookies.items() ; L.sort()
-        for k,v in L:
+        for k, v in sorted(self.cookies.items()):
             result.append(row % (k,v))
 
 
         result.append("")
         result.append("Environment:")
-        L = self.environ.items() ; L.sort()
-        for k,v in L:
+        for k, v in sorted(self.environ.items()):
             result.append(row % (k,v))
         return "\n".join(result)
 

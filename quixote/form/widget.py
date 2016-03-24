@@ -133,7 +133,7 @@ class Widget(object):
             if submitted:
                 try:
                     self._parse(request)
-                except WidgetValueError, exc:
+                except WidgetValueError as exc:
                     self.set_error(stringify(exc))
                 if (self.required and self.value is None and
                     not self.has_error()):
@@ -143,7 +143,7 @@ class Widget(object):
     def _parse(self, request):
         # subclasses may override but this is not part of the public API
         value = request.form.get(self.name)
-        if isinstance(value, basestring) and value.strip():
+        if isinstance(value, str) and value.strip():
             self.value = value
         else:
             self.value = None
@@ -311,7 +311,7 @@ class SelectWidget(Widget):
         if not options:
             # The HTML and XHTML specifications require select elements to
             # contain at least one option.
-            raise ValueError, "a non-empty list of 'options' is required"
+            raise ValueError("a non-empty list of 'options' is required")
         else:
             self.set_options(options, sort)
         self.verify_selection = verify_selection
@@ -350,10 +350,10 @@ class SelectWidget(Widget):
             return keys
         # can't use OIDs, try using descriptions
         used_keys = {}
-        keys = map(stringify, descriptions)
+        keys = list(map(stringify, descriptions))
         for key in keys:
             if key in used_keys:
-                raise ValueError, "duplicated descriptions (provide keys)"
+                raise ValueError("duplicated descriptions (provide keys)")
             used_keys[key] = 1
         return keys
 
@@ -391,14 +391,14 @@ class SelectWidget(Widget):
                         descriptions.append(description)
                         keys.append(stringify(key))
                 else:
-                    raise ValueError, 'invalid options %r' % options
+                    raise ValueError('invalid options %r' % options)
             else:
                 values = descriptions = options
 
             if not keys:
                 keys = self._generate_keys(values, descriptions)
 
-            options = zip(values, descriptions, keys)
+            options = list(zip(values, descriptions, keys))
 
             if sort:
                 def make_sort_key(option):
@@ -407,8 +407,7 @@ class SelectWidget(Widget):
                         return ('', option)
                     else:
                         return (stringify(description).lower(), option)
-                doptions = map(make_sort_key, options)
-                doptions.sort()
+                doptions = sorted(map(make_sort_key, options))
                 options = [item[1] for item in doptions]
         self.options = options
 
@@ -439,7 +438,7 @@ class SelectWidget(Widget):
             self.set_options(allowed_values, sort)
         else:
             assert len(descriptions) == len(allowed_values)
-            self.set_options(zip(allowed_values, descriptions), sort)
+            self.set_options(list(zip(allowed_values, descriptions)), sort)
 
     def is_selected(self, value):
         return value == self.value
@@ -613,7 +612,7 @@ class HiddenWidget(Widget):
 
     def set_error(self, error):
         if error is not None:
-            raise TypeError, 'error not allowed on hidden widgets'
+            raise TypeError('error not allowed on hidden widgets')
 
     def render_content(self):
         if self.value is None:
@@ -769,7 +768,7 @@ class CompositeWidget(Widget):
 
     def add(self, widget_class, name, *args, **kwargs):
         if name in self._names:
-            raise ValueError, 'the name %r is already used' % name
+            raise ValueError('the name %r is already used' % name)
         if self.attrs.get('disabled') and 'disabled' not in kwargs:
             kwargs['disabled'] = True
         widget = widget_class(subname(self.name, name), *args, **kwargs)
@@ -805,7 +804,7 @@ class WidgetList(CompositeWidget):
         assert type(element_kwargs) is dict, (
             "value '%s' element_kwargs not a dict: "
             "got %r" % (name, element_kwargs))
-        assert isinstance(add_element_label, (basestring, htmltext)), (
+        assert isinstance(add_element_label, (str, htmltext)), (
             "value '%s'add_element_label not a string: "
             "got %r" % (name, add_element_label))
 
@@ -899,7 +898,7 @@ class WidgetDict(CompositeWidget):
         assert type(element_value_kwargs) is dict, (
             "value '%s' element_value_kwargs not a dict: "
             "got %r" % (name, element_value_kwargs))
-        assert isinstance(add_element_label, (basestring, htmltext)), (
+        assert isinstance(add_element_label, (str, htmltext)), (
             'value %r element_name not a string: '
             'got %r' % (name, add_element_label))
 

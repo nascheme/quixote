@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """An HTTP server for Twisted that publishes a Quixote application.
 """
 

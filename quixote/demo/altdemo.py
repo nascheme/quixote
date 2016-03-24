@@ -1,3 +1,5 @@
++#!/usr/bin/env python3
++
 """An alternative Quixote demo.  This version is contained in a single module
 and does not use PTL.  The easiest way to run this demo is to use the
 simple HTTP server included with Quixote.  For example:
@@ -54,9 +56,8 @@ class RootDirectory(Directory):
             content += htmltext(
                 '<p>Hello, %s.</p>') % get_user()
             content += htmltext('<p>%s</p>' % href('logout', 'logout'))
-        sessions = get_session_manager().items()
+        sessions = sorted(get_session_manager().items())
         if sessions:
-            sessions.sort()
             content += htmltext('<table><tr>'
                                 '<th></th>'
                                 '<th>Session</th>'
@@ -177,17 +178,17 @@ try:
                                     session_class=PersistentSession,
                                     session_mapping=sessions)
         def forget_changes(self, session):
-            print 'abort changes', get_session()
+            print('abort changes', get_session())
             connection.abort()
 
         def commit_changes(self, session):
-            print 'commit changes', get_session()
+            print('commit changes', get_session())
             connection.commit()
 
     def create_durus_publisher():
         global connection
         filename = os.path.join(tempfile.gettempdir(), 'quixote-demo.durus')
-        print 'Opening %r as a Durus database.' % filename
+        print('Opening %r as a Durus database.' % filename)
         connection = Connection(FileStorage(filename))
         root = connection.get_root()
         session_manager = root.get('session_manager', None)

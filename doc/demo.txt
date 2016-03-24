@@ -12,7 +12,7 @@ different server scripts may be found in the scripts themselves and in
 web-server.txt.  To start, though, the easiest way to view the demos
 is as follows: in a terminal window, run::
 
-    python -m quixote.server.simple_server
+    python3 -m quixote.server.simple_server
 
 and in a browser, open http://localhost:8080.  If you wish to run the
 demo on a remote computer, you will need to ask the server to listen

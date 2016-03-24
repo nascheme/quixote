@@ -33,7 +33,7 @@
 #------------------------------------------------------------------------
 
 import  os, sys, string, socket, errno, struct
-from    StringIO   import StringIO
+from    io   import StringIO
 import  cgi
 
 #---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class record:
 
 #---------------------------------------------------------------------------
 
-_lowbits = ~(1L << 31) # everything but the 31st bit
+_lowbits = ~(1 << 31) # everything but the 31st bit
 
 def readPair(s, pos):
     nameLen = ord(s[pos]) ; pos = pos+1
@@ -174,7 +174,7 @@ def readPair(s, pos):
 
 #---------------------------------------------------------------------------
 
-_highbit = (1L << 31)
+_highbit = (1 << 31)
 
 def writePair(name, value):
     l = len(name)
@@ -236,7 +236,7 @@ class FCGI:
 
         if 'FCGI_WEB_SERVER_ADDRS' in os.environ:
             good_addrs = string.split(os.environ['FCGI_WEB_SERVER_ADDRS'], ',')
-            good_addrs = map(string.strip, good_addrs)        # Remove whitespace
+            good_addrs = list(map(string.strip, good_addrs))        # Remove whitespace
         else:
             good_addrs = None
 
@@ -248,7 +248,7 @@ class FCGI:
 
         # Check if the connection is from a legal address
         if good_addrs != None and addr not in good_addrs:
-            raise error, 'Connection from invalid server!'
+            raise error('Connection from invalid server!')
 
         while remaining:
             r = record()
@@ -388,7 +388,8 @@ def _startup():
         s = socket.fromfd(sys.stdin.fileno(), socket.AF_INET,
                           socket.SOCK_STREAM)
         s.getpeername()
-    except socket.error, (err, errmsg):
+    except socket.error as xxx_todo_changeme:
+        (err, errmsg) = xxx_todo_changeme.args
         if err != errno.ENOTCONN:       # must be a non-fastCGI environment
             _isFCGI = 0
             return
@@ -419,8 +420,7 @@ def _test():
                 if 'CONTENT_LENGTH' in req.env:
                     cl = string.atoi(req.env['CONTENT_LENGTH'])
                     doc.append('<br><b>POST data (%s):</b><br><pre>' % cl)
-                    keys = fs.keys()
-                    keys.sort()
+                    keys = sorted(fs.keys())
                     for k in keys:
                         val = fs[k]
                         if type(val) == type([]):
@@ -433,8 +433,7 @@ def _test():
 
 
                 doc.append('<P><HR><P><pre>')
-                keys = req.env.keys()
-                keys.sort()
+                keys = sorted(req.env.keys())
                 for k in keys:
                     doc.append('<b>%-20s :</b>  %s\n' % (k, req.env[k]))
                 doc.append('\n</pre><P><HR>\n')

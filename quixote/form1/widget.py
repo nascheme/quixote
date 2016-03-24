@@ -99,7 +99,7 @@ class Widget:
         from quixote.form.form import get_widget_class
         klass = get_widget_class(widget_type)
         name = self.get_subwidget_name(widget_name)
-        return apply(klass, (name, value), args)
+        return klass(*(name, value), **args)
 
 # class Widget
 
@@ -325,10 +325,10 @@ class SelectWidget (Widget):
             return keys
         # can't use OIDs, try using descriptions
         used_keys = {}
-        keys = map(str, descriptions)
+        keys = list(map(str, descriptions))
         for key in keys:
             if key in used_keys:
-                raise ValueError, "duplicated descriptions (provide keys)"
+                raise ValueError("duplicated descriptions (provide keys)")
             used_keys[key] = 1
         return keys
 
@@ -367,14 +367,14 @@ class SelectWidget (Widget):
                         descriptions.append(description)
                         keys.append(str(key))
                 else:
-                    raise ValueError, 'invalid options %r' % options
+                    raise ValueError('invalid options %r' % options)
             else:
                 values = descriptions = options
 
             if not keys:
                 keys = self._generate_keys(values, descriptions)
 
-            options = zip(values, descriptions, keys)
+            options = list(zip(values, descriptions, keys))
 
             if sort:
                 def make_sort_key(option):
@@ -383,8 +383,7 @@ class SelectWidget (Widget):
                         return ('', option)
                     else:
                         return (str(description).lower(), option)
-                doptions = map(make_sort_key, options)
-                doptions.sort()
+                doptions = sorted(map(make_sort_key, options))
                 options = [item[1] for item in doptions]
         self.options = options
 
@@ -395,7 +394,7 @@ class SelectWidget (Widget):
                 return value
         else:
             if self.verify_selection:
-                raise FormValueError, "invalid value selected"
+                raise FormValueError("invalid value selected")
             else:
                 return self.options[0][0]
 
@@ -413,7 +412,7 @@ class SelectWidget (Widget):
             self.set_options(allowed_values, sort)
         else:
             assert len(descriptions) == len(allowed_values)
-            self.set_options(zip(allowed_values, descriptions), sort)
+            self.set_options(list(zip(allowed_values, descriptions)), sort)
 
 
     def is_selected(self, value):
@@ -456,7 +455,7 @@ class SingleSelectWidget (SelectWidget):
         self.value = None
         if parsed_key:
             if type(parsed_key) is ListType:
-                raise FormValueError, "cannot select multiple values"
+                raise FormValueError("cannot select multiple values")
             self.value = self.parse_single_selection(parsed_key)
         return self.value
 
@@ -637,7 +636,7 @@ class NumberWidget (StringWidget):
             try:
                 self.value = self.type_converter(value)
             except ValueError:
-                raise FormValueError, self.type_error
+                raise FormValueError(self.type_error)
         return self.value
 
 

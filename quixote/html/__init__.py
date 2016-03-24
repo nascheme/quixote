@@ -100,7 +100,7 @@ def url_quote(value, fallback=None):
     """
     if value is None:
         if fallback is None:
-            raise ValueError, "value is None and no fallback supplied"
+            raise ValueError("value is None and no fallback supplied")
         else:
             return fallback
     return urllib.quote(stringify(value))

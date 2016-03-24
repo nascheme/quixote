@@ -163,7 +163,7 @@ class StaticFile:
         # be followed
         self.path = path
         if not os.path.isabs(path):
-            raise ValueError, "Path %r is not absolute" % path
+            raise ValueError("Path %r is not absolute" % path)
         # Decide the Content-Type of the file
         guess_mime, guess_enc = mimetypes.guess_type(os.path.basename(path),
                                                      strict=False)
@@ -174,8 +174,7 @@ class StaticFile:
 
     def __call__(self):
         if not self.follow_symlinks and os.path.islink(self.path):
-            raise errors.TraversalError(private_msg="Path %r is a symlink"
-                                        % self.path)
+            raise errors.TraversalError(private_msg="Path %r is a symlink" % self.path)
         request = quixote.get_request()
         response = quixote.get_response()
 
@@ -192,7 +191,7 @@ class StaticFile:
             stat = os.stat(self.path)
         except OSError:
             raise errors.TraversalError
-        last_modified = formatdate(stat.st_mtime)
+        last_modified = formatdate(stat.st_mtime, usegmt=True)
         if last_modified == request.get_header('If-Modified-Since'):
             # handle exact match of If-Modified-Since header
             response.set_status(304)
@@ -241,7 +240,7 @@ class StaticDirectory(Directory):
         # Check that the supplied path is absolute
         self.path = path
         if not os.path.isabs(path):
-            raise ValueError, "Path %r is not absolute" % path
+            raise ValueError("Path %r is not absolute" % path)
 
         self.use_cache = use_cache
         self.cache = {}

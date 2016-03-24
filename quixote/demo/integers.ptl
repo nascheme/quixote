@@ -4,7 +4,7 @@ from quixote.directory import Directory, export
 from quixote.errors import TraversalError
 
 def fact(n):
-    f = 1L
+    f = 1
     while n > 1:
         f *= n
         n -= 1
@@ -15,7 +15,7 @@ class IntegerUI(Directory):
     def __init__(self, component):
         try:
             self.n = int(component)
-        except ValueError, exc:
+        except ValueError as exc:
             raise TraversalError(str(exc))
 
     @export

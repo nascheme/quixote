@@ -104,23 +104,21 @@ class SessionManager:
 
         Return the list of session IDs of sessions in this session manager.
         """
-        return self.sessions.keys()
+        return list(self.sessions.keys())
 
     def sorted_keys(self):
         """() -> [string]
 
         Return the same list as keys(), but sorted.
         """
-        keys = self.keys()
-        keys.sort()
-        return keys
+        return sorted(self.keys())
 
     def values(self):
         """() -> [Session]
 
         Return the list of sessions in this session manager.
         """
-        return self.sessions.values()
+        return list(self.sessions.values())
 
     def items(self):
         """() -> [(string, Session)]
@@ -128,7 +126,7 @@ class SessionManager:
         Return the list of (session_id, session) pairs in this session
         manager.
         """
-        return self.sessions.items()
+        return list(self.sessions.items())
 
     def get(self, session_id, default=None):
         """(session_id : string, default : any = None) -> Session
@@ -139,7 +137,7 @@ class SessionManager:
         return self.sessions.get(session_id, default)
 
     def __iter__(self):
-        return self.sessions.itervalues()
+        return iter(self.sessions.values())
 
     def __getitem__(self, session_id):
         """(session_id : string) -> Session
@@ -149,16 +147,13 @@ class SessionManager:
         """
         return self.sessions[session_id]
 
-    def has_key(self, session_id):
+    def __contains__(self, session_id):
         """(session_id : string) -> boolean
 
         Return true if a session identified by 'session_id' exists in
         the session manager.
         """
         return session_id in self.sessions
-
-    def __contains__(self, session_id):
-        return self.has_key(session_id)
 
     def has_session(self, session_id):
         return self.has_key(session_id)

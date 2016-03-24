@@ -25,10 +25,10 @@ class BrokenError(Exception):
 
 class Broken:
     def __str__(self):
-        raise BrokenError, 'eieee'
+        raise BrokenError('eieee')
 
     def __repr__(self):
-        raise BrokenError, 'eieee'
+        raise BrokenError('eieee')
 
 htmltext = escape = htmlescape = TemplateIO = stringify = None
 
@@ -104,7 +104,7 @@ class HTMLTextTest (UTest):
         assert s != 'bar'
         assert s == htmltext('foo')
         assert s != htmltext('bar')
-        assert htmltext(u'\u1234') == u'\u1234'
+        assert htmltext('\\u1234') == '\\u1234'
         assert htmltext('1') != 1
         assert 1 != s
 
@@ -127,7 +127,7 @@ class HTMLTextTest (UTest):
         assert isinstance(s + markupchars, htmltext)
         assert markupchars + s == quotedchars + "foo"
         assert isinstance(markupchars + s, htmltext)
-        assert markupchars + htmltext(u'') == quotedchars
+        assert markupchars + htmltext('') == quotedchars
         try:
             s + 1
             assert 0
@@ -136,10 +136,8 @@ class HTMLTextTest (UTest):
             1 + s
             assert 0
         except TypeError: pass
-        # mixing unicode and str
+
         assert repr(htmltext('a') + htmltext('b')) == "<htmltext 'ab'>"
-        assert repr(htmltext(u'a') + htmltext('b')) == "<htmltext u'ab'>"
-        assert repr(htmltext('a') + htmltext(u'b')) == "<htmltext u'ab'>"
 
     def check_repeat(self):
         s = htmltext('a')

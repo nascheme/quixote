@@ -24,6 +24,6 @@ if __name__ == '__main__':
         req = HTTPRequest(None, env)
         (name, version) = req.guess_browser_version()
         if name is None:
-            print "%s -> ???" % line
+            print("%s -> ???" % line)
         else:
-            print "%s -> (%s, %s)" % (line, name, version)
+            print("%s -> (%s, %s)" % (line, name, version))

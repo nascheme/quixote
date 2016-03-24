@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """A SCGI server that uses Quixote to publish dynamic content.
 """
 
@@ -30,7 +30,7 @@ class QuixoteHandler(scgi_server.SCGIHandler):
             input.close()
             output.close()
             conn.close()
-        except IOError, err:
+        except IOError as err:
             self.publisher.log("IOError while sending response "
                                "ignored: %s" % err)
 

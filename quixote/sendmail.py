@@ -3,7 +3,6 @@
 Tools for sending mail from Quixote applications.
 """
 import re
-from types import ListType, TupleType
 from smtplib import SMTP
 import quixote
 
@@ -36,7 +35,7 @@ class RFC822Mailbox:
         Create a new RFC822Mailbox instance.  The variety of call
         signatures is purely for your convenience.
         """
-        if (len(args) == 1 and type(args[0]) is TupleType):
+        if (len(args) == 1 and type(args[0]) is tuple):
             args = args[0]
 
         if len(args) == 1:
@@ -193,9 +192,9 @@ def sendmail(subject, msg_body, to_addrs,
     if config is not None:
         mail_debug_addr = mail_debug_addr or config.mail_debug_addr
 
-    if not isinstance(to_addrs, ListType):
+    if not isinstance(to_addrs, list):
         raise TypeError("'to_addrs' must be a list")
-    if not (cc_addrs is None or isinstance(cc_addrs, ListType)):
+    if not (cc_addrs is None or isinstance(cc_addrs, list)):
         raise TypeError("'cc_addrs' must be a list or None")
 
     # Make sure we have a "From" address
@@ -205,9 +204,9 @@ def sendmail(subject, msg_body, to_addrs,
 
     # Ensure all of our addresses are really RFC822Mailbox objects.
     from_addr = _ensure_mailbox(from_addr)
-    to_addrs = map(_ensure_mailbox, to_addrs)
+    to_addrs = list(map(_ensure_mailbox, to_addrs))
     if cc_addrs:
-        cc_addrs = map(_ensure_mailbox, cc_addrs)
+        cc_addrs = list(map(_ensure_mailbox, cc_addrs))
 
     # Start building the message headers.
     headers = ["From: %s" % from_addr.format(),

@@ -23,7 +23,7 @@ class Publisher(_Publisher):
 
     def __init__(self, root_namespace, config=None):
         from quixote.config import Config
-        if type(root_namespace) is types.StringType:
+        if isinstance(root_namespace, str):
             root_namespace = _get_module(root_namespace)
         self.namespace_stack = [root_namespace]
         if config is None:
@@ -67,7 +67,7 @@ class RootDirectory(Directory):
         elif hasattr(object, '__call__'):
             output = object(request)
             if output is None:
-                raise RuntimeError, 'callable %s returned None' % repr(object)
+                raise RuntimeError('callable %r returned None' % object)
 
         # Uh-oh: 'object' is neither a string nor a callable.
         else:
@@ -199,7 +199,7 @@ def _get_component(container, component, request, namespace_stack):
     else:
         # check for an explicit external to internal mapping
         for value in container._q_exports:
-            if type(value) is types.TupleType:
+            if type(value) is tuple:
                 if value[0] == component:
                     internal_name = value[1]
                     break
@@ -236,7 +236,7 @@ def _get_component(container, component, request, namespace_stack):
     elif hasattr(container, "_q_resolve"):
         object = container._q_resolve(internal_name)
         if object is None:
-            raise RuntimeError, ("component listed in _q_exports, "
+            raise RuntimeError("component listed in _q_exports, "
                                  "but not returned by _q_resolve(%r)"
                                  % internal_name)
         else:
@@ -264,4 +264,4 @@ def _get_component(container, component, request, namespace_stack):
 
 
 def isstring(x):
-    return isinstance(x, (str, unicode, htmltext))
+    return isinstance(x, (str, htmltext))

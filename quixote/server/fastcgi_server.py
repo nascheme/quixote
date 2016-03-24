@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Server for Quixote applications that use FastCGI.  It should work
 for CGI too but the cgi_server module is preferred as it is more
 portable.
@@ -13,7 +13,7 @@ def run(create_publisher):
         response = publisher.process(f.inp, f.env)
         try:
             response.write(f.out)
-        except IOError, err:
+        except IOError as err:
             publisher.log("IOError while sending response ignored: %s" % err)
         f.Finish()
 

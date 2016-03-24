@@ -4,7 +4,6 @@ PTL files.
 
 import os, string
 from glob import glob
-from types import StringType, ListType, TupleType
 from distutils.command.build_py import build_py
 
 class qx_build_py(build_py):
@@ -26,11 +25,10 @@ class qx_build_py(build_py):
         return modules
 
     def build_module(self, module, module_file, package):
-        if type(package) is StringType:
-            package = string.split(package, '.')
-        elif type(package) not in (ListType, TupleType):
-            raise TypeError, \
-                  "'package' must be a string (dot-separated), list, or tuple"
+        if type(package) is str:
+            package = package.split('.')
+        elif type(package) not in (list, tuple):
+            raise TypeError("'package' must be a string (dot-separated), list, or tuple")
 
         # Now put the module source file into the "build" area -- this is
         # easy, we just copy it somewhere under self.build_lib (the build

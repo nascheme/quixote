@@ -13,7 +13,7 @@ class RootDirectory(Directory):
 
     @export(name='')
     def index [html] (self):
-        print "debug message from the index page"
+        print("debug message from the index page")
         """
         <html>
         <head>
@@ -65,7 +65,7 @@ class RootDirectory(Directory):
 
     @export
     def error(self):
-        raise ValueError, "this is a Python exception"
+        raise ValueError("this is a Python exception")
 
     @export
     def publish_error(self):

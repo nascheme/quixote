@@ -68,7 +68,7 @@ class Publisher:
             self.session_manager = NullSessionManager()
 
         if _publisher is not None:
-            raise RuntimeError, "only one instance of Publisher allowed"
+            raise RuntimeError("only one instance of Publisher allowed")
         _publisher = self
 
         if not hasattr(getattr(root_directory, '_q_traverse'), '__call__'):
@@ -252,7 +252,7 @@ class Publisher:
         try:
             self.parse_request(request)
             output = self.try_publish(request)
-        except PublishError, exc:
+        except PublishError as exc:
             # Exit the publishing loop and return a result right away.
             output = self.finish_interrupted_request(exc)
         except:

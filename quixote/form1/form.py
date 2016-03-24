@@ -89,7 +89,7 @@ class Form:
 
         if enctype is not None and enctype not in (
             "application/x-www-form-urlencoded", "multipart/form-data"):
-            raise ValueError, ("Form enctype must be "
+            raise ValueError("Form enctype must be "
                                "'application/x-www-form-urlencoded' or "
                                "'multipart/form-data', not %r" % enctype)
         self.enctype = enctype
@@ -231,7 +231,7 @@ class Form:
         return r
 
     def _render_required_notice(self, request):
-        if filter(None, self.required.values()):
+        if any(self.required.values()):
             r = htmltext('<tr><td colspan="3">'
                          '<b>*</b> = <em>required field</em>'
                          '</td></tr>')
@@ -256,8 +256,7 @@ class Form:
         javascript_code = request.response.javascript_code
         if javascript_code:
             form_code = []
-            code_ids = javascript_code.keys()
-            code_ids.sort()
+            code_ids = sorted(javascript_code.keys())
             for code_id in code_ids:
                 code = javascript_code[code_id]
                 if code:
@@ -289,7 +288,7 @@ class Form:
         for widget in self.widget_order:
             try:
                 val = widget.parse(request)
-            except FormValueError, exc:
+            except FormValueError as exc:
                 self.error[widget.name] = exc.msg
             else:
                 values[widget.name] = val
@@ -306,7 +305,7 @@ class Form:
         checking cannot be done here -- it must done in the 'process()'
         method.
         """
-        raise NotImplementedError, "sub-classes must implement 'action()'"
+        raise NotImplementedError("sub-classes must implement 'action()'")
 
     def handle(self, request):
         """handle(request : HTTPRequest) -> string
@@ -396,7 +395,7 @@ class Form:
         """
         try:
             return self.widgets[name].parse(request)
-        except FormValueError, exc:
+        except FormValueError as exc:
             self.error[name] = str(exc)
             return None
 
@@ -440,14 +439,13 @@ class Form:
             mod(value)
         elif mode == "direct":
             if not hasattr(target, key):
-                raise AttributeError, \
-                      ("target object %s doesn't have attribute %s" %
-                       (`target`, key))
+                raise AttributeError("target object %s doesn't have attribute %s" %
+                       (repr(target), key))
             setattr(target, key, value)
         elif mode == "dict":
             target[key] = value
         else:
-            raise ValueError, "unknown update mode %s" % `mode`
+            raise ValueError("unknown update mode %s" % repr(mode))
 
     def clear_widget(self, widget_name):
         self.widgets[widget_name].clear()
@@ -479,9 +477,9 @@ class Form:
         Returns the new Widget.
         """
         if name in self.widgets:
-            raise ValueError, "form already has '%s' variable" % name
+            raise ValueError("form already has '%s' variable" % name)
         klass = get_widget_class(widget_type)
-        new_widget = apply(klass, (name, value), args)
+        new_widget = klass(*(name, value), **args)
 
         self.widgets[name] = new_widget
         self.widget_order.append(new_widget)
@@ -493,7 +491,7 @@ class Form:
     def add_submit_button(self, name, value):
         global _widget_class
         if name in self.widgets:
-            raise ValueError, "form already has '%s' variable" % name
+            raise ValueError("form already has '%s' variable" % name)
         new_widget = _widget_class['submit_button'](name, value)
 
         self.widgets[name] = new_widget
@@ -501,7 +499,7 @@ class Form:
 
     def add_cancel_button(self, caption, url):
         if not isinstance(url, (StringType, htmltext)):
-            raise TypeError, "url must be a string (got %r)" % url
+            raise TypeError("url must be a string (got %r)" % url)
         self.add_submit_button("cancel", caption)
         self.cancel_url = url
 

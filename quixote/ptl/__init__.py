@@ -26,7 +26,7 @@ Here's a sample plain text template::
     def foo [plain] (x, y = 5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
-        print 'Input values:', x, y
+        print('Input values:', x, y)
         z = x + y
         """You can plug in variables like x (%s)
     in a variety of ways.""" % x
@@ -53,7 +53,7 @@ value of that template.  Look at the first part of the example again::
     def foo [plain] (x, y = 5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
-        print 'Input values:', x, y
+        print('Input values:', x, y)
         z = x + y
         """You can plug in variables like x (%s)
     in a variety of ways.""" % x

@@ -47,7 +47,7 @@ class htmltext(object):
     #    raise AttributeError, 'immutable object'
 
     def __getstate__(self):
-        raise ValueError, 'htmltext objects should not be pickled'
+        raise ValueError('htmltext objects should not be pickled')
 
     def __repr__(self):
         return '<htmltext %r>' % self.s
@@ -71,14 +71,14 @@ class htmltext(object):
             return htmltext(self.s % _wraparg(args))
 
     def format(self, *args, **kwargs):
-        args = map(_wraparg, args)
+        args = list(map(_wraparg, args))
         newkw = {}
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             newkw[k] = _wraparg(v)
         return htmltext(self.s.format(*args, **newkw))
 
     def __add__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             return htmltext(self.s + _escape_string(other))
         elif isinstance(other, htmltext):
             return htmltext(self.s + other.s)
@@ -86,7 +86,7 @@ class htmltext(object):
             return NotImplemented
 
     def __radd__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             return htmltext(_escape_string(other) + self.s)
         else:
             return NotImplemented
@@ -99,11 +99,10 @@ class htmltext(object):
         for item in items:
             if isinstance(item, htmltext):
                 quoted_items.append(stringify(item))
-            elif isinstance(item, basestring):
+            elif isinstance(item, str):
                 quoted_items.append(_escape_string(item))
             else:
-                raise TypeError(
-                    'join() requires string arguments (got %r)' % item)
+                raise TypeError('join() requires string arguments (got %r)' % item)
         return htmltext(self.s.join(quoted_items))
 
     def startswith(self, s):
@@ -152,7 +151,7 @@ class _QuoteWrapper(object):
         return _escape_string(stringify(self.value))
 
     def __repr__(self):
-        return _escape_string(`self.value`)
+        return _escape_string(repr(self.value))
 
     def __getitem__(self, key):
         return _wraparg(self.value[key])
@@ -175,13 +174,12 @@ def _wraparg(arg):
         # necessary to work around a PyString_Format bug in Python.  Should
         # be fixed in Python 2.5
         return stringify(arg)
-    elif isinstance(arg, unicode):
+    elif isinstance(arg, str):
         # again, work around PyString_Format bug
         return _UnicodeWrapper(arg)
     elif (isinstance(arg, int) or
-          isinstance(arg, long) or
           isinstance(arg, float)):
-        # ints, longs, floats are okay
+        # ints, floats are okay
         return arg
     else:
         # everything is gets wrapped

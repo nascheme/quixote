@@ -9,7 +9,7 @@ try:
 except ImportError:
     pass
 import struct
-from rfc822 import formatdate
+from email.utils import formatdate
 import quixote
 from quixote.html import stringify
 
@@ -82,7 +82,7 @@ _GZIP_EXCLUDE = set(["application/pdf",
                      ])
 
 def _LOWU32(i):
-    return i & 0xFFFFFFFFL
+    return i & 0xFFFFFFFF
 
 class HTTPResponse:
     """
@@ -180,7 +180,7 @@ class HTTPResponse:
         if not charset:
             self.charset = None
         else:
-            self.charset = str(charset).lower()
+            self.charset = charset.lower()
 
     def set_status(self, status, reason=None):
         """set_status(status : int, reason : string = None)
@@ -193,9 +193,9 @@ class HTTPResponse:
         if status == 493, the reason for status 400 will be used.
         """
         if not isinstance(status, int):
-            raise TypeError, "status must be an integer"
+            raise TypeError("status must be an integer")
         if not (100 <= status <= 599):
-            raise ValueError, "status must be between 100 and 599"
+            raise ValueError("status must be between 100 and 599")
 
         self.status_code = status
         if reason is None:
@@ -233,9 +233,9 @@ class HTTPResponse:
             self.cache = seconds + 60*(minutes + 60*(hours + 24*days))
 
     def _encode_chunk(self, chunk):
-        """(chunk : str | unicode) -> str
+        """(chunk : str) -> bytes
         """
-        if isinstance(chunk, unicode):
+        if isinstance(chunk, str):
             if self.charset is None:
                 # iso-8859-1 is the default for the HTTP protocol if charset
                 # parameter of content-type header is not provided
@@ -265,13 +265,13 @@ class HTTPResponse:
     def _generate_compressed(self, body):
         co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
                                   zlib.DEF_MEM_LEVEL, 0)
-        crc = zlib.crc32('') & 0xffffffffL
+        crc = zlib.crc32('') & 0xffffffff
         n = 0
         yield _GZIP_HEADER
         for chunk in body:
-            if not isinstance(chunk, str):
+            if not isinstance(chunk, bytes):
                 chunk = self._encode_chunk(stringify(chunk))
-            crc = zlib.crc32(chunk, crc) & 0xffffffffL
+            crc = zlib.crc32(chunk, crc) & 0xffffffff
             n += len(chunk)
             yield co.compress(chunk)
         crc = struct.pack("<LL", _LOWU32(crc), _LOWU32(n))
@@ -284,7 +284,8 @@ class HTTPResponse:
         is true then the body may be compressed.
         """
         if not isinstance(body, Stream):
-            body = self._encode_chunk(stringify(body))
+            if not isinstance(body, bytes):
+                body = self._encode_chunk(stringify(body))
             if compress and self.content_type not in _GZIP_EXCLUDE:
                 body = self._compress_body(body)
         else:
@@ -350,10 +351,10 @@ class HTTPResponse:
     def redirect(self, location, permanent=False):
         """Cause a redirection without raising an error"""
         if not isinstance(location, str):
-            raise TypeError, "location must be a string (got %s)" % `location`
+            raise TypeError("location must be a string (got %r)" % location)
         # Ensure that location is a full URL
         if location.find('://') == -1:
-            raise ValueError, "URL must include the server name"
+            raise ValueError("URL must include the server name")
         if permanent:
             status = 301
         else:
@@ -419,10 +420,10 @@ class HTTPResponse:
         # Date header
         now = time.time()
         if "date" not in self.headers:
-            self.headers['date'] =  formatdate(now)
+            self.headers['date'] =  formatdate(now, usegmt=True)
 
         # Cache directives
-        if self.cache is None or self.headers.has_key("expires"):
+        if self.cache is None or "expires" in self.headers:
             pass # don't mess with the expires or cache control header
         else:
             # We add both an Expires header and a Cache-Control header
@@ -430,7 +431,7 @@ class HTTPResponse:
             # priority when both Expires and max-age are present (even
             # if Expires is more restrictive, RFC 2616 section 14.9.3).
             if self.cache > 0:
-                expire_date = formatdate(now + self.cache)
+                expire_date = formatdate(now + self.cache, usegmt=True)
                 cache_control = "max-age=%d" % self.cache
             else:
                 # This is the default case and makes sense for a
@@ -491,7 +492,7 @@ class HTTPResponse:
             pass
         elif isinstance(self.body, Stream):
             for chunk in self.body:
-                if not isinstance(chunk, str):
+                if not isinstance(chunk, bytes):
                     chunk = self._encode_chunk(chunk)
                 yield chunk
         else:

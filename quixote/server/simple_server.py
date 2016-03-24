@@ -44,7 +44,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             else:
                 accept = accept + line[7:].split(',')
         env['HTTP_ACCEPT'] = ','.join(accept)
-        co = filter(None, self.headers.getheaders('cookie'))
+        co = [c for c in self.headers.get_all('cookie') or [] if c]
         if co:
             env['HTTP_COOKIE'] = ', '.join(co)
         env.update(self.required_cgi_environment)

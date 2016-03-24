@@ -80,7 +80,7 @@ def run(publisher, req):
                                  apache.build_cgi_env(req))
     try:
         response.write(apache.CGIStdout(req))
-    except IOError, err:
+    except IOError as err:
         publisher.log("IOError while  sending response ignored: %s" % err)
     return apache.OK
 

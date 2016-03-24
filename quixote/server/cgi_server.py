@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
@@ -13,7 +13,7 @@ def run(create_publisher):
     response = publisher.process(sys.__stdin__, os.environ)
     try:
         response.write(sys.__stdout__)
-    except IOError, err:
+    except IOError as err:
         publisher.log("IOError while sending response ignored: %s" % err)
 
 

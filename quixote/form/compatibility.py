@@ -69,7 +69,7 @@ class Form(_Form):
         return values
 
     def action(self, submit, values):
-        raise NotImplementedError, "sub-classes must implement 'action()'"
+        raise NotImplementedError("sub-classes must implement 'action()'")
 
     def handle(self):
         """handle() -> string

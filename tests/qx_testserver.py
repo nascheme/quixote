@@ -25,7 +25,7 @@ class TestServer(Directory):
 if __name__ == '__main__':
     from quixote.server.simple_server import run
     port = int(os.environ.get('QX_TEST_PORT', '8080'))
-    print 'starting qx_testserver on port %d.' % (port,)
+    print('starting qx_testserver on port %d.' % (port,))
     try:
         run(create_publisher, port=port)
     except KeyboardInterrupt:

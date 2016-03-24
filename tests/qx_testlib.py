@@ -10,7 +10,7 @@ import urllib
 _server_url = None
 
 testdir = os.path.dirname(__file__)
-print 'testdir is:', testdir
+print('testdir is:', testdir)
 sys.path.insert(0, os.path.abspath(os.path.join(testdir, '..')))
 
 import twill
@@ -53,7 +53,7 @@ def run_server(create_fn, PORT=None):
 
     outfd = tempfile.mkstemp('quixote_tst')[0]
 	
-    print 'STARTING:', sys.executable, 'tests/qx_testserver.py', os.getcwd()
+    print('STARTING:', sys.executable, 'tests/qx_testserver.py', os.getcwd())
     process = subprocess.Popen([sys.executable, '-u', 'qx_testserver.py'],
                                stderr=subprocess.STDOUT,
                                stdout=outfd)
