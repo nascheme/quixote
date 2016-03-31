@@ -16,7 +16,7 @@ See doc/static-files.txt for examples of their use.
 import sys
 import os
 import time
-import binascii
+import base64
 import mimetypes
 import urllib
 import xmlrpclib
@@ -28,9 +28,7 @@ from quixote.html import htmltext, TemplateIO
 from quixote.http_response import Stream
 
 def _encode_base64(s):
-    s = binascii.b2a_base64(s).strip('=\n')
-    s = s.replace('+', '-').replace('/', '_') # URL safe
-    return s
+    return base64.urlsafe_b64encode(s).rstrip('=\n')
 
 if hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32

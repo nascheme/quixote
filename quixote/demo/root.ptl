@@ -1,6 +1,8 @@
 """The root directory for the Quixote demo.
 """
 import time
+import base64
+
 from quixote import get_response
 from quixote.directory import Directory, export, subdir
 from quixote.errors import PublishError
@@ -121,11 +123,11 @@ class DynamicDirectory(Directory):
 
 
 
-FAVICON = """\
+FAVICON = base64.b64decode("""\
 AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAADJZmEA4KilAMJQSwDZko8Aujo0AOi9uwDRfHgA9+npAP///wDw1NIAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAiIiIiIiIiIiIiIiIiIiIiIiIiIiSQDiIiIiIiGRYSIiIiIYkRFiIiIiFQlhk
 RYiIiIBAeGRAiIiIFEE2aUQYiIhkSHV4RGiIiGRIiIhEaIiIZEiIiERoiIiUSYiJRJiIiIZDiING
 iIiIh2RlEmeIiIiIiBYYiIiIiIiIiIiIiIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-""".decode('base64')
+""")
