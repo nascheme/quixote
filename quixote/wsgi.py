@@ -9,10 +9,8 @@ To create an application object, execute
 Authors: Mike Orr <mso@oz.net> and Titus Brown <titus@caltech.edu>.
 Last updated 2005-05-03.
 """
-import sys
 
-from http_request import HTTPRequest
-from StringIO import StringIO
+from .http_request import HTTPRequest
 
 ###### QWIP: WSGI COMPATIBILITY WRAPPER FOR QUIXOTE #####################
 

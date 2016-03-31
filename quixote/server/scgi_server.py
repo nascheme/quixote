@@ -11,8 +11,8 @@ class QuixoteHandler(scgi_server.SCGIHandler):
         self.script_name = script_name
 
     def handle_connection(self, conn):
-        input = conn.makefile("r")
-        output = conn.makefile("w")
+        input = conn.makefile("rb")
+        output = conn.makefile("wb")
         env = self.read_env(input)
 
         if self.script_name is not None:

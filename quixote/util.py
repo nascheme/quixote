@@ -18,9 +18,10 @@ import os
 import time
 import base64
 import mimetypes
-import urllib
-import xmlrpclib
-from rfc822 import formatdate
+import urllib.request, urllib.parse, urllib.error
+import xmlrpc.client
+from email.utils import formatdate
+
 import quixote
 from quixote import errors
 from quixote.directory import Directory
@@ -68,20 +69,20 @@ def xmlrpc(request, func):
     data = request.stdin.read(length)
 
     # Parse arguments
-    params, method = xmlrpclib.loads(data)
+    params, method = xmlrpc.client.loads(data)
 
     try:
         result = func(method, params)
-    except xmlrpclib.Fault, exc:
+    except xmlrpc.client.Fault as exc:
         result = exc
     except:
         # report exception back to client
-        result = xmlrpclib.dumps(
-            xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
+        result = xmlrpc.client.dumps(
+            xmlrpc.client.Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
             )
     else:
         result = (result,)
-        result = xmlrpclib.dumps(result, methodresponse=1)
+        result = xmlrpc.client.dumps(result, methodresponse=1)
 
     request.response.set_content_type('text/xml')
     return result
@@ -98,7 +99,7 @@ class FileStream(Stream):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         chunk = self.fp.read(self.CHUNK_SIZE)
         if not chunk:
             raise StopIteration
@@ -249,7 +250,7 @@ class StaticDirectory(Directory):
             for filename in files:
                 filepath = os.path.join(self.path, filename)
                 marker = os.path.isdir(filepath) and "/" or ""
-                r += template % (urllib.quote(filename), filename, marker)
+                r += template % (urllib.parse.quote(filename), filename, marker)
             r += htmltext('</pre>')
             body = r.getvalue()
         else:

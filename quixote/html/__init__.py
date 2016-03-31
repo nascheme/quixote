@@ -38,7 +38,7 @@ reference.
 """
 
 import re
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 try:
     # faster C implementation
@@ -103,7 +103,7 @@ def url_quote(value, fallback=None):
             raise ValueError("value is None and no fallback supplied")
         else:
             return fallback
-    return urllib.quote(stringify(value))
+    return urllib.parse.quote(stringify(value))
 
 _saved = None
 def use_qpy():
@@ -111,7 +111,7 @@ def use_qpy():
     Switch to using 'qpy' as an alternative.
     """
     import qpy
-    from qpy_templateio import qpy_TemplateIO
+    from .qpy_templateio import qpy_TemplateIO
 
     global _saved, htmltext, stringify, htmlescape, TemplateIO
     if not _saved:

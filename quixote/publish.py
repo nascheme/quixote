@@ -1,9 +1,9 @@
 """Logic for publishing modules and objects on the Web.
 """
 
-import sys, traceback, StringIO
+import sys, traceback, io
 import time
-import urlparse
+import urllib.parse
 import cgitb
 
 from quixote.errors import PublishError, MethodNotAllowedError, \
@@ -186,7 +186,7 @@ class Publisher:
 
     def _generate_plaintext_error(self, request, original_response,
                                   exc_type, exc_value, tb):
-        error_file = StringIO.StringIO()
+        error_file = io.StringIO()
 
         # format the traceback
         traceback.print_exception(exc_type, exc_value, tb, file=error_file)
@@ -201,14 +201,23 @@ class Publisher:
 
     def _generate_cgitb_error(self, request, original_response,
                               exc_type, exc_value, tb):
-        error_file = StringIO.StringIO()
+        # let cgitb.Hook have the type it wants...
+        error_file = io.StringIO()
         hook = cgitb.Hook(file=error_file)
         hook(exc_type, exc_value, tb)
-        error_file.write('<h2>Original Request</h2>')
-        error_file.write(str(util.dump_request(request)))
-        error_file.write('<h2>Original Response</h2><pre>')
-        original_response.write(error_file)
-        error_file.write('</pre>')
+
+        byte_error_file = io.BytesIO()
+        byte_error_file.write(b'<h2>Original Request</h2>')
+        # dump_request returns an HTMLText object
+        s = str(util.dump_request(request))
+        byte_error_file.write(s.encode('latin-1', 'strict'))
+        byte_error_file.write(b'<h2>Original Response</h2><pre>')
+        original_response.write(byte_error_file)
+        byte_error_file.write(b'</pre>')
+        # Now we push the bytes to the "real" error file...
+        s = byte_error_file.getvalue().decode('latin-1')
+        error_file.write(s)
+
         return error_file.getvalue()
 
 
@@ -332,7 +341,7 @@ def redirect(location, permanent=False):
     not honor the redirect).
     """
     request = _publisher.get_request()
-    location = urlparse.urljoin(request.get_url(), str(location))
+    location = urllib.parse.urljoin(request.get_url(), str(location))
     return request.response.redirect(location, permanent)
 
 def get_session():

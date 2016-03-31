@@ -5,10 +5,13 @@ from quixote.html import href, url_with_query, url_quote, nl2br
 
 markupchars = '<>&"'
 quotedchars = '&lt;&gt;&amp;&quot;'
-if sys.hexversion >= 0x20400a2:
-    unicodechars = u'\u1234'
-else:
-    unicodechars = 'x' # lie, Python <= 2.3 is broken
+unicodechars = '\\u1234'
+
+# Byte types...
+markupbytes = b'<>&"'
+quotedbytes = b'&lt;&gt;&amp;&quot;'
+bytebytes = b'\u1234'
+
 
 class Wrapper:
     def __init__(self, s):
@@ -68,8 +71,8 @@ class HTMLTextTest (UTest):
     def _check_init(self):
         assert str(htmltext('foo')) == 'foo'
         assert str(htmltext(markupchars)) == markupchars
-        assert unicode(htmltext(unicodechars)) == unicodechars
-        assert str(htmltext(unicode(markupchars))) == markupchars
+        assert str(htmltext(unicodechars)) == unicodechars
+        assert str(htmltext(str(markupchars))) == markupchars
         assert str(htmltext(None)) == 'None'
         assert str(htmltext(1)) == '1'
         try:
@@ -84,19 +87,31 @@ class HTMLTextTest (UTest):
         assert stringify(Wrapper(markupchars)) is markupchars
         assert stringify(Wrapper) == str(Wrapper)
         assert stringify(None) == str(None)
+        assert stringify(markupbytes) is markupbytes
 
     def check_escape(self):
         assert htmlescape(markupchars) == quotedchars
         assert isinstance(htmlescape(markupchars), htmltext)
         assert escape(markupchars) == quotedchars
         assert escape(unicodechars) == unicodechars
-        assert escape(unicode(markupchars)) == quotedchars
-        assert isinstance(escape(markupchars), basestring)
+        assert type(escape(markupchars)) == type(markupchars)
+        assert isinstance(escape(markupchars), str)
         assert htmlescape(htmlescape(markupchars)) == quotedchars
+
+        # Now try to pass bytes...
+        try:
+            escape(markupbytes)
+            assert 0
+        except TypeError:
+            pass
+
+        # ...and now not a string at all
         try:
             escape(1)
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
+
 
     def check_cmp(self):
         s = htmltext("foo")
@@ -158,39 +173,27 @@ class HTMLTextTest (UTest):
         except TypeError: pass
 
     def check_format(self):
-        s_fmt = htmltext('%s')
-        u_fmt = htmltext(u'%s')
-        assert s_fmt % 'foo' == "foo"
-        assert u_fmt % 'foo' == u"foo"
-        assert isinstance(s_fmt % 'foo', htmltext)
-        assert isinstance(u_fmt % 'foo', htmltext)
-        assert s_fmt % markupchars == quotedchars
+        u_fmt = htmltext('%s')
+        assert u_fmt % 'fooble' == "fooble"
+        assert isinstance(u_fmt % 'wibblefoo', htmltext)
         assert u_fmt % markupchars == quotedchars
-        assert s_fmt % None == "None"
+
         assert u_fmt % None == "None"
-        assert s_fmt % unicodechars == unicodechars
         assert u_fmt % unicodechars == unicodechars
-        assert s_fmt % htmltext(unicodechars) == unicodechars
         assert u_fmt % htmltext(unicodechars) == unicodechars
         assert htmltext('%r') % Wrapper(markupchars) == quotedchars
-        assert htmltext('%r') % unicodechars == `unicodechars`
+        assert htmltext('%r') % unicodechars == repr(unicodechars)
         assert htmltext('%s%s') % ('foo', htmltext(markupchars)) \
             == ("foo" + markupchars)
         assert htmltext('%d') % 10 == "10"
         assert htmltext('%.1f') % 10 == "10.0"
-        try:
-            s_fmt % Broken()
-            assert 0
-        except BrokenError: pass
+
         try:
             htmltext('%r') % Broken()
             assert 0
         except BrokenError: pass
-        try:
-            s_fmt % (1, 2)
-            assert 0
-        except TypeError: pass
-        assert htmltext('%d') % 12300000000000000000L == "12300000000000000000"
+
+        assert htmltext('%d') % 12300000000000000000 == "12300000000000000000"
 
     def check_dict_format(self):
         args = {'a': 'foo&', 'b': htmltext('bar&')}
@@ -232,8 +235,8 @@ class HTMLTextTest (UTest):
         assert htmltext(' ').join([htmltext(markupchars), 'bar']) == \
             markupchars + " bar"
         assert isinstance(htmltext('').join([]), htmltext)
-        assert htmltext(u' ').join([unicodechars]) == unicodechars
-        assert htmltext(u' ').join(['']) == u''
+        assert htmltext(' ').join([unicodechars]) == unicodechars
+        assert htmltext(' ').join(['']) == ''
         try:
             htmltext('').join(1)
             assert 0
@@ -307,8 +310,8 @@ class TemplateTest (UTest):
         assert t.getvalue() == 'abcd'
         t += 123
         assert t.getvalue() == 'abcd123'
-        t += u'\u1234'
-        assert t.getvalue() == u'abcd123\u1234'
+        t += '\\u1234'
+        assert t.getvalue() == 'abcd123\\u1234'
         try:
             t += Broken(); t.getvalue()
             assert 0

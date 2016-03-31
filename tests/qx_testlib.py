@@ -2,10 +2,9 @@ import sys, subprocess
 
 import quixote
 from quixote.server.simple_server import run
-from StringIO import StringIO
+from io import StringIO
 import os
-import socket
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 _server_url = None
 
@@ -74,7 +73,7 @@ def kill_server():
     global _server_url
     if _server_url != None:
        try:
-          fp = urllib.urlopen('%sexit' % (_server_url,))
+          fp = urllib.request.urlopen('%sexit' % (_server_url,))
        except:
           pass
 

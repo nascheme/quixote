@@ -3,8 +3,10 @@ TemplateIO.
 """
 
 def _escape_string(s):
-    if not isinstance(s, basestring):
-        raise TypeError, 'string object required'
+    if isinstance(s, bytes):
+        raise TypeError('escape_string no longer accepts bytes')
+    if not isinstance(s, str):
+        raise TypeError('string object required')
     s = s.replace("&", "&amp;")
     s = s.replace("<", "&lt;")
     s = s.replace(">", "&gt;")
@@ -16,17 +18,12 @@ def stringify(obj):
     turning strings into unicode objects.
     """
     tp = type(obj)
-    if issubclass(tp, basestring):
+    if isinstance(obj, (str, bytes)):
         return obj
-    elif hasattr(tp, '__unicode__'):
-        s = tp.__unicode__(obj)
-        if not isinstance(s, basestring):
-            raise TypeError, '__unicode__ did not return a string'
-        return s
     elif hasattr(tp, '__str__'):
         s = tp.__str__(obj)
-        if not isinstance(s, basestring):
-            raise TypeError, '__str__ did not return a string'
+        if not isinstance(s, str):
+            raise TypeError('__str__ did not return a string')
         return s
     else:
         return str(obj)
@@ -58,8 +55,11 @@ class htmltext(object):
     def __len__(self):
         return len(self.s)
 
-    def __cmp__(self, other):
-        return cmp(self.s, other)
+    def __eq__(self, other):
+        return (self.s == other)
+
+    def __lt__(self, other):
+        return (self.s < other)
 
     def __hash__(self):
         return hash(self.s)
@@ -156,17 +156,6 @@ class _QuoteWrapper(object):
     def __getitem__(self, key):
         return _wraparg(self.value[key])
 
-class _UnicodeWrapper(unicode):
-
-    __slots__  = ['raw']
-
-    def __new__(cls, s):
-        result = unicode.__new__(cls, _escape_string(s))
-        result.raw = s
-        return result
-
-    def __repr__(self):
-        return _escape_string(`self.raw`)
 
 
 def _wraparg(arg):
@@ -176,7 +165,7 @@ def _wraparg(arg):
         return stringify(arg)
     elif isinstance(arg, str):
         # again, work around PyString_Format bug
-        return _UnicodeWrapper(arg)
+        return _escape_string(arg)
     elif (isinstance(arg, int) or
           isinstance(arg, float)):
         # ints, floats are okay

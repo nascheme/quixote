@@ -249,12 +249,12 @@ class HTTPResponse:
         return chunk
 
     def _compress_body(self, body):
-        """(body: str) -> str
+        """(body: bytes) -> bytes
         """
         n = len(body)
-        compressed_body = ''.join(self._generate_compressed([body]))
+        compressed_body = b''.join(self._generate_compressed([body]))
         ratio = float(n) / len(compressed_body)
-        #print "gzip original size %d, ratio %.1f" % (n, ratio)
+        #print("gzip original size %d, ratio %.1f" % (n, ratio))
         if ratio > 1.0:
             # only compress if we save space
             self.set_header("Content-Encoding", "gzip")
@@ -509,8 +509,8 @@ class HTTPResponse:
         # The stream is terminated by a zero length chunk.
         for chunk in stream:
             if chunk:
-                yield ''.join(['%x\r\n' % len(chunk), chunk, '\r\n'])
-        yield '0\r\n\r\n'
+                yield b''.join([('%x\r\n' % len(chunk)).encode(), chunk, b'\r\n'])
+        yield b'0\r\n\r\n'
 
     def generate_body_chunks(self):
         stream = self._generate_encoded_body()
@@ -534,11 +534,13 @@ class HTTPResponse:
         flush_output = not self.buffered and hasattr(output, 'flush')
         if include_status:
             # "Status" header must come first.
-            output.write("Status: %03d %s\r\n" % (self.status_code,
-                                                  self.reason_phrase))
+            s = 'Status: %03d %s\r\n' % (self.status_code, self.reason_phrase)
+            output.write(s.encode('utf-8'))
+
         for name, value in self.generate_headers():
-            output.write("%s: %s\r\n" % (name, value))
-        output.write("\r\n")
+            s = "%s: %s\r\n" % (name, value))
+            output.write(s.encode('utf-8'))
+        output.write(b"\r\n")
         if flush_output:
             output.flush()
         if not include_body:

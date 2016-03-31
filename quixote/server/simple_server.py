@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """A simple, single threaded, synchronous HTTP server.
 """
 import sys
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import urllib
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.request, urllib.parse, urllib.error
 import quixote
 from quixote import get_publisher
 from quixote.util import import_object
@@ -28,12 +28,9 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             env['PATH_INFO'], env['QUERY_STRING'] = self.path.split('?', 1)
         else:
             env['PATH_INFO'] = self.path
-        env['PATH_INFO'] = urllib.unquote(env['PATH_INFO'])
-        if self.headers.typeheader is None:
-            env['CONTENT_TYPE'] = self.headers.type
-        else:
-            env['CONTENT_TYPE'] = self.headers.typeheader
-        env['CONTENT_LENGTH'] = self.headers.getheader('content-length') or "0"
+        env['PATH_INFO'] = urllib.parse.unquote(env['PATH_INFO'])
+        env['CONTENT_TYPE'] = self.headers.get('content-type')
+        env['CONTENT_LENGTH'] = self.headers.get('content-length') or "0"
         for name, value in self.headers.items():
             header_name = 'HTTP_' + name.upper().replace('-', '_')
             env[header_name] = value
@@ -56,12 +53,11 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             # single threaded server, persistent connections will block others
             response.set_header('connection', 'close')
         try:
-            self.send_response(response.get_status_code(),
-                               response.get_reason_phrase())
-            response.write(self.wfile, include_status=False,
-                           include_body=include_body)
-        except IOError, err:
-            print "IOError while sending response ignored: %s" % err
+            self.send_response(response.get_status_code(), response.get_reason_phrase())
+            self.flush_headers()
+            response.write(self.wfile, include_status=False, include_body=include_body)
+        except IOError as err:
+            print("IOError while sending response ignored: %s" % err)
 
     def do_POST(self):
         return self.process(self.get_cgi_env('POST'))
@@ -78,14 +74,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         that adds the 'Date' header is removed to avoid duplicating the one
         that Quixote adds and the log_request() call has been removed.
         """
-        if message is None:
-            if code in self.responses:
-                message = self.responses[code][0]
-            else:
-                message = ''
-        if self.request_version != 'HTTP/0.9':
-            self.wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, code, message))
+        self.send_response_only(code, message)
         self.send_header('Server', self.version_string())
 
 def run(create_publisher, host='', port=80, https=False):

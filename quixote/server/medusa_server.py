@@ -1,9 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """An HTTP handler for Medusa that publishes a Quixote application.
 """
 
-import asyncore, rfc822, socket, urllib
-from StringIO import StringIO
+import asyncore
+import email
+import socket, urllib.request, urllib.parse, urllib.error
+from io import StringIO
 from medusa import http_server, xmlrpc_handler
 import quixote
 
@@ -14,7 +16,7 @@ class StreamProducer:
 
     def more(self):
         try:
-            return self.chunks.next()
+            return next(self.chunks)
         except StopIteration:
             return ''
 
@@ -29,7 +31,7 @@ class QuixoteHandler:
         return True
 
     def handle_request(self, request):
-        msg = rfc822.Message(StringIO('\n'.join(request.header)))
+        msg = email.Message(StringIO('\n'.join(request.header)))
         length = int(msg.get('Content-Length', '0'))
         if length:
             request.collector = xmlrpc_handler.collector(self, request)
@@ -37,7 +39,7 @@ class QuixoteHandler:
             self.continue_request('', request)
 
     def continue_request(self, data, request):
-        msg = rfc822.Message(StringIO('\n'.join(request.header)))
+        msg = email.Message(StringIO('\n'.join(request.header)))
         remote_addr, remote_port = request.channel.addr
         if '#' in request.uri:
             # MSIE is buggy and sometimes includes fragments in URLs
@@ -48,7 +50,7 @@ class QuixoteHandler:
             path = request.uri
             query_string = ''
 
-        path = urllib.unquote(path)
+        path = urllib.parse.unquote(path)
         server_port = str(self.server.port)
         http_host = msg.get("Host")
         if http_host:

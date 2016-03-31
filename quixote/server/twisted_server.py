@@ -2,8 +2,9 @@
 """An HTTP server for Twisted that publishes a Quixote application.
 """
 
-import urllib
-from twisted.web import http, server
+import urllib.request, urllib.parse, urllib.error
+from twisted.protocols import http
+from twisted.web import server
 from twisted.python import threadable
 from twisted.internet import reactor
 
@@ -45,7 +46,7 @@ class QuixoteRequest(server.Request):
         """
         # Twisted doesn't decode the path for us, so let's do it here.
         if '%' in self.path:
-            self.path = urllib.unquote(self.path)
+            self.path = urllib.parse.unquote(self.path)
 
         serverName = self.getRequestHostname().split(':')[0]
         env = {"SERVER_SOFTWARE":   server.version,
@@ -109,7 +110,7 @@ class QuixoteProducer:
     def resumeProducing(self):
         if self.request:
             try:
-                chunk = self.stream.next()
+                chunk = next(self.stream)
             except StopIteration:
                 self.request.unregisterProducer()
                 self.request.finish()

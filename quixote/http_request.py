@@ -8,9 +8,9 @@ import re
 import string
 import os
 import tempfile
-import urllib
-import rfc822
-from StringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+import email
+import io
 
 import quixote
 from quixote.http_response import HTTPResponse
@@ -48,10 +48,6 @@ def get_content_type(environ):
         return None
 
 def _decode_string(s, charset):
-    if charset == 'iso-8859-1' == quixote.DEFAULT_CHARSET:
-        # To avoid breaking applications that are not Unicode-safe, return
-        # a str instance in this case.
-        return s
     try:
         return s.decode(charset)
     except LookupError:
@@ -65,7 +61,9 @@ def parse_header(line):
     Return the main content-type and a dictionary of options.
 
     """
-    plist = map(lambda x: x.strip(), line.split(';'))
+    if isinstance(line, email.header.Header):  # file upload
+        line = ''.join(val for val, charset in line._chunks)
+    plist = [val.strip() for val in line.split(';')]
     key = plist.pop(0).lower()
     pdict = {}
     for p in plist:
@@ -100,8 +98,8 @@ def parse_query(qs, charset):
             value = ''
         else:
             name, value = chunk.split('=', 1)
-        name = urllib.unquote(name.replace('+', ' '))
-        value = urllib.unquote(value.replace('+', ' '))
+        name = urllib.parse.unquote_plus(name)
+        value = urllib.parse.unquote_plus(value)
         name = _decode_string(name, charset)
         value = _decode_string(value, charset)
         _add_field_value(fields, name, value)
@@ -205,7 +203,7 @@ class HTTPRequest:
             # middleware expect that.  We cannot rely on the application to
             # read it completely (e.g. if there is some PublishError raised).
             if length < 20000:
-                fp = StringIO()
+                fp = io.BytesIO()
             else:
                 fp = tempfile.TemporaryFile("w+b")
             remaining = length
@@ -226,6 +224,8 @@ class HTTPRequest:
         # Use the declared charset if it's provided (most browser's don't
         # provide it to avoid breaking old HTTP servers).
         charset = params.get('charset', self.charset)
+        # should contain only ASCII characters but parse as iso-8859-1
+        query = query.decode('iso-8859-1')
         self.form.update(parse_query(query, charset))
 
     def _process_multipart(self, length, params):
@@ -243,14 +243,14 @@ class HTTPRequest:
             raise RequestError('unexpected end of multipart/form-data')
 
     def _process_multipart_body(self, mimeinput, charset):
-        headers = StringIO()
+        headers = io.BytesIO()
         lines = mimeinput.readpart()
         for line in lines:
             headers.write(line)
-            if line == '\r\n':
+            if line == b'\r\n':
                 break
         headers.seek(0)
-        headers = rfc822.Message(headers)
+        headers = email.message_from_binary_file(headers)
         ctype, ctype_params = parse_header(headers.get('content-type', ''))
         if ctype and 'charset' in ctype_params:
             charset = ctype_params['charset']
@@ -272,7 +272,7 @@ class HTTPRequest:
             upload.receive(lines)
             _add_field_value(self.form, name, upload)
         else:
-            value = _decode_string(''.join(lines), charset or self.charset)
+            value = _decode_string(b''.join(lines), charset or self.charset)
             _add_field_value(self.form, name, value)
 
     def get_header(self, name, default=None):
@@ -408,7 +408,7 @@ class HTTPRequest:
         any).
         """
         return "%s://%s%s" % (self.get_scheme(), self.get_server(),
-                              urllib.quote(self.get_path(n)))
+                              urllib.parse.quote(self.get_path(n)))
 
     def get_environ(self, key, default=None):
         """get_environ(key : string) -> string
@@ -616,7 +616,7 @@ def parse_cookies(text):
         result[name] = value
     return result
 
-SAFE_CHARS = string.letters + string.digits + "-@&+=_., "
+SAFE_CHARS = string.ascii_letters + string.digits + "-@&+=_., "
 _safe_trans = None
 
 def make_safe_filename(s):
@@ -737,7 +737,7 @@ class LineInput:
     def __init__(self, fp, length):
         self.fp = fp
         self.length = length
-        self.buf = ''
+        self.buf = b''
 
     def readline(self, maxlength=4096):
         # fill buffer
@@ -751,17 +751,17 @@ class LineInput:
             self.buf += chunk
         # split into lines
         buf = self.buf
-        i = buf.find('\r\n')
+        i = buf.find(b'\r\n')
         if i >= 0:
             i += 2
             self.buf = buf[i:]
             return buf[:i]
-        elif buf.endswith('\r'):
+        elif buf.endswith(b'\r'):
             # avoid splitting CR LF pairs
-            self.buf = '\r'
+            self.buf = b'\r'
             return buf[:-1]
         else:
-            self.buf = ''
+            self.buf = b''
             return buf
 
 class MIMEInput:
@@ -772,7 +772,7 @@ class MIMEInput:
 
     def __init__(self, fp, boundary, length):
         self.lineinput = LineInput(fp, length)
-        self.pat = re.compile(r'--%s(--)?' % re.escape(boundary))
+        self.pat = b'--' + boundary.encode('iso-8859-1')
         self.done = False
 
     def moreparts(self):
@@ -783,20 +783,20 @@ class MIMEInput:
         """Generate all the lines up to a MIME boundary.  Note that you
         must exhaust the generator before calling this function again."""
         assert not self.done
-        last_line = ''
+        last_line = b''
         while 1:
             line = self.lineinput.readline()
             if not line:
                 # Hit EOF -- nothing more to read.  This should *not* happen
                 # in a well-formed MIME message.
                 raise EOFError('MIME boundary not found (end of input)')
-            if last_line.endswith('\r\n') or last_line == '':
-                m = self.pat.match(line)
-                if m:
+            # FIXME: check this
+            if last_line.endswith(b'\r\n') or last_line == b'':
+                if line.startswith(self.pat):
                     # If we hit the boundary line, return now. Forget
                     # the current line *and* the CRLF ending of the
                     # previous line.
-                    if m.group(1):
+                    if line.startswith(self.pat + b'--'):
                         # hit final boundary
                         self.done = True
                     yield last_line[:-2]
