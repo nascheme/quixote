@@ -32,42 +32,13 @@ def _encode_base64(s):
 
 if hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
-    def randbytes(bytes):
+    def randbytes(n):
         """Return bytes of random data as a text string."""
-        return _encode_base64(os.urandom(bytes))
-
-elif os.path.exists('/dev/urandom'):
-    # /dev/urandom is just as good as /dev/random for cookies (assuming
-    # SHA-1 is secure) and it never blocks.
-    def randbytes(bytes):
-        """Return bytes of random data as a text string."""
-        return _encode_base64(open("/dev/urandom").read(bytes))
-
+        return _encode_base64(os.urandom(n))
 else:
-    # this is much less secure than the above function
-    import sha
-    import warnings
-    class _PRNG:
-        def __init__(self):
-            self.state = sha.new(str(time.time() + time.clock()))
-            self.count = 0
-
-        def _get_bytes(self):
-            self.state.update('%s %d' % (time.time() + time.clock(),
-                                         self.count))
-            self.count += 1
-            return self.state.digest()
-
-        def randbytes(self, bytes):
-            """Return bytes of random data as a text string."""
-            warnings.warn('insecure randbytes(), os.urandom() missing')
-            s = ""
-            while len(s) < bytes:
-                s += self._get_bytes()
-            return _encode_base64(s[:bytes])
-
-    randbytes = _PRNG().randbytes
-
+    # give up, we used to try to provide a less secure version
+    def randbytes(n):
+        raise NotImplementedError('platform missing os.urandom')
 
 def import_object(name):
     i = name.rfind('.')
