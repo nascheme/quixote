@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from sancho.utest import UTest
 from quixote.ptl.ptl_compile import compile_template
-from StringIO import StringIO
+from io import StringIO
 from quixote.html import TemplateIO, htmltext
 
 def run_ptl(*source):
@@ -45,12 +45,12 @@ class Test (UTest):
         try:
             run_ptl('def f [] (a):\n    a')
             assert 0
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
         try:
             run_ptl('def f [HTML] (a):\n    a')
             assert 0
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
 
 if __name__ == "__main__":

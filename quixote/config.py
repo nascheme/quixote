@@ -164,7 +164,7 @@ class Config:
         config_vars = {}
         try:
             execfile(filename, config_vars)
-        except IOError, exc:
+        except IOError as exc:
             if exc.filename is None:    # arg! execfile() loses filename
                 exc.filename = filename
             raise exc

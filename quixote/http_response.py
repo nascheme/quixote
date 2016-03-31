@@ -538,7 +538,7 @@ class HTTPResponse:
             output.write(s.encode('utf-8'))
 
         for name, value in self.generate_headers():
-            s = "%s: %s\r\n" % (name, value))
+            s = "%s: %s\r\n" % (name, value)
             output.write(s.encode('utf-8'))
         output.write(b"\r\n")
         if flush_output:

@@ -1,14 +1,17 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #try:
 #    from setuptools import setup
 #except ImportError:
-#    print '(WARNING: importing distutils, not setuptools!)'
+#    print('(WARNING: importing distutils, not setuptools!)')
 #    from distutils.core import setup
 
 # Setup script for Quixote
 
 import sys
-import os
+
+if sys.version_info < (3,4,0):
+    raise SystemExit("You need python 3.4.0 or later to run this script")
+
 from distutils import core
 from distutils.extension import Extension
 from quixote.ptl.qx_distutils import qx_build_py
