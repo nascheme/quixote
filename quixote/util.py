@@ -29,7 +29,7 @@ from quixote.html import htmltext, TemplateIO
 from quixote.http_response import Stream
 
 def _encode_base64(s):
-    return base64.urlsafe_b64encode(s).rstrip('=\n')
+    return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
 
 if hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
