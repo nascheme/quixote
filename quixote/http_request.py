@@ -98,10 +98,15 @@ def parse_query(qs, charset):
             value = ''
         else:
             name, value = chunk.split('=', 1)
-        name = urllib.parse.unquote_plus(name)
-        value = urllib.parse.unquote_plus(value)
-        name = _decode_string(name, charset)
-        value = _decode_string(value, charset)
+        try:
+            name = urllib.parse.unquote_plus(name, encoding=charset,
+                                             errors='strict')
+            value = urllib.parse.unquote_plus(value, encoding=charset,
+                                              errors='strict')
+        except LookupError:
+            raise RequestError('unknown charset %r' % charset)
+        except UnicodeDecodeError:
+            raise RequestError('invalid %r encoded string' % charset)
         _add_field_value(fields, name, value)
     return fields
 
