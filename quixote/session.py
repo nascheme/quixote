@@ -156,7 +156,7 @@ class SessionManager:
         return session_id in self.sessions
 
     def has_session(self, session_id):
-        return self.has_key(session_id)
+        return session_id in self.sessions
 
     def __setitem__(self, session_id, session):
         """(session_id : string, session : Session)
