@@ -621,18 +621,11 @@ def parse_cookies(text):
         result[name] = value
     return result
 
-SAFE_CHARS = string.ascii_letters + string.digits + "-@&+=_., "
-_safe_trans = None
+# characters considered safe in a filename
+_SAFE_PAT = re.compile(r'[^\w@&+=., -]')
 
 def make_safe_filename(s):
-    global _safe_trans
-    if _safe_trans is None:
-        _safe_trans = ["_"] * 256
-        for c in SAFE_CHARS:
-            _safe_trans[ord(c)] = c
-        _safe_trans = "".join(_safe_trans)
-
-    return s.translate(_safe_trans)
+    return _SAFE_PAT.sub('_', s)
 
 
 class Upload:
