@@ -1,6 +1,5 @@
 import sys
 import os
-import codecs
 import time
 import socket
 import quixote
@@ -42,12 +41,8 @@ class DefaultLogger:
 
     def _open_log(self, filename):
         charset = self.DEFAULT_CHARSET or quixote.DEFAULT_CHARSET
-        if charset == 'iso-8859-1':
-            return open(filename, 'ab', 1)
-        else:
-            return codecs.open(filename, 'ab',
-                               encoding=charset,
-                               buffering=1)
+        return open(filename, 'a', encoding=charset, buffering=1,
+                    errors='xmlcharrefreplace')
 
     def log(self, msg):
         """
