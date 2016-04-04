@@ -16,6 +16,7 @@ import re
 import imp
 import marshal
 import struct
+import importlib.util
 
 HTML_TEMPLATE_PREFIX = "_q_html_template_"
 PLAIN_TEMPLATE_PREFIX = "_q_plain_template_"
@@ -124,12 +125,12 @@ class TemplateTransformer(ast.NodeTransformer):
         else:
             return node
 
-_template_re = re.compile(
-    r"^(?P<indent>[ \t]*) def (?:[ \t]+)"
-    r" (?P<name>[a-zA-Z_][a-zA-Z_0-9]*)"
-    r" (?:[ \t]*) \[(?P<type>plain|html)\] (?:[ \t]*)"
-    r" (?:[ \t]*[\(\\])",
-    re.MULTILINE|re.VERBOSE)
+_template_re = re.compile(r'''
+    ^(?P<indent>[ \t]*) def (?:[ \t]+)
+    (?P<name>[a-zA-Z_][a-zA-Z_0-9]*)
+    (?:[ \t]*) \[(?P<type>plain|html)\] (?:[ \t]*)
+    (?:[ \t]*[\(\\])
+    ''', re.MULTILINE|re.VERBOSE)
 
 def translate_tokens(buf):
     """
@@ -152,6 +153,8 @@ def translate_tokens(buf):
     return  _template_re.sub(replacement, buf)
 
 def parse(buf, filename='<string>'):
+    if isinstance(buf, bytes):
+        buf = importlib.util.decode_source(buf)
     buf = translate_tokens(buf)
     try:
         node = ast.parse(buf, filename)

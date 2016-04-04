@@ -10,9 +10,6 @@ from quixote.ptl.ptl_compile import parse, PTL_EXT
 class PTLFileLoader(SourceFileLoader):
     @staticmethod
     def source_to_code(data, path='<string>'):
-        if isinstance(data, bytes):
-            # FIXME: we should check the encoding of the source file
-            data = data.decode('utf-8')
         node = parse(data, path)
         return compile(node, path, 'exec')
 
