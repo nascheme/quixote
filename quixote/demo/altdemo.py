@@ -1,5 +1,4 @@
-+#!/usr/bin/env python3
-+
+#!/usr/bin/env python3
 """An alternative Quixote demo.  This version is contained in a single module
 and does not use PTL.  The easiest way to run this demo is to use the
 simple HTTP server included with Quixote.  For example:
