@@ -21,10 +21,6 @@ from quixote import __version__
 htmltext = Extension(name="quixote.html._c_htmltext",
                      sources=["quixote/html/_c_htmltext.c"])
 
-# faster import hook for PTL modules
-cimport = Extension(name="quixote.ptl.cimport",
-                    sources=["quixote/ptl/cimport.c"])
-
 kw = {'name': "Quixote",
       'version': __version__,
       'description': "A small and flexible Python Web application framework",
@@ -49,10 +45,7 @@ kw = {'name': "Quixote",
 build_extensions = sys.platform != 'win32'
 
 if build_extensions:
-    # The _c_htmltext module requires Python 2.2 features.
-    if sys.hexversion >= 0x20200a1:
-        kw['ext_modules'].append(htmltext)
-    kw['ext_modules'].append(cimport)
+    kw['ext_modules'].append(htmltext)
 
 # If we're running Python 2.3, add extra information
 if hasattr(core, 'setup_keywords'):

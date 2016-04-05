@@ -13,20 +13,8 @@ def _escape_string(s):
     s = s.replace('"', "&quot;")
     return s
 
-def stringify(obj):
-    """Return 'obj' as a string or unicode object.  Tries to prevent
-    turning strings into unicode objects.
-    """
-    tp = type(obj)
-    if isinstance(obj, (str, bytes)):
-        return obj
-    elif hasattr(tp, '__str__'):
-        s = tp.__str__(obj)
-        if not isinstance(s, str):
-            raise TypeError('__str__ did not return a string')
-        return s
-    else:
-        return str(obj)
+# backwards comptibility, unneeded in Python 3
+stringify = str
 
 class htmltext(object):
     """The htmltext string-like type.  This type serves as a tag
@@ -37,7 +25,7 @@ class htmltext(object):
     __slots__ = ['s']
 
     def __init__(self, s):
-        self.s = stringify(s)
+        self.s = str(s)
 
     # XXX make read-only
     #def __setattr__(self, name, value):
@@ -98,7 +86,7 @@ class htmltext(object):
         quoted_items = []
         for item in items:
             if isinstance(item, htmltext):
-                quoted_items.append(stringify(item))
+                quoted_items.append(str(item))
             elif isinstance(item, str):
                 quoted_items.append(_escape_string(item))
             else:
@@ -148,7 +136,7 @@ class _QuoteWrapper(object):
         self.value = value
 
     def __str__(self):
-        return _escape_string(stringify(self.value))
+        return _escape_string(str(self.value))
 
     def __repr__(self):
         return _escape_string(repr(self.value))
@@ -160,11 +148,8 @@ class _QuoteWrapper(object):
 
 def _wraparg(arg):
     if isinstance(arg, htmltext):
-        # necessary to work around a PyString_Format bug in Python.  Should
-        # be fixed in Python 2.5
-        return stringify(arg)
+        return str(arg)
     elif isinstance(arg, str):
-        # again, work around PyString_Format bug
         return _escape_string(arg)
     elif (isinstance(arg, int) or
           isinstance(arg, float)):
@@ -184,7 +169,7 @@ def htmlescape(s):
     if isinstance(s, htmltext):
         return s
     else:
-        s = stringify(s)
+        s = str(s)
     # inline _escape_string for speed
     s = s.replace("&", "&amp;") # must be done first
     s = s.replace("<", "&lt;")
@@ -213,10 +198,10 @@ class TemplateIO(object):
                 (self.__class__.__name__, id(self), len(self.data)))
 
     def __str__(self):
-        return stringify(self.getvalue())
+        return str(self.getvalue())
 
     def getvalue(self):
         if self.html:
             return htmltext('').join(map(htmlescape, self.data))
         else:
-            return ''.join(map(stringify, self.data))
+            return ''.join(map(str, self.data))

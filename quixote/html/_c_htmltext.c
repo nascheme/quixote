@@ -3,12 +3,6 @@
 #include "Python.h"
 #include "structmember.h"
 
-#if PY_VERSION_HEX < 0x02050000
-typedef int Py_ssize_t;
-typedef intargfunc ssizeargfunc; 
-typedef inquiry lenfunc;
-#endif
-
 typedef struct {
 	PyObject_HEAD
 	PyObject *s;
@@ -16,7 +10,7 @@ typedef struct {
 
 static PyTypeObject htmltext_Type;
 
-#define htmltextObject_Check(v)	PyType_IsSubtype((v)->ob_type, &htmltext_Type)
+#define htmltextObject_Check(v)	PyType_IsSubtype(Py_TYPE(v), &htmltext_Type)
 
 #define htmltext_STR(v) ((PyObject *)(((htmltextObject *)v)->s))
 
@@ -27,16 +21,7 @@ typedef struct {
 
 static PyTypeObject QuoteWrapper_Type;
 
-#define QuoteWrapper_Check(v)	((v)->ob_type == &QuoteWrapper_Type)
-
-typedef struct {
-	PyUnicodeObject escaped;
-	PyObject *raw;
-} UnicodeWrapperObject;
-
-static PyTypeObject UnicodeWrapper_Type;
-
-#define UnicodeWrapper_Check(v)	((v)->ob_type == &UnicodeWrapper_Type)
+#define QuoteWrapper_Check(v)	(Py_TYPE(v) == &QuoteWrapper_Type)
 
 typedef struct {
 	PyObject_HEAD
@@ -46,7 +31,7 @@ typedef struct {
 
 static PyTypeObject TemplateIO_Type;
 
-#define TemplateIO_Check(v)	((v)->ob_type == &TemplateIO_Type)
+#define TemplateIO_Check(v)	(Py_TYPE(v) == &TemplateIO_Type)
 
 
 static PyObject *
@@ -56,41 +41,21 @@ type_error(const char *msg)
 	return NULL;
 }
 
-static int
-string_check(PyObject *v)
-{
-	return PyUnicode_Check(v) || PyString_Check(v);
-}
-
 static PyObject *
 stringify(PyObject *obj)
 {
-	static PyObject *unicodestr = NULL;
-	PyObject *res, *func;
-	if (string_check(obj)) {
+	PyObject *res;
+	if (PyUnicode_Check(obj) || PyBytes_Check(obj)) {
 		Py_INCREF(obj);
 		return obj;
 	}
-	if (unicodestr == NULL) {
-		unicodestr = PyString_InternFromString("__unicode__");
-		if (unicodestr == NULL)
-			return NULL;
-	}
-	func = PyObject_GetAttr(obj, unicodestr);
-	if (func != NULL) {
-		res = PyEval_CallObject(func, (PyObject *)NULL);
-		Py_DECREF(func);
-	}
-	else {
-		PyErr_Clear();
-		if (obj->ob_type->tp_str != NULL)
-			res = (*obj->ob_type->tp_str)(obj);
-		else
-			res = PyObject_Repr(obj);
-	}
+	if (Py_TYPE(obj)->tp_str != NULL)
+		res = (*Py_TYPE(obj)->tp_str)(obj);
+	else
+		res = PyObject_Repr(obj);
 	if (res == NULL)
                 return NULL;
-	if (!string_check(res)) {
+	if (!PyUnicode_Check(res)) {
 		Py_DECREF(res);
 		return type_error("string object required");
 	}
@@ -98,153 +63,116 @@ stringify(PyObject *obj)
 }
 
 static PyObject *
-escape_string(PyObject *obj)
+escape_unicode(PyObject *pystr)
 {
-	char *s;
-	PyObject *newobj;
-	Py_ssize_t i, j, extra_space, size, new_size;
-	assert (PyString_Check(obj));
-	size = PyString_GET_SIZE(obj);
-	extra_space = 0;
-	for (i=0; i < size; i++) {
-		switch (PyString_AS_STRING(obj)[i]) {
-		case '&':
-			extra_space += 4;
-			break;
-		case '<':
-		case '>':
-			extra_space += 3;
-			break;
-		case '"':
-			extra_space += 5;
-			break;
-		}
-	}
-	if (extra_space == 0) {
-		Py_INCREF(obj);
-		return (PyObject *)obj;
-	}
-	new_size = size + extra_space;
-	newobj = PyString_FromStringAndSize(NULL, new_size);
-	if (newobj == NULL)
-		return NULL;
-	s = PyString_AS_STRING(newobj);
-	for (i=0, j=0; i < size; i++) {
-		switch (PyString_AS_STRING(obj)[i]) {
-		case '&':
-			s[j++] = '&';
-			s[j++] = 'a';
-			s[j++] = 'm';
-			s[j++] = 'p';
-			s[j++] = ';';
-			break;
-		case '<':
-			s[j++] = '&';
-			s[j++] = 'l';
-			s[j++] = 't';
-			s[j++] = ';';
-			break;
-		case '>':
-			s[j++] = '&';
-			s[j++] = 'g';
-			s[j++] = 't';
-			s[j++] = ';';
-			break;
-		case '"':
-			s[j++] = '&';
-			s[j++] = 'q';
-			s[j++] = 'u';
-			s[j++] = 'o';
-			s[j++] = 't';
-			s[j++] = ';';
-			break;
-		default:
-			s[j++] = PyString_AS_STRING(obj)[i];
-			break;
-		}
-	}
-	assert (j == new_size);
-	return (PyObject *)newobj;
-}
+	/* Take a PyUnicode pystr and return a new escaped PyUnicode */
+	Py_ssize_t i;
+	Py_ssize_t input_chars;
+	Py_ssize_t extra_chars;
+	Py_ssize_t chars;
+	PyObject *rval;
+	void *input;
+	int kind;
+	Py_UCS4 maxchar;
 
-static PyObject *
-escape_unicode(PyObject *obj)
-{
-	Py_UNICODE *u;
-	PyObject *newobj;
-	Py_ssize_t i, j, extra_space, size, new_size;
-	assert (PyUnicode_Check(obj));
-	size = PyUnicode_GET_SIZE(obj);
-	extra_space = 0;
-	for (i=0; i < size; i++) {
-		switch (PyUnicode_AS_UNICODE(obj)[i]) {
+	if (PyUnicode_READY(pystr) == -1)
+		return NULL;
+
+	maxchar = PyUnicode_MAX_CHAR_VALUE(pystr);
+	input_chars = PyUnicode_GET_LENGTH(pystr);
+	input = PyUnicode_DATA(pystr);
+	kind = PyUnicode_KIND(pystr);
+
+	/* Compute the output size */
+	for (i = 0, extra_chars = 0; i < input_chars; i++) {
+		Py_UCS4 c = PyUnicode_READ(kind, input, i);
+		switch (c) {
 		case '&':
-			extra_space += 4;
+			extra_chars += 4;
 			break;
 		case '<':
 		case '>':
-			extra_space += 3;
+			extra_chars += 3;
 			break;
 		case '"':
-			extra_space += 5;
+			extra_chars += 5;
 			break;
 		}
 	}
-	if (extra_space == 0) {
-		Py_INCREF(obj);
-		return (PyObject *)obj;
-	}
-	new_size = size + extra_space;
-	newobj = PyUnicode_FromUnicode(NULL, new_size);
-	if (newobj == NULL) {
+	if (extra_chars > PY_SSIZE_T_MAX - input_chars) {
+		PyErr_SetString(PyExc_OverflowError,
+				"string is too long to escape");
 		return NULL;
 	}
-	u = PyUnicode_AS_UNICODE(newobj);
-	for (i=0, j=0; i < size; i++) {
-		switch (PyUnicode_AS_UNICODE(obj)[i]) {
-		case '&':
-			u[j++] = '&';
-			u[j++] = 'a';
-			u[j++] = 'm';
-			u[j++] = 'p';
-			u[j++] = ';';
-			break;
-		case '<':
-			u[j++] = '&';
-			u[j++] = 'l';
-			u[j++] = 't';
-			u[j++] = ';';
-			break;
-		case '>':
-			u[j++] = '&';
-			u[j++] = 'g';
-			u[j++] = 't';
-			u[j++] = ';';
-			break;
-		case '"':
-			u[j++] = '&';
-			u[j++] = 'q';
-			u[j++] = 'u';
-			u[j++] = 'o';
-			u[j++] = 't';
-			u[j++] = ';';
-			break;
-		default:
-			u[j++] = PyUnicode_AS_UNICODE(obj)[i];
-			break;
-		}
+
+	rval = PyUnicode_New(input_chars + extra_chars, maxchar);
+	if (rval == NULL)
+		return NULL;
+
+	kind = PyUnicode_KIND(rval);
+
+#define ENCODE_OUTPUT do { \
+	chars = 0; \
+	for (i = 0; i < input_chars; i++) { \
+		Py_UCS4 c = PyUnicode_READ(kind, input, i); \
+		switch (c) { \
+		case '&':  \
+			output[chars++] = '&'; \
+			output[chars++] = 'a'; \
+			output[chars++] = 'm'; \
+			output[chars++] = 'p'; \
+			output[chars++] = ';'; \
+			break; \
+		case '<':  \
+			output[chars++] = '&'; \
+			output[chars++] = 'l'; \
+			output[chars++] = 't'; \
+			output[chars++] = ';'; \
+			break; \
+		case '>':  \
+			output[chars++] = '&'; \
+			output[chars++] = 'g'; \
+			output[chars++] = 't'; \
+			output[chars++] = ';'; \
+			break; \
+		case '"':  \
+			output[chars++] = '&'; \
+			output[chars++] = 'q'; \
+			output[chars++] = 'u'; \
+			output[chars++] = 'o'; \
+			output[chars++] = 't'; \
+			output[chars++] = ';'; \
+			break; \
+		default: \
+			 output[chars++] = c; \
+		} \
+	} \
+	} while (0)
+
+	if (kind == PyUnicode_1BYTE_KIND) {
+		Py_UCS1 *output = PyUnicode_1BYTE_DATA(rval);
+		ENCODE_OUTPUT;
+	} else if (kind == PyUnicode_2BYTE_KIND) {
+		Py_UCS2 *output = PyUnicode_2BYTE_DATA(rval);
+		ENCODE_OUTPUT;
+	} else {
+		Py_UCS4 *output = PyUnicode_4BYTE_DATA(rval);
+		assert(kind == PyUnicode_4BYTE_KIND);
+		ENCODE_OUTPUT;
 	}
-	assert (j == new_size);
-	return (PyObject *)newobj;
+	assert (chars == input_chars + extra_chars);
+#undef ENCODE_OUTPUT
+
+#ifdef Py_DEBUG
+	assert(_PyUnicode_CheckConsistency(rval, 1));
+#endif
+return rval;
 }
 
 static PyObject *
 escape(PyObject *obj)
 {
-	if (PyString_Check(obj)) {
-		return escape_string(obj);
-	}
-	else if (PyUnicode_Check(obj)) {
+	if (PyUnicode_Check(obj)) {
 		return escape_unicode(obj);
 	}
 	else {
@@ -257,19 +185,11 @@ quote_wrapper_new(PyObject *o)
 {
 	QuoteWrapperObject *self;
 	if (htmltextObject_Check(o)) {
-            /* Necessary to work around a PyString_Format bug.  Should be
-	     * fixed in Python 2.5. */
             o = htmltext_STR(o);
             Py_INCREF(o);
             return o;
         }
-	if (PyUnicode_Check(o)) {
-	    /* again, work around PyString_Format bug */
-            return PyObject_CallFunctionObjArgs(
-                        (PyObject *)&UnicodeWrapper_Type, o, NULL);
-        }
-	if (PyInt_Check(o) ||
-	    PyFloat_Check(o) ||
+	if (PyFloat_Check(o) ||
 	    PyLong_Check(o)) {
 		/* no need for wrapper */
 		Py_INCREF(o);
@@ -328,61 +248,13 @@ quote_wrapper_subscript(QuoteWrapperObject *self, PyObject *key)
 }
 
 static PyObject *
-unicode_wrapper_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-	PyObject *result;
-	PyObject *raw = NULL, *escaped = NULL, *newargs = NULL;
-	if (!PyArg_ParseTuple(args, "O", &raw))
-		goto error;
-	escaped = escape(raw);
-	if (escaped == NULL)
-		goto error;
-	newargs = PyTuple_New(1);
-	if (newargs == NULL)
-		goto error;
-	PyTuple_SET_ITEM(newargs, 0, escaped);
-	result = PyUnicode_Type.tp_new(type, newargs, kwds);
-	if (result == NULL)
-		goto error;
-	Py_DECREF(newargs);
-	Py_INCREF(raw);
-	((UnicodeWrapperObject *)result)->raw = raw;
-	return result;
-
-error:
-	Py_XDECREF(raw);
-	Py_XDECREF(escaped);
-	Py_XDECREF(newargs);
-	return NULL;
-}
-
-static void
-unicode_wrapper_dealloc(UnicodeWrapperObject *self)
-{
-	Py_XDECREF(self->raw);
-	PyUnicode_Type.tp_dealloc((PyObject *) self);
-}
-
-static PyObject *
-unicode_wrapper_repr(UnicodeWrapperObject *self)
-{
-	PyObject *qr;
-	PyObject *r = PyObject_Repr(self->raw);
-	if (r == NULL)
-		return NULL;
-	qr = escape(r);
-	Py_DECREF(r);
-	return qr;
-}
-
-static PyObject *
 htmltext_from_string(PyObject *s)
 {
 	/* note, this steals a reference */
 	PyObject *self;
 	if (s == NULL)
 		return NULL;
-	assert (string_check(s));
+	assert (PyUnicode_Check(s));
 	self = PyType_GenericAlloc(&htmltext_Type, 0);
 	if (self == NULL) {
 		Py_DECREF(s);
@@ -419,7 +291,7 @@ static void
 htmltext_dealloc(htmltextObject *self)
 {
 	Py_DECREF(self->s);
-	self->ob_type->tp_free((PyObject *)self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static long
@@ -442,7 +314,7 @@ htmltext_repr(htmltextObject *self)
 	sr = PyObject_Repr((PyObject *)self->s);
 	if (sr == NULL)
 		return NULL;
-	rv = PyString_FromFormat("<htmltext %s>", PyString_AsString(sr));
+	rv = PyUnicode_FromFormat("<htmltext %s>", PyUnicode_AsUTF8(sr));
 	Py_DECREF(sr);
 	return rv;
 }
@@ -470,15 +342,8 @@ static PyObject *
 htmltext_format(htmltextObject *self, PyObject *args)
 {
 	/* wrap the format arguments with QuoteWrapperObject */
-	int is_unicode;
 	PyObject *rv, *wargs;
-	if (PyUnicode_Check(self->s)) {
-		is_unicode = 1;
-	}
-	else {
-		is_unicode = 0;
-		assert (PyString_Check(self->s));
-	}
+	assert (PyUnicode_Check(self->s));
 	if (PyTuple_Check(args)) {
 		Py_ssize_t i, n = PyTuple_GET_SIZE(args);
 		wargs = PyTuple_New(n);
@@ -497,10 +362,7 @@ htmltext_format(htmltextObject *self, PyObject *args)
 		if (wargs == NULL)
 			return NULL;
 	}
-	if (is_unicode)
-		rv = PyUnicode_Format(self->s, wargs);
-	else
-		rv = PyString_Format(self->s, wargs);
+	rv = PyUnicode_Format(self->s, wargs);
 	Py_DECREF(wargs);
 	return htmltext_from_string(rv);
 }
@@ -515,7 +377,16 @@ htmltext_add(PyObject *v, PyObject *w)
 		Py_INCREF(qv);
 		Py_INCREF(qw);
 	}
-	else if (string_check(w)) {
+	else if (PyUnicode_Check(v)) {
+		assert (htmltextObject_Check(w));
+		qw = htmltext_STR(w);
+		qv = escape(v);
+		if (qv == NULL)
+			return NULL;
+		Py_INCREF(qw);
+
+	}
+	else if (PyUnicode_Check(w)) {
 		assert (htmltextObject_Check(v));
 		qv = htmltext_STR(v);
 		qw = escape(w);
@@ -523,28 +394,14 @@ htmltext_add(PyObject *v, PyObject *w)
 			return NULL;
 		Py_INCREF(qv);
 	}
-	else if (string_check(v)) {
-		assert (htmltextObject_Check(w));
-		qv = escape(v);
-		if (qv == NULL)
-			return NULL;
-		qw = htmltext_STR(w);
-		Py_INCREF(qw);
-	}
 	else {
 		Py_INCREF(Py_NotImplemented);
 		return Py_NotImplemented;
 	}
-        if (PyString_Check(qv)) {
-            PyString_ConcatAndDel(&qv, qw);
-            rv = qv;
-        }
-        else {
-            assert (PyUnicode_Check(qv));
-            rv = PyUnicode_Concat(qv, qw);
-            Py_DECREF(qv);
-            Py_DECREF(qw);
-        }
+	assert (PyUnicode_Check(qv));
+	rv = PyUnicode_Concat(qv, qw);
+	Py_DECREF(qv);
+	Py_DECREF(qw);
 	return htmltext_from_string(rv);
 }
 
@@ -577,7 +434,7 @@ htmltext_join(PyObject *self, PyObject *args)
 			Py_INCREF(qvalue);
 		}
 		else {
-			if (!string_check(value)) {
+			if (!PyUnicode_Check(value)) {
 				type_error("join requires a list of strings");
 				goto error;
 			}
@@ -589,12 +446,8 @@ htmltext_join(PyObject *self, PyObject *args)
 			goto error;
 		}
 	}
-	if (PyUnicode_Check(htmltext_STR(self))) {
-		rv = PyUnicode_Join(htmltext_STR(self), quoted_args);
-	}
-	else {
-		rv = _PyString_Join(htmltext_STR(self), quoted_args);
-	}
+        assert (PyUnicode_Check(htmltext_STR(self)));
+        rv = PyUnicode_Join(htmltext_STR(self), quoted_args);
 	Py_DECREF(quoted_args);
 	return htmltext_from_string(rv);
 
@@ -607,7 +460,7 @@ static PyObject *
 quote_arg(PyObject *s)
 {
 	PyObject *ss;
-	if (string_check(s)) {
+	if (PyUnicode_Check(s)) {
 		ss = escape(s);
 		if (ss == NULL)
 			return NULL;
@@ -634,7 +487,6 @@ htmltext_call_method1(PyObject *self, PyObject *s, char *method)
 	return rv;
 }
 
-#if PY_VERSION_HEX >= 0x02060000
 static PyObject *
 call_method_kwargs(PyObject *self, char *method, PyObject *args,
 		   PyObject *kwargs)
@@ -647,7 +499,6 @@ call_method_kwargs(PyObject *self, char *method, PyObject *args,
 	Py_DECREF(m);
 	return rv;
 }
-#endif
 
 static PyObject *
 htmltext_startswith(PyObject *self, PyObject *s)
@@ -666,13 +517,8 @@ htmltext_replace(PyObject *self, PyObject *args)
 {
 	PyObject *old, *new, *q_old, *q_new, *rv;
 	Py_ssize_t maxsplit = -1;
-#if PY_VERSION_HEX >= 0x02050000
 	if (!PyArg_ParseTuple(args,"OO|n:replace", &old, &new, &maxsplit))
 		return NULL;
-#else	
-	if (!PyArg_ParseTuple(args,"OO|i:replace", &old, &new, &maxsplit))
-		return NULL;
-#endif
 	q_old = quote_arg(old);
 	if (q_old == NULL)
 		return NULL;
@@ -681,14 +527,8 @@ htmltext_replace(PyObject *self, PyObject *args)
 		Py_DECREF(q_old);
 		return NULL;
 	}
-#if PY_VERSION_HEX >= 0x02050000
 	rv = PyObject_CallMethod(htmltext_STR(self), "replace", "OOn",
 				 q_old, q_new, maxsplit);
-#else
-	rv = PyObject_CallMethod(htmltext_STR(self), "replace", "OOi",
-				 q_old, q_new, maxsplit);
-#endif
-
 	Py_DECREF(q_old);
 	Py_DECREF(q_new);
 	return htmltext_from_string(rv);
@@ -716,7 +556,6 @@ htmltext_capitalize(PyObject *self)
 							"capitalize", ""));
 }
 
-#if PY_VERSION_HEX >= 0x02060000
 static PyObject *
 htmltext_format_method(PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -755,14 +594,13 @@ htmltext_format_method(PyObject *self, PyObject *args, PyObject *kwargs)
 		}
 	}
 	rv = call_method_kwargs(htmltext_STR(self), "format", wargs, wkwargs);
-	if (rv && string_check(rv))
+	if (rv && PyUnicode_Check(rv))
 	       rv = htmltext_from_string(rv);
 error:
 	Py_DECREF(wargs);
 	Py_XDECREF(wkwargs);
 	return rv;
 }
-#endif
 
 
 static PyObject *
@@ -791,7 +629,7 @@ static void
 template_io_dealloc(TemplateIO_Object *self)
 {
 	Py_DECREF(self->data);
-	self->ob_type->tp_free((PyObject *)self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyObject *
@@ -799,11 +637,11 @@ template_io_str(TemplateIO_Object *self)
 {
 	static PyObject *empty = NULL;
 	if (empty == NULL) {
-		empty = PyString_FromStringAndSize(NULL, 0);
+		empty = PyUnicode_FromStringAndSize(NULL, 0);
 		if (empty == NULL)
 			return NULL;
 	}
-	return _PyString_Join(empty, self->data);
+	return PyUnicode_Join(empty, self->data);
 }
 
 static PyObject *
@@ -860,10 +698,8 @@ static PyMethodDef htmltext_methods[] = {
 	{"lower", (PyCFunction)htmltext_lower, METH_NOARGS, ""},
 	{"upper", (PyCFunction)htmltext_upper, METH_NOARGS, ""},
 	{"capitalize", (PyCFunction)htmltext_capitalize, METH_NOARGS, ""},
-#if PY_VERSION_HEX >= 0x02060000
 	{"format", (PyCFunction)htmltext_format_method,
 		METH_VARARGS | METH_KEYWORDS, ""},
-#endif
 	{NULL, NULL}
 };
 
@@ -874,7 +710,7 @@ static PyMemberDef htmltext_members[] = {
 
 static PySequenceMethods htmltext_as_sequence = {
 	(lenfunc)htmltext_length,	/*sq_length*/
-	0,				/*sq_concat*/
+	0,	/*sq_concat*/
 	(ssizeargfunc)htmltext_repeat,	/*sq_repeat*/
 	0,				/*sq_item*/
 	0,				/*sq_slice*/
@@ -887,29 +723,11 @@ static PyNumberMethods htmltext_as_number = {
 	(binaryfunc)htmltext_add, /*nb_add*/
 	0, /*nb_subtract*/
 	0, /*nb_multiply*/
-	0, /*nb_divide*/
 	(binaryfunc)htmltext_format, /*nb_remainder*/
-	0, /*nb_divmod*/
-	0, /*nb_power*/
-	0, /*nb_negative*/
-	0, /*nb_positive*/
-	0, /*nb_absolute*/
-	0, /*nb_nonzero*/
-	0, /*nb_invert*/
-	0, /*nb_lshift*/
-	0, /*nb_rshift*/
-	0, /*nb_and*/
-	0, /*nb_xor*/
-	0, /*nb_or*/
-	0, /*nb_coerce*/
-	0, /*nb_int*/
-	0, /*nb_long*/
-	0, /*nb_float*/
 };
 
 static PyTypeObject htmltext_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,			/*ob_size*/
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"htmltext",		/*tp_name*/
 	sizeof(htmltextObject),	/*tp_basicsize*/
 	0,			/*tp_itemsize*/
@@ -918,7 +736,7 @@ static PyTypeObject htmltext_Type = {
 	0,			/*tp_print*/
 	0,			/*tp_getattr*/
 	0,			/*tp_setattr*/
-	0,			/*tp_compare*/
+	0,			/*tp_reserved*/
 	(unaryfunc)htmltext_repr,/*tp_repr*/
 	&htmltext_as_number,	/*tp_as_number*/
 	&htmltext_as_sequence,	/*tp_as_sequence*/
@@ -926,11 +744,10 @@ static PyTypeObject htmltext_Type = {
 	htmltext_hash,		/*tp_hash*/
 	0,			/*tp_call*/
 	(unaryfunc)htmltext_str,/*tp_str*/
-	0,			/*tp_getattro  set to PyObject_GenericGetAttr by module init*/
+	0,			/*tp_getattro*/
 	0,			/*tp_setattro*/
 	0,			/*tp_as_buffer*/
-	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE \
-		| Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
 	0,			/*tp_doc*/
 	0,			/*tp_traverse*/
 	0,			/*tp_clear*/
@@ -947,34 +764,10 @@ static PyTypeObject htmltext_Type = {
 	0,			/*tp_descr_set*/
 	0,			/*tp_dictoffset*/
 	0,			/*tp_init*/
-	0,			/*tp_alloc  set to PyType_GenericAlloc by module init*/
+	0,			/*tp_alloc*/
 	htmltext_new,		/*tp_new*/
-	0,			/*tp_free  set to _PyObject_Del by module init*/
+	0,			/*tp_free*/
 	0,			/*tp_is_gc*/
-};
-
-static PyNumberMethods quote_wrapper_as_number = {
-	0, /*nb_add*/
-	0, /*nb_subtract*/
-	0, /*nb_multiply*/
-	0, /*nb_divide*/
-	0, /*nb_remainder*/
-	0, /*nb_divmod*/
-	0, /*nb_power*/
-	0, /*nb_negative*/
-	0, /*nb_positive*/
-	0, /*nb_absolute*/
-	0, /*nb_nonzero*/
-	0, /*nb_invert*/
-	0, /*nb_lshift*/
-	0, /*nb_rshift*/
-	0, /*nb_and*/
-	0, /*nb_xor*/
-	0, /*nb_or*/
-	0, /*nb_coerce*/
-	0, /*nb_int*/
-	0, /*nb_long*/
-	0, /*nb_float*/
 };
 
 static PyMappingMethods quote_wrapper_as_mapping = {
@@ -985,104 +778,47 @@ static PyMappingMethods quote_wrapper_as_mapping = {
 
 
 static PyTypeObject QuoteWrapper_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,			/*ob_size*/
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"QuoteWrapper",		/*tp_name*/
 	sizeof(QuoteWrapperObject),	/*tp_basicsize*/
-	0,			/*tp_itemsize*/
-	/* methods */
-	(destructor)quote_wrapper_dealloc, /*tp_dealloc*/
-	0,			/*tp_print*/
-	0,			/*tp_getattr*/
-	0,			/*tp_setattr*/
-	0,			/*tp_compare*/
-	(unaryfunc)quote_wrapper_repr,/*tp_repr*/
-	&quote_wrapper_as_number,/*tp_as_number*/
-	0,			/*tp_as_sequence*/
-	&quote_wrapper_as_mapping,/*tp_as_mapping*/
-	0,			/*tp_hash*/
-	0,			/*tp_call*/
-	(unaryfunc)quote_wrapper_str,  /*tp_str*/
+	0,
+	(destructor)quote_wrapper_dealloc,          /* tp_dealloc */
+	0,                                          /* tp_print */
+	0,                                          /* tp_getattr */
+	0,                                          /* tp_setattr */
+	0,                                          /* tp_reserved */
+	(unaryfunc)quote_wrapper_repr,              /* tp_repr */
+	0,                                          /* tp_as_number */
+	0,                                          /* tp_as_sequence */
+	&quote_wrapper_as_mapping,                  /* tp_as_mapping */
+	0,                                          /* tp_hash */
+	0,                                          /* tp_call */
+	(unaryfunc)quote_wrapper_str,               /* tp_str */
+	0,                                          /* tp_getattro */
+	0,                                          /* tp_setattro */
+	0,                                          /* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT,                         /* tp_flags */
 };
 
-static PyTypeObject UnicodeWrapper_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,					/*ob_size*/
-	"UnicodeWrapper",			/*tp_name*/
-	sizeof(UnicodeWrapperObject),		/*tp_basicsize*/
-	0,					/*tp_itemsize*/
-	/* methods */
-	(destructor)unicode_wrapper_dealloc,	/*tp_dealloc*/
-	0,					/*tp_print*/
-	0,					/*tp_getattr*/
-	0,					/*tp_setattr*/
-	0,					/*tp_compare*/
-	(unaryfunc)unicode_wrapper_repr,	/*tp_repr*/
-	0,					/*tp_as_number*/
-	0,					/*tp_as_sequence*/
-	0,					/*tp_as_mapping*/
-	0,					/*tp_hash*/
-	0,					/*tp_call*/
-	0,					/*tp_str*/
-	0,					/*tp_getattro */
-	0,					/*tp_setattro */
-	0,					/*tp_as_buffer */
-	Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,	/*tp_flags */
-	0,					/*tp_doc */
-	0,					/*tp_traverse */
-	0,					/*tp_clear */
-	0,					/*tp_richcompare */
-	0,					/*tp_weaklistoffset */
-	0,					/*tp_iter */
-	0,					/*tp_iternext */
-	0,					/*tp_methods */
-	0,					/*tp_members */
-	0,					/*tp_getset */
-	0,					/*tp_base */
-	0,					/*tp_dict */
-	0,					/*tp_descr_get */
-	0,					/*tp_descr_set */
-	0,					/*tp_dictoffset */
-	0,					/*tp_init */
-	0,					/*tp_alloc */
-	(newfunc)unicode_wrapper_new,		/*tp_new */
+static PySequenceMethods template_io_as_seq = {
+	0, /* sq_length */
+	0, /* sq_concat */
+	0, /* sq_repeat */
+	0, /* sq_item */
+	0, /* sq_slice */
+	0, /* sq_ass_item */
+	0, /* sq_ass_slice */
+	0, /* sq_contains */
+	(binaryfunc)template_io_iadd, /* sq_inplace_concat */
+	0, /* sq_inplace_repeat */
 };
-
-static PyNumberMethods template_io_as_number = {
-	0, /*nb_add*/
-	0, /*nb_subtract*/
-	0, /*nb_multiply*/
-	0, /*nb_divide*/
-	0, /*nb_remainder*/
-	0, /*nb_divmod*/
-	0, /*nb_power*/
-	0, /*nb_negative*/
-	0, /*nb_positive*/
-	0, /*nb_absolute*/
-	0, /*nb_nonzero*/
-	0, /*nb_invert*/
-	0, /*nb_lshift*/
-	0, /*nb_rshift*/
-	0, /*nb_and*/
-	0, /*nb_xor*/
-	0, /*nb_or*/
-	0, /*nb_coerce*/
-	0, /*nb_int*/
-	0, /*nb_long*/
-	0, /*nb_float*/
-	0, /*nb_oct*/
-	0, /*nb_hex*/
-	(binaryfunc)template_io_iadd, /*nb_inplace_add*/
-};
-
 static PyMethodDef template_io_methods[] = {
 	{"getvalue", (PyCFunction)template_io_getvalue, METH_NOARGS, ""},
 	{NULL, NULL}
 };
 
 static PyTypeObject TemplateIO_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,			/*ob_size*/
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"TemplateIO",		/*tp_name*/
 	sizeof(TemplateIO_Object),/*tp_basicsize*/
 	0,			/*tp_itemsize*/
@@ -1093,8 +829,8 @@ static PyTypeObject TemplateIO_Type = {
 	0,			/*tp_setattr*/
 	0,			/*tp_compare*/
 	0,			/*tp_repr*/
-	&template_io_as_number,	/*tp_as_number*/
-	0,			/*tp_as_sequence*/
+	0,			/*tp_as_number*/
+	&template_io_as_seq,	/*tp_as_sequence*/
 	0,			/*tp_as_mapping*/
 	0,			/*tp_hash*/
 	0,			/*tp_call*/
@@ -1168,28 +904,34 @@ static PyMethodDef htmltext_module_methods[] = {
 
 static char module_doc[] = "htmltext string type";
 
-void
-init_c_htmltext(void)
+static struct PyModuleDef htmltext_module = {
+	PyModuleDef_HEAD_INIT,
+	"_c_htmltext",
+	module_doc,
+	-1,
+	htmltext_module_methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+};
+
+
+PyMODINIT_FUNC PyInit__c_htmltext(void)
 {
-	PyObject *m;
-
-	/* Create the module and add the functions */
-	m = Py_InitModule4("_c_htmltext", htmltext_module_methods, module_doc,
-			   NULL, PYTHON_API_VERSION);
-
-	if (PyType_Ready(&htmltext_Type) < 0)
-		return;
-	if (PyType_Ready(&QuoteWrapper_Type) < 0)
-		return;
-	UnicodeWrapper_Type.tp_base = &PyUnicode_Type;
-	if (PyType_Ready(&UnicodeWrapper_Type) < 0)
-		return;
-	if (PyType_Ready(&TemplateIO_Type) < 0)
-		return;
-	Py_INCREF((PyObject *)&htmltext_Type);
-	Py_INCREF((PyObject *)&QuoteWrapper_Type);
-	Py_INCREF((PyObject *)&UnicodeWrapper_Type);
-	Py_INCREF((PyObject *)&TemplateIO_Type);
-	PyModule_AddObject(m, "htmltext", (PyObject *)&htmltext_Type);
-	PyModule_AddObject(m, "TemplateIO", (PyObject *)&TemplateIO_Type);
-}
+    PyObject *m = PyModule_Create(&htmltext_module);
+    if (m == NULL)
+        return NULL;
+    if (PyType_Ready(&htmltext_Type) < 0)
+        return NULL;
+    if (PyType_Ready(&QuoteWrapper_Type) < 0)
+        return NULL;
+    if (PyType_Ready(&TemplateIO_Type) < 0)
+        return NULL;
+    Py_INCREF((PyObject *)&htmltext_Type);
+    Py_INCREF((PyObject *)&QuoteWrapper_Type);
+    Py_INCREF((PyObject *)&TemplateIO_Type);
+    PyModule_AddObject(m, "htmltext", (PyObject *)&htmltext_Type);
+    PyModule_AddObject(m, "TemplateIO", (PyObject *)&TemplateIO_Type);
+    return m;
+};

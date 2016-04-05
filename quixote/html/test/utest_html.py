@@ -5,12 +5,13 @@ from quixote.html import href, url_with_query, url_quote, nl2br
 
 markupchars = '<>&"'
 quotedchars = '&lt;&gt;&amp;&quot;'
-unicodechars = '\\u1234'
+unicodechars = '\u1234'
+high_code = '\U000e0030'
 
 # Byte types...
 markupbytes = b'<>&"'
 quotedbytes = b'&lt;&gt;&amp;&quot;'
-bytebytes = b'\u1234'
+bytebytes = b'\x01'
 
 
 class Wrapper:
@@ -33,7 +34,7 @@ class Broken:
     def __repr__(self):
         raise BrokenError('eieee')
 
-htmltext = escape = htmlescape = TemplateIO = stringify = None
+htmltext = escape = htmlescape = TemplateIO = None
 
 class HTMLTest (UTest):
 
@@ -56,19 +57,7 @@ class HTMLTest (UTest):
 
 class HTMLTextTest (UTest):
 
-    def _pre(self):
-        global htmltext, escape, htmlescape, TemplateIO, stringify
-        htmltext = _py_htmltext.htmltext
-        escape = _py_htmltext._escape_string
-        stringify = _py_htmltext.stringify
-        htmlescape = _py_htmltext.htmlescape
-        TemplateIO = _py_htmltext.TemplateIO
-
-    def _post(self):
-        global htmltext, escape, htmlescape, TemplateIO, stringify
-        htmltext = escape = htmlescape = TemplateIO = stringify = None
-
-    def _check_init(self):
+    def check_init(self):
         assert str(htmltext('foo')) == 'foo'
         assert str(htmltext(markupchars)) == markupchars
         assert str(htmltext(unicodechars)) == unicodechars
@@ -80,20 +69,12 @@ class HTMLTextTest (UTest):
             assert 0
         except BrokenError: pass
 
-    def check_stringify(self):
-        assert stringify(markupchars) is markupchars
-        assert stringify(unicodechars) is unicodechars
-        assert stringify(Wrapper(unicodechars)) is unicodechars
-        assert stringify(Wrapper(markupchars)) is markupchars
-        assert stringify(Wrapper) == str(Wrapper)
-        assert stringify(None) == str(None)
-        assert stringify(markupbytes) is markupbytes
-
     def check_escape(self):
         assert htmlescape(markupchars) == quotedchars
         assert isinstance(htmlescape(markupchars), htmltext)
         assert escape(markupchars) == quotedchars
         assert escape(unicodechars) == unicodechars
+        assert escape(high_code) == high_code
         assert type(escape(markupchars)) == type(markupchars)
         assert isinstance(escape(markupchars), str)
         assert htmlescape(htmlescape(markupchars)) == quotedchars
@@ -288,14 +269,6 @@ class HTMLTextTest (UTest):
 
 class TemplateTest (UTest):
 
-    def _pre(self):
-        global TemplateIO
-        TemplateIO = _py_htmltext.TemplateIO
-
-    def _post(self):
-        global TemplateIO
-        TemplateIO = None
-
     def check_init(self):
         TemplateIO()
         TemplateIO(html=True)
@@ -351,36 +324,29 @@ try:
 except ImportError:
     _c_htmltext = None
 
-if _c_htmltext:
-    class CHTMLTest(HTMLTest):
-        def _pre(self):
-            # using globals like this is a bit of a hack since it assumes
-            # Sancho tests each class individually, oh well
-            global htmltext, escape, htmlescape, stringify
-            htmltext = _c_htmltext.htmltext
-            escape = _c_htmltext._escape_string
-            stringify = _py_htmltext.stringify
-            htmlescape = _c_htmltext.htmlescape
+def setup_py():
+    global htmltext, escape, htmlescape, TemplateIO
+    htmltext = _py_htmltext.htmltext
+    escape = _py_htmltext._escape_string
+    htmlescape = _py_htmltext.htmlescape
+    TemplateIO = _py_htmltext.TemplateIO
 
-    class CHTMLTextTest(HTMLTextTest):
-        def _pre(self):
-            global htmltext, escape, htmlescape, stringify
-            htmltext = _c_htmltext.htmltext
-            escape = _c_htmltext._escape_string
-            stringify = _py_htmltext.stringify
-            htmlescape = _c_htmltext.htmlescape
 
-    class CTemplateTest(TemplateTest):
-        def _pre(self):
-            global TemplateIO
-            TemplateIO = _c_htmltext.TemplateIO
+def setup_c():
+    global htmltext, escape, htmlescape, TemplateIO
+    htmltext = _c_htmltext.htmltext
+    escape = _c_htmltext._escape_string
+    htmlescape = _c_htmltext.htmlescape
+    TemplateIO = _c_htmltext.TemplateIO
 
 
 if __name__ == "__main__":
+    setup_py()
     HTMLTest()
     HTMLTextTest()
     TemplateTest()
     if _c_htmltext:
-        CHTMLTest()
-        CHTMLTextTest()
-        CTemplateTest()
+        setup_c()
+        HTMLTest()
+        HTMLTextTest()
+        TemplateTest()
