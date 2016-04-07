@@ -47,7 +47,7 @@ class TemplateTransformer(transformer.Transformer):
             return None
 
     def file_input(self, nodelist):
-        doc = None # self.get_docstring(nodelist, symbol.file_input)
+        doc = self.get_docstring(nodelist, symbol.file_input)
         if sys.hexversion >= 0x02050000:
             html_imp = ast.From(
                 'quixote.html',
@@ -65,14 +65,14 @@ class TemplateTransformer(transformer.Transformer):
         for node in nodelist:
             if node[0] != token.ENDMARKER and node[0] != token.NEWLINE:
                 self.com_append_stmt(stmts, node)
+        if doc:
+            stmts = stmts[1:]
         # count __future__ statements
-        i = 0
-        for stmt in stmts:
+        idx = 0
+        for i, stmt in enumerate(stmts):
             if isinstance(stmt, ast.From) and stmt.modname == '__future__':
-                i += 1
-            else:
-                break
-        stmts[i:i] = ptl_imports
+                idx = i + 1
+        stmts[idx:idx] = ptl_imports
         return ast.Module(doc, ast.Stmt(stmts))
 
     def funcdef(self, nodelist):
