@@ -62,12 +62,12 @@ status_reasons = {
     507: 'Insufficient Storage',
 }
 
-_GZIP_HEADER = ("\037\213" # magic
-                "\010" # compression method
-                "\000" # flags
-                "\000\000\000\000" # time, who cares?
-                "\002"
-                "\377")
+_GZIP_HEADER = (b"\037\213" # magic
+                b"\010" # compression method
+                b"\000" # flags
+                b"\000\000\000\000" # time, who cares?
+                b"\002"
+                b"\377")
 
 # content that is already compressed, don't bother trying
 _GZIP_EXCLUDE = set(["application/pdf",
@@ -265,7 +265,7 @@ class HTTPResponse:
     def _generate_compressed(self, body):
         co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
                                   zlib.DEF_MEM_LEVEL, 0)
-        crc = zlib.crc32('') & 0xffffffff
+        crc = zlib.crc32(b'') & 0xffffffff
         n = 0
         yield _GZIP_HEADER
         for chunk in body:

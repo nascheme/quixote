@@ -169,7 +169,7 @@ PTL_EXT = ".ptl"
 
 def dump(code, filename, fp):
     mtime = os.stat(filename)[stat.ST_MTIME]
-    fp.write('\0\0\0\0')
+    fp.write(b'\0\0\0\0')
     fp.write(struct.pack('<I', mtime))
     marshal.dump(code, fp)
     fp.flush()
