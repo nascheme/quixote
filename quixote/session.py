@@ -122,6 +122,9 @@ class SessionManager:
         """
         return self.sessions.values()
 
+    def itervalues(self):
+        return self.sessions.itervalues()
+
     def items(self):
         """() -> [(string, Session)]
 
@@ -129,6 +132,9 @@ class SessionManager:
         manager.
         """
         return self.sessions.items()
+
+    def iteritems(self):
+        return self.sessions.iteritems()
 
     def get(self, session_id, default=None):
         """(session_id : string, default : any = None) -> Session
@@ -158,10 +164,10 @@ class SessionManager:
         return session_id in self.sessions
 
     def __contains__(self, session_id):
-        return self.has_key(session_id)
+        return session_id in self.sessions
 
     def has_session(self, session_id):
-        return self.has_key(session_id)
+        return session_id in self.sessions
 
     def __setitem__(self, session_id, session):
         """(session_id : string, session : Session)
