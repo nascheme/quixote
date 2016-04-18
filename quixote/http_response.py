@@ -349,7 +349,7 @@ class HTTPResponse:
 
     def redirect(self, location, permanent=False):
         """Cause a redirection without raising an error"""
-        if not isinstance(location, str):
+        if not isinstance(location, basestring):
             raise TypeError, "location must be a string (got %s)" % `location`
         # Ensure that location is a full URL
         if location.find('://') == -1:
