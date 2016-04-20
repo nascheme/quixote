@@ -50,14 +50,12 @@ class TemplateTransformer(ast.NodeTransformer):
                                                    asname='_q_vars')], level=0)
         ast.fix_missing_locations(vars_imp)
         ptl_imports = [vars_imp, html_imp]
-        # count __future__ statements
-        i = 0
-        for stmt in node.body:
+        # skip __future__ statements
+        idx = 0
+        for i, stmt in enumerate(node.body):
             if isinstance(stmt, ast.ImportFrom) and stmt.module == '__future__':
-                i += 1
-            else:
-                break
-        node.body[i:i] = ptl_imports
+                idx = i + 1
+        node.body[idx:idx] = ptl_imports
         return self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
