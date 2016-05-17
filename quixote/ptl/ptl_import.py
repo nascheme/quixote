@@ -4,14 +4,16 @@ as if they were Python modules.
 
 import sys
 from importlib.machinery import FileFinder, PathFinder, SourceFileLoader
+from .ptl_parse import parse
 
-from quixote.ptl.ptl_compile import parse, PTL_EXT
+PTL_EXT = ".ptl"
 
 class PTLFileLoader(SourceFileLoader):
     @staticmethod
-    def source_to_code(data, path='<string>'):
+    def source_to_code(self, data, path, *, _optimize=-1):
         node = parse(data, path)
-        return compile(node, path, 'exec')
+        return compile(node, path, 'exec', dont_inherit=True,
+                       optimize=_optimize)
 
 
 class PTLPathFinder(PathFinder):
