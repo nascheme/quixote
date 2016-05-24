@@ -2,11 +2,12 @@
 
 Tools for sending mail from Quixote applications.
 """
-import re
+import email.utils
+from email.header import Header
 from smtplib import SMTP
 import quixote
 
-rfc822_specials_re = re.compile(r'[\(\)\<\>\@\,\;\:\\\"\.\[\]]')
+EMAIL_ENCODING = 'utf-8'
 
 class RFC822Mailbox:
     """
@@ -59,12 +60,8 @@ class RFC822Mailbox:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
     def format(self):
-        if self.real_name and rfc822_specials_re.search(self.real_name):
-            return '"%s" <%s>' % (self.real_name.replace('"', '\\"'),
-                                  self.addr_spec)
-        elif self.real_name:
-            return '%s <%s>' % (self.real_name, self.addr_spec)
-
+        if self.real_name:
+            return email.utils.formataddr((self.real_name, self.addr_spec))
         else:
             return self.addr_spec
 
@@ -108,6 +105,15 @@ def _add_recip_headers(headers, field_name, addrs):
         headers.append("    %s" % addrs[-1])
     else:
         headers.append("%s: (long recipient list suppressed) : ;" % field_name)
+
+
+def _encode_header(s):
+    try:
+        s.encode('ascii')
+    except UnicodeEncodeError:
+        return Header(s).encode(EMAIL_ENCODING)
+    else:
+        return s
 
 
 def sendmail(subject, msg_body, to_addrs,
@@ -210,13 +216,21 @@ def sendmail(subject, msg_body, to_addrs,
 
     # Start building the message headers.
     headers = ["From: %s" % from_addr.format(),
-               "Subject: %s" % subject]
+               "Subject: %s" % _encode_header(subject)]
     _add_recip_headers(headers, "To", to_addrs)
     if cc_addrs:
         _add_recip_headers(headers, "Cc", cc_addrs)
 
     if extra_headers:
         headers.extend(extra_headers)
+
+    # add a Content-Type header if there isn't already one
+    for hdr in headers:
+        name, _, value = hdr.partition(':')
+        if name.lower() == 'content-type':
+            break
+    else:
+        headers.append('Content-Type: text/plain; charset=%s' % EMAIL_ENCODING)
 
     if mail_debug_addr:
         debug1 = ("[debug mode, message actually sent to %s]\n"
@@ -246,9 +260,9 @@ def sendmail(subject, msg_body, to_addrs,
                            for recip in smtp_recipients]
 
     message = "\n".join(headers) + "\n\n" + msg_body
+    # smtplib requires bytes
+    message = message.encode(EMAIL_ENCODING)
 
     smtp = SMTP(mail_server)
     smtp.sendmail(smtp_sender, smtp_recipients, message)
     smtp.quit()
-
-
