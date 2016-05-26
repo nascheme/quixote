@@ -9,8 +9,8 @@ import imp
 import struct
 import importlib.util
 import py_compile
-from .ptl_import import PTL_EXT, PTLFileLoader
-from .ptl_parse import parse
+from quixote.ptl.ptl_import import PTL_EXT, PTLFileLoader
+from quixote.ptl.ptl_parse import parse
 
 
 def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
@@ -49,7 +49,7 @@ def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
     loader = PTLFileLoader('<ptl_compile>', file)
     source_bytes = loader.get_data(file)
     try:
-        code = loader.source_to_code(None, source_bytes, dfile or file,
+        code = loader.source_to_code(source_bytes, dfile or file,
                                      _optimize=optimize)
     except Exception as err:
         py_exc = py_compile.PyCompileError(err.__class__, err, dfile or file)

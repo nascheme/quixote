@@ -10,7 +10,7 @@ PTL_EXT = ".ptl"
 
 class PTLFileLoader(SourceFileLoader):
     @staticmethod
-    def source_to_code(self, data, path, *, _optimize=-1):
+    def source_to_code(data, path, *, _optimize=-1):
         node = parse(data, path)
         return compile(node, path, 'exec', dont_inherit=True,
                        optimize=_optimize)
