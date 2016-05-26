@@ -2,7 +2,7 @@
 """A SCGI server that uses Quixote to publish dynamic content.
 """
 
-from scgi import scgi_server
+from scgi import scgi_server, session_server
 
 class QuixoteHandler(scgi_server.SCGIHandler):
     def __init__(self, parent_fd, create_publisher, script_name=None):
@@ -38,11 +38,15 @@ class QuixoteHandler(scgi_server.SCGIHandler):
 
 
 def run(create_publisher, host='localhost', port=3000, script_name=None,
-        max_children=5):
+        max_children=5, session_affinity=False):
     def create_handler(parent_fd):
         return QuixoteHandler(parent_fd, create_publisher, script_name)
-    s = scgi_server.SCGIServer(create_handler, host=host, port=port,
-                               max_children=max_children)
+    if session_affinity:
+        server_class = session_server.SCGIServer
+    else:
+        server_class = scgi_server.SCGIServer
+    s = server_class(create_handler, host=host, port=port,
+                     max_children=max_children)
     s.serve()
 
 
@@ -74,9 +78,14 @@ def main():
         default=default_factory,
         help="Path to factory function to create the site Publisher. "
              "(default=%s)" % default_factory)
+    parser.add_option(
+        '--session-affinity', dest="session_affinity",
+        action='store_true', default=False,
+        help="Use session affinity server model")
     (options, args) = parser.parse_args()
     run(import_object(options.factory), host=options.host, port=options.port,
-        script_name=options.script_name, max_children=options.maxchild)
+        script_name=options.script_name, max_children=options.maxchild,
+        session_affinity=options.session_affinity)
 
 if __name__ == '__main__':
     main()
