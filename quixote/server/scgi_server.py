@@ -10,29 +10,31 @@ class QuixoteHandler(scgi_server.SCGIHandler):
         self.publisher = create_publisher()
         self.script_name = script_name
 
+    def _set_script_name(self, env):
+        # mod_scgi doesn't know SCRIPT_NAME :-(
+        prefix = self.script_name
+        path = env['SCRIPT_NAME']
+        assert path[:len(prefix)] == prefix, (
+            "path %r doesn't start with script_name %r" % (path, prefix))
+        env['SCRIPT_NAME'] = prefix
+        env['PATH_INFO'] = path[len(prefix):] + env.get('PATH_INFO', '')
+
     def handle_connection(self, conn):
         input = conn.makefile("rb")
         output = conn.makefile("wb")
-        env = self.read_env(input)
-
-        if self.script_name is not None:
-            # mod_scgi doesn't know SCRIPT_NAME :-(
-            prefix = self.script_name
-            path = env['SCRIPT_NAME']
-            assert path[:len(prefix)] == prefix, (
-                "path %r doesn't start with script_name %r" % (path, prefix))
-            env['SCRIPT_NAME'] = prefix
-            env['PATH_INFO'] = path[len(prefix):] + env.get('PATH_INFO', '')
-
-        response = self.publisher.process(input, env)
         try:
-            response.write(output)
+            env = self.read_env(input)
+            if self.script_name is not None:
+                self._set_script_name(env)
+            response = self.publisher.process(input, env)
+            try:
+                response.write(output)
+            except IOError as err:
+                self.publisher.log("IOError while sending response "
+                                   "ignored: %s" % err)
+        finally:
             input.close()
             output.close()
-            conn.close()
-        except IOError as err:
-            self.publisher.log("IOError while sending response "
-                               "ignored: %s" % err)
 
 
 def run(create_publisher, host='localhost', port=3000, script_name=None,
