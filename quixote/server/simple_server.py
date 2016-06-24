@@ -2,11 +2,48 @@
 """A simple, single threaded, synchronous HTTP server.
 """
 import sys
+import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import BaseServer
 import urllib.request, urllib.parse, urllib.error
 import quixote
 from quixote import get_publisher
 from quixote.util import import_object
+from scgi.systemd_socket import get_systemd_socket
+
+
+class SockInheritHTTPServer(HTTPServer):
+    def __init__(self, address_info, handler, bind_and_activate=True):
+        # This is ugly.  We have to re-implement HTTPServer.__init__
+        # and server_bind().  We want to get the inherited socket if
+        # available.  If we inherit then we need to skip the bind() call.
+        BaseServer.__init__(self, address_info, handler)
+        sock = get_systemd_socket()
+        if sock is not None:
+            print('Using inherited socket %s' % (sock.getsockname(),))
+            self._skip_bind = True
+        else:
+            sock = socket.socket(self.address_family, self.socket_type)
+            self._skip_bind = False
+        self.socket = sock
+        if bind_and_activate:
+            try:
+                self.server_bind()
+                self.server_activate()
+            except:
+                self.server_close()
+                raise
+
+    def server_bind(self):
+        if not self._skip_bind:
+            HTTPServer.server_bind(self)
+        else:
+            self.server_address = self.socket.getsockname()
+            host, port = self.socket.getsockname()[:2]
+            self.server_name = socket.getfqdn(host)
+            self.server_port = port
+
+
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
 
@@ -83,7 +120,7 @@ def run(create_publisher, host='', port=80, https=False):
     """
     if https:
         HTTPRequestHandler.required_cgi_environment['HTTPS'] = 'on'
-    httpd = HTTPServer((host, port), HTTPRequestHandler)
+    httpd = SockInheritHTTPServer((host, port), HTTPRequestHandler)
     def handle_error(request, client_address):
         HTTPServer.handle_error(httpd, request, client_address)
         if sys.exc_info()[0] is SystemExit:
