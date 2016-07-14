@@ -404,11 +404,10 @@ class SelectWidget(Widget):
                 def make_sort_key(option):
                     value, description, key = option
                     if value is None:
-                        return ('', option)
+                        return ''
                     else:
-                        return (stringify(description).lower(), option)
-                doptions = sorted(map(make_sort_key, options))
-                options = [item[1] for item in doptions]
+                        return stringify(description).lower()
+                options.sort(key=make_sort_key)
         self.options = options
 
     def _parse_single_selection(self, parsed_key, default=None):
