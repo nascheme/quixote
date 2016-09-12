@@ -9,7 +9,11 @@ import urllib.request, urllib.parse, urllib.error
 import quixote
 from quixote import get_publisher
 from quixote.util import import_object
-from scgi.systemd_socket import get_systemd_socket
+try:
+    from scgi.systemd_socket import get_systemd_socket
+except ImportError:
+    def get_systemd_socket():
+        return None
 
 
 class SockInheritHTTPServer(HTTPServer):
