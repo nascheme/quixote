@@ -1,7 +1,7 @@
 import sys
-from sancho.utest import UTest
 from quixote.html import _py_htmltext
 from quixote.html import href, url_with_query, url_quote, nl2br
+from quixote.test.utest import UTest
 
 markupchars = '<>&"'
 quotedchars = '&lt;&gt;&amp;&quot;'
@@ -340,7 +340,7 @@ def setup_c():
     TemplateIO = _c_htmltext.TemplateIO
 
 
-if __name__ == "__main__":
+def test_all():
     setup_py()
     HTMLTest()
     HTMLTextTest()
@@ -350,3 +350,6 @@ if __name__ == "__main__":
         HTMLTest()
         HTMLTextTest()
         TemplateTest()
+
+if __name__ == "__main__":
+    test_all()

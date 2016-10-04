@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from sancho.utest import UTest
+from quixote.test.utest import UTest
 from quixote.ptl.ptl_compile import compile_template
 from io import StringIO
 from quixote.html import TemplateIO, htmltext
@@ -53,6 +53,8 @@ class Test (UTest):
         except SyntaxError as e:
             assert e.lineno == 1
 
-if __name__ == "__main__":
+def test_all():
     Test()
 
+if __name__ == "__main__":
+    test_all()

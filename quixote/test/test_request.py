@@ -1,4 +1,4 @@
-from sancho.utest import UTest
+from quixote.test.utest import UTest
 from quixote.http_request import parse_cookies
 
 
@@ -39,5 +39,8 @@ class ParseCookiesTest (UTest):
         parse_cookies('a="123')
         parse_cookies('a=123"')
 
-if __name__ == "__main__":
+def test_all():
     ParseCookiesTest()
+
+if __name__ == "__main__":
+    test_all()
