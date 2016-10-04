@@ -44,9 +44,13 @@ class htmltext(object):
         return len(self.s)
 
     def __eq__(self, other):
+        if isinstance(other, htmltext):
+            return (self.s == other.s)
         return (self.s == other)
 
     def __lt__(self, other):
+        if isinstance(other, htmltext):
+            return (self.s < other.s)
         return (self.s < other)
 
     def __hash__(self):
