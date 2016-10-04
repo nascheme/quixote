@@ -332,6 +332,22 @@ def main():
         return False
     return True
 
+
+def compile_template(input, filename, output=None):
+    """(input, filename) -> code
+
+    Compile an open file.  The code object is returned.
+    """
+    source_bytes = input.read()
+    loader = PTLFileLoader('<ptl_compile>', filename)
+    code = loader.source_to_code(source_bytes, filename)
+    if output is not None:
+        # The 'output' parameter is for backwards compatibility with old
+        # versions of Quixote.  New code should not supply it.
+        bytecode = importlib._bootstrap_external._code_to_bytecode(code, 0, 0)
+        output.write(bytecode)
+    return code
+
 if __name__ == '__main__':
     exit_status = int(not main())
     sys.exit(exit_status)
