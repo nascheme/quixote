@@ -77,8 +77,9 @@ def href(url, text, title=None, **attrs):
 def url_with_query(path, **attrs):
     result = htmltext(url_quote(path))
     if attrs:
+        attrs = sorted(attrs.items())
         result += "?" + "&".join([url_quote(key) + "=" + url_quote(value)
-                                  for key, value in attrs.items()])
+                                  for key, value in attrs])
     return result
 
 def nl2br(value):
