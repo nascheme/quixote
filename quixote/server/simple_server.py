@@ -109,6 +109,9 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         return self.process(self.get_cgi_env('HEAD'), include_body=False)
 
+    def do_OPTIONS(self):
+        return self.process(self.get_cgi_env('OPTIONS'), include_body=False)
+
     def send_response(self, code, message=None):
         """
         Copied, with regret, from BaseHTTPRequestHandler, except that the line
