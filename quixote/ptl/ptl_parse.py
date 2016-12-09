@@ -35,7 +35,12 @@ class TemplateTransformer(ast.NodeTransformer):
                                   names=[ast.alias(name='TemplateIO',
                                                    asname='_q_TemplateIO'),
                                          ast.alias(name='htmltext',
-                                                   asname='_q_htmltext')],
+                                                   asname='_q_htmltext'),
+                                         ast.alias(name='_q_join',
+                                                   asname='_q_join'),
+                                         ast.alias(name='_q_format',
+                                                   asname='_q_format'),
+                                         ],
                                   level=0)
         ast.fix_missing_locations(html_imp)
         vars_imp = ast.ImportFrom(module='builtins',
@@ -115,6 +120,46 @@ class TemplateTransformer(ast.NodeTransformer):
             return ast.copy_location(n, node)
         else:
             return node
+
+    def visit_JoinedStr(self, node):
+        # JoinedStr is used for combining the parts of an f-string.
+        # In CPython, it is done with the BUILD_STRING opcode.  We
+        # call quixote.html._q_join() instead
+        node = self.generic_visit(node)
+        if "html" == self._get_template_type():
+            n = ast.Name(id='_q_join', ctx=ast.Load())
+            n = ast.Call(func=n, args=node.values, keywords=[],
+                         starargs=None,
+                         kwargs=None)
+            ast.copy_location(n, node)
+            ast.fix_missing_locations(n)
+            return n
+        else:
+            return node
+
+    def visit_FormattedValue(self, node):
+        # FormattedValue is used for the {..} parts of an f-string.
+        # In CPython, there is a FORMAT_VALUE opcode.  We call
+        # quixote.html._q_format instead.
+        node = self.generic_visit(node)
+        if "html" == self._get_template_type():
+            n = ast.Name(id='_q_format', ctx=ast.Load())
+            conversion = ast.copy_location(ast.Num(node.conversion), node)
+            args = [node.value]
+            if node.format_spec is not None:
+                args += [conversion, node.format_spec]
+            elif node.conversion != -1:
+                args += [conversion]
+            n = ast.Call(func=n, args=args,
+                         keywords=[],
+                         starargs=None,
+                         kwargs=None)
+            ast.copy_location(n, node)
+            ast.fix_missing_locations(n)
+            return n
+        else:
+            return node
+
 
 _template_re = re.compile(r'''
     ^(?P<indent>[ \t]*) def (?:[ \t]+)

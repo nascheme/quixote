@@ -48,6 +48,8 @@ except ImportError:
     from quixote.html._py_htmltext import htmltext, htmlescape, \
         stringify, TemplateIO
 
+from quixote.html._py_htmltext import _wraparg
+
 ValuelessAttr = object() # magic singleton object
 
 def htmltag(tag, xml_end=False, css_class=None, **attrs):
@@ -105,6 +107,34 @@ def url_quote(value, fallback=None):
         else:
             return fallback
     return urllib.parse.quote(stringify(value))
+
+def _q_join(*args):
+    # Used by f-strings to join the {..} parts
+    return htmltext('').join(args)
+
+def _q_format(value, conversion=-1, format_spec=None):
+    # Used by f-strings to format the {..} parts
+    if conversion == -1 and format_spec is None:
+        return htmlescape(value) # simple and fast case
+    if conversion == -1:
+        fmt = '{%s}'
+    else:
+        conversion = chr(conversion)
+        if conversion == 'r':
+            fmt = '{%s!r}'
+        elif conversion == 's':
+            fmt = '{%s!s}'
+        elif conversion == 'a':
+            fmt = '{%s!a}'
+        else:
+            assert 0, 'invalid conversion %r' % conversion
+    arg = _wraparg(value)
+    if format_spec:
+        fmt = fmt % (':' + str(format_spec))
+    else:
+        fmt = fmt % ''
+    return htmltext(fmt.format(arg))
+
 
 _saved = None
 def use_qpy():
