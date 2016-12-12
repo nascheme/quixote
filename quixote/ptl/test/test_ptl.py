@@ -2,7 +2,15 @@
 from quixote.test.utest import UTest
 from quixote.ptl.ptl_compile import compile_template
 from io import StringIO
-from quixote.html import TemplateIO, htmltext
+from quixote.html import TemplateIO, htmltext, _q_join, _q_format
+
+try:
+    compile('f""\n', 'none', 'single')
+except SyntaxError:
+    HAVE_FSTRINGS = False
+else:
+    HAVE_FSTRINGS = True
+
 
 def run_ptl(*source):
     """
@@ -13,7 +21,8 @@ def run_ptl(*source):
     # and _q_htmltext into the globals of the module.  Here, we don't
     # have a module, but we provide these same globals for eval.
     eval(compile_template(StringIO('\n'.join(source)), 'test'),
-         dict(_q_TemplateIO=TemplateIO, _q_htmltext=htmltext))
+         dict(_q_TemplateIO=TemplateIO, _q_htmltext=htmltext,
+              _q_join=_q_join, _q_format=_q_format))
 
 class Test (UTest):
 
@@ -52,6 +61,32 @@ class Test (UTest):
             assert 0
         except SyntaxError as e:
             assert e.lineno == 1
+
+
+    if HAVE_FSTRINGS:
+        def check_fstring(self):
+            run_ptl(
+                'from quixote.html import htmltext',
+                'def f [html] (a):',
+                '    f"x{a}"',
+                'assert type(f(1)) == htmltext',
+                'assert f("&") == "x&amp;"',
+                'assert f(htmltext("&")) == "x&"')
+
+        def check_q_join(self):
+            assert _q_join('x', '&') == 'x&amp;'
+            assert _q_join('x', htmltext('&')) == 'x&'
+
+        def check_q_format(self):
+            assert _q_format('&') == '&amp;'
+            assert _q_format(htmltext('&')) == '&'
+            assert _q_format('a', ord('r')) == "'a'"
+            assert _q_format(htmltext('a'), ord('r')) == "'a'"
+            assert _q_format(1, -1, '_>2') == '_1'
+            assert _q_format(1, -1, '_>2') == '_1'
+            assert _q_format(64, -1, 'c') == '@'
+            assert _q_format(38, -1, 'c') == '&'
+
 
 def test_all():
     Test()
