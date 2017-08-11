@@ -81,7 +81,8 @@ class Test (UTest):
             assert _q_format('&') == '&amp;'
             assert _q_format(htmltext('&')) == '&'
             assert _q_format('a', ord('r')) == "'a'"
-            assert _q_format(htmltext('a'), ord('r')) == "'a'"
+            assert _q_format('\xff', ord('r')) == "'\xff'"
+            assert _q_format('\xff', ord('a')) == "'\\xff'"
             assert _q_format(1, -1, '_>2') == '_1'
             assert _q_format(1, -1, '_>2') == '_1'
             assert _q_format(64, -1, 'c') == '@'
