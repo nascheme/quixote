@@ -25,7 +25,7 @@ Here's a sample plain text template::
     def foo [plain] (x, y = 5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
-        print 'Input values:', x, y
+        print('Input values:', x, y)
         z = x + y
         """You can plug in variables like x (%s)
     in a variety of ways.""" % x
@@ -52,7 +52,7 @@ value of that template.  Look at the first part of the example again::
     def foo [plain] (x, y = 5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
-        print 'Input values:', x, y
+        print('Input values:', x, y)
         z = x + y
         """You can plug in variables like x (%s)
     in a variety of ways.""" % x
@@ -234,12 +234,6 @@ to install this import hook is by calling the ``enable_ptl()`` function::
     from quixote import enable_ptl
     enable_ptl()
 
-(Note: if you're using ZODB, always import ZODB *before* installing the
-PTL import hook.  There's some interaction which causes importing the
-TimeStamp module to fail when the PTL import hook is installed; we
-haven't debugged the problem.  A similar problem has been reported for
-BioPython and win32com.client imports.)
-
 Once the import hook is installed, PTL files can be imported as if they
 were Python modules.  If all the example templates shown here were put
 into a file named ``foo.ptl``, you could then write Python code that did
@@ -253,10 +247,6 @@ You may want to keep this little function in your ``PYTHONSTARTUP``
 file::
 
     def ptl():
-        try:
-            import ZODB
-        except ImportError:
-            pass
         from quixote import enable_ptl
         enable_ptl()
 
