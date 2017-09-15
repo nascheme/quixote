@@ -105,6 +105,23 @@ MAIL_FROM = None     # eg. "webmaster@example.com"
 # this means, talk to your system administrator.
 MAIL_SERVER = "localhost"
 
+# Port for email server.  The default port is 25.
+MAIL_PORT = None
+
+# If your SMTP server requires authentication, set these.
+MAIL_USERNAME = None
+MAIL_PASSWORD = None
+
+# Enable SSL for SMTP.  The MAIL_PORT default will be 465.
+MAIL_USE_SSL = False
+
+# Enable TLS for SMTP.  The MAIL_PORT default will be 587.
+MAIL_USE_TLS = False
+
+# Allow SSLv3 as a protocol.  It is broken and disabled by default but
+# some old mail servers require it.
+MAIL_ALLOW_SSLV3 = False
+
 # If MAIL_DEBUG_ADDR is set, then all e-mail will actually be sent to
 # this address rather than the intended recipients.  This should be a
 # single, bare e-mail address.
@@ -136,6 +153,12 @@ class Config:
         'session_cookie_httponly',
         'mail_from',
         'mail_server',
+        'mail_port',
+        'mail_username',
+        'mail_password',
+        'mail_use_ssl',
+        'mail_use_tls',
+        'mail_allow_sslv3',
         'mail_debug_addr',
         ]
 

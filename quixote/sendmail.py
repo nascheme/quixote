@@ -5,6 +5,11 @@ Tools for sending mail from Quixote applications.
 import email.utils
 from email.header import Header
 from smtplib import SMTP
+try:
+    from smtplib import SMTP_SSL
+    import ssl
+except ImportError:
+    ssl = None
 import quixote
 
 EMAIL_ENCODING = 'utf-8'
@@ -121,7 +126,8 @@ def sendmail(subject, msg_body, to_addrs,
              extra_headers=None,
              smtp_sender=None, smtp_recipients=None,
              mail_server=None, mail_debug_addr=None,
-             config=None):
+             username=None, password=None, mail_port=None,
+             use_ssl=False, use_tls=False, config=None):
     """
     Send an email message to a list of recipients via a local SMTP
     server.  In normal use, you supply a list of primary recipient
@@ -197,6 +203,11 @@ def sendmail(subject, msg_body, to_addrs,
     mail_server = mail_server or config.mail_server
     if config is not None:
         mail_debug_addr = mail_debug_addr or config.mail_debug_addr
+        username = username or config.mail_username
+        password = password or config.mail_password
+        mail_port = mail_port or config.mail_port
+        use_ssl = use_ssl or config.mail_use_ssl
+        use_tls = use_tls or config.mail_use_tls
 
     if not isinstance(to_addrs, list):
         raise TypeError("'to_addrs' must be a list")
@@ -263,6 +274,31 @@ def sendmail(subject, msg_body, to_addrs,
     # smtplib requires bytes
     message = message.encode(EMAIL_ENCODING)
 
-    smtp = SMTP(mail_server)
+    if not mail_port:
+        if use_ssl:
+            mail_port = 465
+        elif use_tls:
+            mail_port = 587
+        else:
+            mail_port = 25
+
+    if ssl and (use_ssl or use_tls):
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        if config and config.mail_allow_sslv3:
+            # need to allow SSLv3 for old servers, even though it is broken
+            context.options &= ~ssl.OP_NO_SSLv3
+    else:
+        context = None
+
+    if use_ssl:
+        smtp = SMTP_SSL(mail_server, port=mail_port, context=context)
+    else:
+        smtp = SMTP(mail_server, port=mail_port)
+    smtp.ehlo()
+    if use_tls:
+        smtp.starttls(context=context)
+        smtp.ehlo()
+    if username:
+        smtp.login(username, password)
     smtp.sendmail(smtp_sender, smtp_recipients, message)
     smtp.quit()
