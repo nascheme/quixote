@@ -49,7 +49,7 @@ The difference between a template and a regular Python function is that
 inside a template the result of expressions are saved as the return
 value of that template.  Look at the first part of the example again::
 
-    def foo [plain] (x, y = 5):
+    def foo [plain] (x, y=5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
         print('Input values:', x, y)
@@ -105,7 +105,7 @@ also have conditional logic or exception blocks::
         elif language == "french":
             "bonjour"
         else:
-            raise ValueError, "I don't speak %s" % language
+            raise ValueError("I don't speak %s" % language)
 
 
 HTML templates
@@ -180,7 +180,8 @@ containing HTML::
 
     def output_file [html] ():
         '<html><body>' # does not get escaped
-        htmltext(open("myfile.html").read())
+        with open('myfile.html') as fp:
+            htmltext(fp.read())
         '</body></html>'
 
 In the common case, templates won't be dealing with HTML markup from
