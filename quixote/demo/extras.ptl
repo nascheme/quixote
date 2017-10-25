@@ -1,11 +1,14 @@
 import os
+from quixote import get_response
 from quixote.directory import Directory, Resolving
 from quixote.util import StaticDirectory
 from quixote.demo.integers import IntegerUI
+from quixote.http_response import Stream
+
 
 class ExtraDirectory(Resolving, Directory):
 
-    _q_exports = ["", "form", "src"]
+    _q_exports = ["", "form", "src", "chunked"]
 
     def _q_index [html] (self):
         """
@@ -24,6 +27,9 @@ class ExtraDirectory(Resolving, Directory):
                 A Quixote form in action.
             <li><a href="src/">src/</a>:
                 A static directory published through Quixote.
+            <li><a href="chunked">chunked</a>:
+                A page on indeterminate length using chunked transfer
+                encoding.
           </ul>
         """
 
@@ -42,6 +48,14 @@ class ExtraDirectory(Resolving, Directory):
 
     def upload(self):
         return 'upload demo unfinished'
+
+    def chunked(self):
+        def gen_content():
+            yield 'The server does not know how long this will be.\n'
+            for i in range(30):
+                yield 'line %d\n' % i
+        get_response().set_content_type('text/plain')
+        return Stream(gen_content())
 
     import quixote
     src = StaticDirectory(os.path.dirname(quixote.__file__),
