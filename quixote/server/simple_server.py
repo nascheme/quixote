@@ -141,8 +141,10 @@ def run(create_publisher, host='', port=80, https=False):
     finally:
         httpd.server_close()
 
-if __name__ == '__main__':
+def main(args=None):
     from quixote.server.util import get_server_parser
+    if args is None:
+        args = sys.argv[1:]
     parser = get_server_parser(run.__doc__)
     parser.add_option(
         '--https', dest="https", default=False, action="store_true",
@@ -150,6 +152,9 @@ if __name__ == '__main__':
               "Not that this is for running the simple server "
               "through a proxy or tunnel that provides real SSL "
               "support.  The simple server itself does not. "))
-    (options, args) = parser.parse_args()
+    (options, args) = parser.parse_args(args=args)
     run(import_object(options.factory), host=options.host, port=options.port,
         https=options.https)
+
+if __name__ == '__main__':
+    main()
