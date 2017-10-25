@@ -3,7 +3,7 @@
 and does not use PTL.  The easiest way to run this demo is to use the
 simple HTTP server included with Quixote.  For example:
 
-    $ server/simple_server.py --factory quixote.demo.altdemo.create_publisher
+    $ python3 -m quixote run --app quixote.demo.altdemo
 
 The server listens on localhost:8080 by default.  Debug and error output
 will be sent to the terminal.
@@ -11,7 +11,7 @@ will be sent to the terminal.
 If you have installed durus, you can run the same demo, except with
 persistent sessions stored in a durus database, by running:
 
-    $ server/simple_server.py --factory quixote.demo.altdemo.create_durus_publisher
+    $ python3 -m quixote run --app quixote.demo.altdemo --factory create_durus_publisher
 
 """
 

@@ -1,32 +1,28 @@
 Installing Quixote
 ==================
 
-Quixote requires Python 2.4 or later.
+Quixote requires Python 3.5 or later.
 
 If you have a previously installed quixote, we strongly recommend that
 you remove it before installing a new one.
 First, find out where your old Quixote installation is:
 
-  python -c "import os, quixote; print os.path.dirname(quixote.__file__)"
+  python3 -c "import os,quixote;print(os.path.dirname(quixote.__file__))"
 
 and then remove away the reported directory.  (If the import fails, then
 you don't have an existing Quixote installation.)
 
 Now install the new version by running (in the distribution directory),
 
-  python setup.py install
+  python3 setup.py install
 
 and you're done.  
 
 Quick start
 ===========
 
-In a terminal window, run server/simple_server.py.
+In a terminal window, run:
+
+    python3 -m quixote run
+
 In a browser, open http://localhost:8080
-
-
-Upgrading a Quixote 1 application to Quixote 2.
-===============================================
-
-See upgrading.txt for details.
-

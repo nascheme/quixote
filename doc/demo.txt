@@ -12,29 +12,28 @@ different server scripts may be found in the scripts themselves and in
 web-server.txt.  To start, though, the easiest way to view the demos
 is as follows: in a terminal window, run::
 
-    python3 -m quixote.server.simple_server
+    python3 -m quixote run
 
 and in a browser, open http://localhost:8080.  If you wish to run the
 demo on a remote computer, you will need to ask the server to listen
 on a public network interface.  Usually::
 
-    python -m quixote.server.simple_server --host=0
+    python3 -m quixote run --host=0
 
 In your browser, replace `localhost` with the name of the server.
 
-The simple_server.py script prints a usage message if you run it with a
+The 'quixote run' command prints a usage message if you run it with a
 ``--help`` command line argument.  You can run different Quixote
-applications by using the ``--factory`` option to identify a callable
-that creates the publisher you want to use.  In particular, you might
-try these demos::
+applications by using the ``--app`` option to identify a package that
+contains your Quixote application.  The top-level module in the package
+should contain a factory function ``create_publisher`` that will return
+a Quixote Publisher instance.  You might wish to try these demos::
 
-  python -m quixote.server.simple_server \
-    --factory quixote.demo.mini_demo.create_publisher
+  python3 -m quixote run --app quixote.demo.mini_demo
 
 or::
 
-  python -m quixote.server.simple_server \
-    --factory quixote.demo.altdemo.create_publisher
+  python3 -m quixote run --app quixote.demo.altdemo
 
 
 
@@ -43,8 +42,7 @@ Understanding the mini_demo
 
 Start the mini demo by running the command::
 
-  python -m quixote.server.simple_server \
-    --factory quixote.demo.mini_demo.create_publisher
+  python3 -m quixote run --app quixote.demo.mini_demo
 
 In a browser, load http://localhost:8080.  In your browser, you should
 see ``Welcome ...`` page.  In your terminal window, you will see a
@@ -90,7 +88,7 @@ Understanding the root demo
 
 Start the root demo by running the command::
 
-  python -m quixote.server.simple_server
+  python3 -m quixote run
 
 In a browser, open http://localhost:8080 as before.
 Click around at will.
