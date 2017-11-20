@@ -21,6 +21,10 @@ import mimetypes
 import urllib.request, urllib.parse, urllib.error
 import xmlrpc.client
 from email.utils import formatdate
+try:
+    import secrets
+except ImportError:
+    secrets = None
 
 import quixote
 from quixote import errors
@@ -28,17 +32,19 @@ from quixote.directory import Directory
 from quixote.html import htmltext, TemplateIO
 from quixote.http_response import Stream
 
-def _encode_base64(s):
-    return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
-
-if hasattr(os, 'urandom'):
+if secrets is not None:
+    # available in Python 3.6+, this is the preferred implementation
+    randbytes = secrets.token_urlsafe
+elif hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
-    def randbytes(n):
+    def _encode_base64(s):
+        return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
+    def randbytes(n=16):
         """Return bytes of random data as a text string."""
         return _encode_base64(os.urandom(n))
 else:
     # give up, we used to try to provide a less secure version
-    def randbytes(n):
+    def randbytes(n=16):
         raise NotImplementedError('platform missing os.urandom')
 
 def import_object(name):
