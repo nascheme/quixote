@@ -16,6 +16,7 @@ See doc/static-files.txt for examples of their use.
 import sys
 import os
 import time
+import io
 import base64
 import mimetypes
 import urllib.request, urllib.parse, urllib.error
@@ -299,6 +300,123 @@ class StaticDirectory(Directory):
             if self.use_cache:
                 self.cache[name] = item
         return item
+
+
+class MemoryFile:
+    """A static-like file that exists only in memory, not on disk.  The
+    data for the file is stored as a 'str' object.
+    """
+
+    def __init__(self, data, mime_type=None, encoding=None,
+                 cache_time=None):
+        self.data = data
+        self.mime_type = mime_type or 'text/plain'
+        self.encoding = encoding or quixote.DEFAULT_CHARSET
+        self.cache_time = cache_time
+
+    def __call__(self):
+        response = quixote.get_response()
+        response.set_content_type(self.mime_type, self.encoding)
+        if self.cache_time:
+            response.set_expires(seconds=self.cache_time)
+        return self.data
+
+
+class StaticBundle(Directory):
+    """A virtual directory that holds static files.  Can be used for
+    Javascript, CSS files, and images.  It can optionally concatenate
+    multiple text files into a single file (e.g. Javascript).  The modification
+    time of the file is used as part of the URL and so a very long cache time
+    can be specified.  If the file gets updated, a new path will be generated
+    by make_path() because of the new modification time.
+    """
+
+    # Because we generate a path based on the modification time of the file
+    # it is safe to use a very long cache time.
+    CACHE_TIME = 3600*24*100
+
+    def __init__(self, dirname, basepath='', encoding=None):
+        """Create a new StaticBundle.  'dirname' is a file path to the
+        files on disk.  'basepath' is the base web path for the files and
+        is used by make_path() to generate an absolute path URL.
+        """
+        self.basedir = dirname
+        self.basepath = basepath
+        self.encoding = encoding or quixote.DEFAULT_CHARSET
+        self.files = {}
+
+    def make_path(self, *filenames):
+        """Generate a path for a file or list of files.  The returned path
+        will include the modification time as a component.  If multiple file
+        names are provided, they must all have the same extension.
+        """
+        filenames = [str(fn) for fn in filenames]
+        exts = set([os.path.splitext(fn)[1] for fn in filenames])
+        if len(exts) != 1:
+            raise ValueError('different file extensions %s' % exts)
+        ext = exts.pop()
+        mtimes = []
+        for fn in filenames:
+            fn = os.path.join(self.basedir, fn)
+            if not os.path.exists(fn):
+                raise ValueError('missing file %r' % fn)
+            st = os.stat(fn)
+            mtimes.append(int(st.st_mtime))
+        return '%s/%s/%s' % (self.basepath, max(mtimes), ','.join(filenames))
+
+    def _read_static_data(self, filenames):
+        """Return and concatenate the data from 'filenames'.  Return the
+        data as a 'str' and the guessed MIME type (based on file extension).
+        """
+        data = io.StringIO()
+        mime_type = None
+        for fn in filenames:
+            if fn == '..' or '/' in fn:
+                # should not happen, check anyhow
+                raise ValueError('invalid file name for static file')
+            filename = os.path.join(self.basedir, fn)
+            if not os.path.isfile(filename):
+                raise TraversalError('static file missing')
+            with open(filename, 'r', encoding=self.encoding) as fp:
+                data.write(fp.read())
+            if mime_type is None:
+                mime_type, guess_enc = mimetypes.guess_type(fn, strict=False)
+        return data.getvalue(), mime_type
+
+    def _q_traverse(self, path):
+        if len(path) == 1:
+            # if mtime component missing, allow direct path, no caching
+            filename = path[0]
+            cache_time = None
+        elif len(path) == 2:
+            # path with a modification time prefix, mtime is not checked
+            filename = path[1]
+            if filename == '..':
+                raise TraversalError('invalid static file path')
+            try:
+                mtime = int(path[0])
+            except ValueError:
+                raise TraversalError('invalid mtime for static file')
+            cache_time = self.CACHE_TIME
+        if filename not in self.files:
+            # A file we haven't been asked for yet.  Create a StaticFile
+            # wrapper for it.
+            if ',' in filename:
+                # it is a virtual file created by concatenating text files
+                filenames = filename.split(',')
+                data, mime_type = self._read_static_data(filenames)
+                static_file = MemoryFile(data, mime_type=mime_type,
+                                         encoding=self.encoding,
+                                         cache_time=cache_time)
+            else:
+                # it is a single static file
+                static_file = StaticFile(os.path.join(self.basedir, filename),
+                                         encoding=self.encoding,
+                                         cache_time=cache_time)
+            self.files[filename] = static_file
+        # We have the file wrapper created and ready, call it to return the
+        # reponse data.
+        return self.files[filename]()
 
 
 class Redirector:
