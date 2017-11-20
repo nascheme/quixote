@@ -343,6 +343,7 @@ class StaticBundle(Directory):
         self.basepath = basepath
         self.encoding = encoding or quixote.DEFAULT_CHARSET
         self.files = {}
+        self.paths = {}
 
     def make_path(self, *filenames):
         """Generate a path for a file or list of files.  The returned path
@@ -350,6 +351,10 @@ class StaticBundle(Directory):
         names are provided, they must all have the same extension.
         """
         filenames = [str(fn) for fn in filenames]
+        key = ','.join(filenames)
+        path = self.paths.get(key)
+        if path is not None:
+            return path
         exts = set([os.path.splitext(fn)[1] for fn in filenames])
         if len(exts) != 1:
             raise ValueError('different file extensions %s' % exts)
@@ -360,7 +365,9 @@ class StaticBundle(Directory):
                 raise ValueError('missing file %r' % fn)
             st = os.stat(fn)
             mtimes.append(int(st.st_mtime))
-        return '%s/%s/%s' % (self.basepath, max(mtimes), ','.join(filenames))
+        path = '%s/%s/%s' % (self.basepath, max(mtimes), key)
+        self.paths[key] = path
+        return path
 
     def _read_static_data(self, filenames):
         """Generate concatenated data for 'filenames'.  Return the data as a
