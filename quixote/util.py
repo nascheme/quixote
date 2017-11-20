@@ -15,7 +15,6 @@ See doc/static-files.txt for examples of their use.
 
 import sys
 import os
-import time
 import io
 import base64
 import mimetypes
@@ -354,7 +353,6 @@ class StaticBundle(Directory):
         exts = set([os.path.splitext(fn)[1] for fn in filenames])
         if len(exts) != 1:
             raise ValueError('different file extensions %s' % exts)
-        ext = exts.pop()
         mtimes = []
         for fn in filenames:
             fn = os.path.join(self.basedir, fn)
@@ -365,8 +363,8 @@ class StaticBundle(Directory):
         return '%s/%s/%s' % (self.basepath, max(mtimes), ','.join(filenames))
 
     def _read_static_data(self, filenames):
-        """Return and concatenate the data from 'filenames'.  Return the
-        data as a 'str' and the guessed MIME type (based on file extension).
+        """Generate concatenated data for 'filenames'.  Return the data as a
+        'str' and the guessed MIME type (based on file extension).
         """
         data = io.StringIO()
         mime_type = None
@@ -376,7 +374,7 @@ class StaticBundle(Directory):
                 raise ValueError('invalid file name for static file')
             filename = os.path.join(self.basedir, fn)
             if not os.path.isfile(filename):
-                raise TraversalError('static file missing')
+                raise errors.TraversalError('static file missing')
             with open(filename, 'r', encoding=self.encoding) as fp:
                 data.write(fp.read())
             if mime_type is None:
@@ -392,12 +390,14 @@ class StaticBundle(Directory):
             # path with a modification time prefix, mtime is not checked
             filename = path[1]
             if filename == '..':
-                raise TraversalError('invalid static file path')
+                raise errors.TraversalError('invalid static file path')
             try:
                 mtime = int(path[0])
             except ValueError:
-                raise TraversalError('invalid mtime for static file')
+                raise errors.TraversalError('invalid mtime for static file')
             cache_time = self.CACHE_TIME
+        else:
+            raise errors.TraversalError()
         if filename not in self.files:
             # A file we haven't been asked for yet.  Create a StaticFile
             # wrapper for it.
