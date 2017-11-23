@@ -21,7 +21,10 @@ from time import time, localtime, strftime
 
 from quixote import get_publisher, get_cookie, get_response, get_request, \
      get_session, get_param
-from quixote.util import randbytes
+from quixote.util import randbytes, safe_str_cmp
+
+
+CSRF_TOKEN_NAME = 'csrf_token'
 
 
 class BaseSessionManager:
@@ -444,6 +447,9 @@ class Session:
       _form_tokens : [string]
         outstanding form tokens.  This is used as a queue that can grow
         up to MAX_FORM_TOKENS.  Tokens are removed when forms are submitted.
+      _csrf_token  : string|None
+        a CSRF prevention token stored for the session.  It is generated
+        by get_csrf_token().  It can be checked using valid_csrf_token().
 
     Feel free to access 'id' and 'user' directly, but do not modify
     'id'.  The preferred way to set 'user' is with the set_user() method
@@ -458,6 +464,7 @@ class Session:
         self._remote_address = get_request().get_environ("REMOTE_ADDR")
         self._creation_time = self._access_time = time()
         self._form_tokens = [] # queue
+        self._csrf_token = None
 
     def __repr__(self):
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self.id)
@@ -474,7 +481,7 @@ class Session:
         Return true if this session contains any information that must
         be saved.
         """
-        return self.user or self._form_tokens
+        return bool(self.user or self._form_tokens or self._csrf_token)
 
     def is_dirty(self):
         """() -> boolean
@@ -587,6 +594,35 @@ class Session:
         Remove 'token' from the queue of outstanding tokens.
         """
         self._form_tokens.remove(token)
+
+    # -- Cross-site request forgery (CSRF) prevention tokens -----------
+
+    def get_csrf_token(self):
+        """Return a random token unique to the session.  This is
+        suitable for inclusion in forms as a hidden field in order
+        to prevent CSRF attacks.  When the form is submitted, the
+        token must be checked using a constant time compare.  The
+        token should not be included in GET URLs as there is a
+        greater risk of disclosure.  Using a separate token provides
+        some security benefits over re-using the session ID as a
+        CSRF token.
+        """
+        if self._csrf_token is None:
+            self._csrf_token = randbytes(16) # 128-bit random number
+        return self._csrf_token
+
+    def valid_csrf_token(self, name=None):
+        """Return true if the request contains the CSRF token in the
+        parameter called 'name'.  The HTTP method must be POST.  If
+        'name' is not provided, then CSRF_TOKEN_NAME is used as the
+        name.
+        """
+        if get_request().get_method() != 'POST':
+            return False
+        value = get_param(name or CSRF_TOKEN_NAME, None)
+        if not value:
+            return False
+        return safe_str_cmp(value, self.get_csrf_token())
 
 
 def set_session_cookie(session_id, **attrs):
