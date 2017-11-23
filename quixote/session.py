@@ -20,12 +20,20 @@ doc/session-mgmt.txt for information on session persistence.
 from time import time, localtime, strftime
 
 from quixote import get_publisher, get_cookie, get_response, get_request, \
-     get_session
+     get_session, get_param
 from quixote.util import randbytes
 
-class NullSessionManager:
-    """A session manager that does nothing.  It is the default session manager.
+
+class BaseSessionManager:
+    """This base class contains the essential methods that a Quixote
+    session manager must implement.
     """
+
+    def __init__(self, session_class=None):
+        self.session_class = session_class or Session
+
+    # Hooks into the Quixote main loop.  These are the only three
+    # methods that a session manager *must* implement.
 
     def start_request(self):
         """
@@ -33,32 +41,236 @@ class NullSessionManager:
         object has been built, but before we traverse the URL or call the
         callable object found by URL traversal.
         """
+        session = self.get_session()
+        get_request().session = session
+        session.start_request()
 
     def finish_successful_request(self):
         """Called near the end of each successful request.  Not called if
         there were any errors processing the request.
         """
+        session = get_session()
+        if session is not None:
+            self.maintain_session(session)
+        self.commit_changes(session)
 
     def finish_failed_request(self):
         """Called near the end of a failed request (i.e. a exception that was
         not a PublisherError was raised.
         """
+        self.abort_changes(get_session())
+
+    # Methods used to add/update/delete and find sessions.  For sessions
+    # stored in databases, these methods must transfer data to and from
+    # the database.
+
+    def __iter__(self):
+        """Iterate over all the sessions contained by the manager and return
+        each Session object.
+        """
+        raise NotImplementedError()
+
+    def __getitem__(self, session_id):
+        """(session_id) -> Session|None
+
+        Return the session object identified by 'session_id'.  Return None if
+        there is no such session.
+        """
+        raise NotImplementedError()
+
+    def __setitem__(self, session_id, session):
+        """Store a new or updated session object into the session manager.
+        """
+        raise NotImplementedError()
+
+    def __delitem__(self, session_id):
+        """Remove a session from the session manager.  E.g. if the user
+        signs out or the session expires.
+        """
+        raise NotImplementedError()
+
+    # -- Transactional interface ---------------------------------------
+    # Useful for applications that provide a transaction-oriented
+    # persistence mechanism.  You'll still need to provide a mapping
+    # object that works with your persistence mechanism; these two
+    # methods let you hook into your transaction machinery after a
+    # request is finished processing.
+
+    def abort_changes(self, session):
+        """(session : Session)
+
+        Placeholder for subclasses that implement transactional
+        persistence: forget about saving changes to the current
+        session.  Called by the publisher when a request fails,
+        ie. when it catches an exception other than PublishError.
+        """
+        pass
+
+    def commit_changes(self, session):
+        """(session : Session)
+
+        Placeholder for subclasses that implement transactional
+        persistence: commit changes to the current session.  Called by
+        the publisher when a request completes successfully, or is
+        interrupted by a PublishError exception.
+        """
+        pass
 
 
-class SessionManager:
+    # Below are methods to implement the three Quixote main loop hooks above.
+    # Other session manager implementions may re-use these or do their own
+    # thing.
+
+    def get_session(self):
+        """() -> Session
+
+        Fetch or create a session object for the current session, and
+        return it.  If a session cookie is found in the HTTP request
+        object, use it to look up and return an existing session object.
+        If no session cookie is found, create a new session.
+
+        Note that this method does *not* cause the new session to be
+        stored in the session manager, nor does it drop a session cookie
+        on the user.  Those are both the responsibility of
+        maintain_session(), called at the end of a request.
+        """
+        config = get_publisher().config
+        id = self._get_session_id(config)
+        session = self[id]
+        if session is None:
+            session = self.new_session(None)
+        session._set_access_time(self.ACCESS_TIME_RESOLUTION)
+        return session
+
+    def _get_session_id(self, config):
+        """() -> string
+
+        Find the ID of the current session by looking for the session
+        cookie in the request.  Return None if no such cookie or the
+        cookie has been expired, otherwise return the cookie's value.
+        """
+        id = get_cookie(config.session_cookie_name)
+        if id == "" or id == "*del*":
+            return None
+        else:
+            return id
+
+    def _make_session_id(self):
+        # Generate a session ID, which is just the value of the session
+        # cookie we are about to drop on the user.  (It's also the key
+        # used with the session manager mapping interface.)
+        id = None
+        while id is None or self[id] is not None:
+            id = randbytes(16)  # 128-bit random number
+        return id
+
+    def new_session(self, id):
+        """(id : string) -> Session
+
+        Return a new session object, ie. an instance of the session_class
+        class passed to the constructor (defaults to Session).
+        """
+        return self.session_class(id)
+
+    def maintain_session(self, session):
+        """(session : Session)
+
+        Maintain session information.  This method is called after servicing
+        an HTTP request, just before the response is returned.  If a session
+        contains information it is saved and a cookie dropped on the client.
+        If not, the session is discarded and the client will be instructed
+        to delete the session cookie (if any).
+        """
+        if not session.has_info():
+            # Session has no useful info -- forget it.  If it previously
+            # had useful information and no longer does, we have to
+            # explicitly forget it.
+            if session.id and self[session.id] is not None:
+                del self[session.id]
+                self.revoke_session_cookie()
+            return
+
+        if session.id is None:
+            # This is the first time this session has had useful
+            # info -- store it and set the session cookie.
+            session.id = self._make_session_id()
+            self[session.id] = session
+            self.set_session_cookie(session.id)
+
+        elif session.is_dirty():
+            # We have already stored this session, but it's dirty
+            # and needs to be stored again.  This will never happen
+            # with the default Session class, but it's there for
+            # applications using a persistence mechanism that requires
+            # repeatedly storing the same object in the same mapping.
+            self[session.id] = session
+
+    def set_session_cookie(self, session_id, **attrs):
+        set_session_cookie(session_id, **attrs)
+
+    def revoke_session_cookie(self):
+        """
+        Remove the session cookie from the remote user's session by
+        resetting the value and maximum age in the response object.  Also
+        remove the cookie from the request so that further processing of
+        this request does not see the cookie's revoked value.
+        """
+        cookie_name = self.set_session_cookie("", max_age=0)
+        if get_cookie(cookie_name) is not None:
+            del get_request().cookies[cookie_name]
+
+    def expire_session(self):
+        """
+        Expire the current session, ie. revoke the session cookie from
+        the client and remove the session object from the session
+        manager and from the current request.
+        """
+        self.revoke_session_cookie()
+        request = get_request()
+        try:
+            del self[request.session.id]
+        except KeyError:
+            # This can happen if the current session hasn't been saved
+            # yet, eg. if someone tries to leave a session with no
+            # interesting data.  That's not a big deal, so ignore it.
+            pass
+        request.session = None
+
+
+
+class NullSessionManager(BaseSessionManager):
+    """A session manager that does nothing.  It is the default session
+    manager.
     """
-    SessionManager acts as a dictionary of all sessions, mapping session
-    ID strings to individual session objects.  Session objects are
-    instances of Session (or a custom subclass for your application).
-    SessionManager is also responsible for creating and destroying
-    sessions, for generating and interpreting session cookies, and for
-    session persistence (if any -- this implementation is not
-    persistent).
+
+    def start_request(self):
+        pass
+
+    def finish_successful_request(self):
+        pass
+
+    def finish_failed_request(self):
+        pass
+
+    def __iter__(self):
+        return iter([])
+
+    def __getitem__(self, session_id):
+        return None
+
+
+class SessionManager(BaseSessionManager):
+    """
+    This is a session manager that uses a dictionary to store sessions.
+    Session objects are instances of Session (or a custom subclass for your
+    application).  SessionManager is also responsible for creating and
+    destroying sessions, for generating and interpreting session cookies, and
+    for session persistence (if any -- this implementation is not persistent).
 
     Most applications can just use this class directly; sessions will
     be kept in memory-based dictionaries, and will be lost when the
     Quixote process dies.  Alternatively an application can subclass
-    SessionManager to implement specific behaviour, such as persistence.
+    BaseSessionManager to implement specific behaviour, such as persistence.
 
     Instance attributes:
       session_class : class
@@ -93,11 +305,54 @@ class SessionManager:
     def __repr__(self):
         return "<%s at %x>" % (self.__class__.__name__, id(self))
 
+    # Implementation of the required methods of the session manager.
 
-    # -- Mapping interface ---------------------------------------------
-    # (subclasses shouldn't need to override any of this, unless
-    # your application passes in a session_mapping object that
-    # doesn't provide all of the mapping methods needed here)
+    def __iter__(self):
+        return iter(self.sessions.values())
+
+    def __getitem__(self, session_id):
+        """(session_id : string) -> Session
+
+        Return the session object identified by 'session_id'.  Return None of
+        there is no such session.
+        """
+        return self.sessions.get(session_id)
+
+    def __setitem__(self, session_id, session):
+        """(session_id : string, session : Session)
+
+        Store 'session' in the session manager under 'session_id'.
+        """
+        if not isinstance(session, self.session_class):
+            raise TypeError("session not an instance of %r: %r"
+                            % (self.session_class, session))
+        assert session.id is not None, "session ID not set"
+        assert session_id == session.id, "session ID mismatch"
+        self.sessions[session_id] = session
+
+    def __delitem__(self, session_id):
+        """(session_id : string) -> Session
+
+        Remove the session object identified by 'session_id' from the session
+        manager.  Raise KeyError if no such session.
+        """
+        del self.sessions[session_id]
+
+    # The methods that follow are retained for backwards compatibility with
+    # older Quixote applications.  Most of them just provide a more complete
+    # mapping interface for SessionManager but nothing in Quixote expects them
+    # to exist.
+
+    def __contains__(self, session_id):
+        """(session_id : string) -> boolean
+
+        Return true if a session identified by 'session_id' exists in
+        the session manager.
+        """
+        return session_id in self.sessions
+
+    def has_session(self, session_id):
+        return session_id in self.sessions
 
     def keys(self):
         """() -> [string]
@@ -136,222 +391,14 @@ class SessionManager:
         """
         return self.sessions.get(session_id, default)
 
-    def __iter__(self):
-        return iter(self.sessions.values())
-
-    def __getitem__(self, session_id):
-        """(session_id : string) -> Session
-
-        Return the session object identified by 'session_id'.  Raise KeyError
-        if no such session.
-        """
-        return self.sessions[session_id]
-
-    def __contains__(self, session_id):
-        """(session_id : string) -> boolean
-
-        Return true if a session identified by 'session_id' exists in
-        the session manager.
-        """
-        return session_id in self.sessions
-
-    def has_session(self, session_id):
-        return session_id in self.sessions
-
-    def __setitem__(self, session_id, session):
-        """(session_id : string, session : Session)
-
-        Store 'session' in the session manager under 'session_id'.
-        """
-        if not isinstance(session, self.session_class):
-            raise TypeError("session not an instance of %r: %r"
-                            % (self.session_class, session))
-        assert session.id is not None, "session ID not set"
-        assert session_id == session.id, "session ID mismatch"
-        self.sessions[session_id] = session
-
-    def __delitem__(self, session_id):
-        """(session_id : string) -> Session
-
-        Remove the session object identified by 'session_id' from the session
-        manager.  Raise KeyError if no such session.
-        """
-        del self.sessions[session_id]
-
-    # -- Transactional interface ---------------------------------------
-    # Useful for applications that provide a transaction-oriented
-    # persistence mechanism.  You'll still need to provide a mapping
-    # object that works with your persistence mechanism; these two
-    # methods let you hook into your transaction machinery after a
-    # request is finished processing.
-
-    def abort_changes(self, session):
-        """(session : Session)
-
-        Placeholder for subclasses that implement transactional
-        persistence: forget about saving changes to the current
-        session.  Called by the publisher when a request fails,
-        ie. when it catches an exception other than PublishError.
-        """
-        pass
-
-    def commit_changes(self, session):
-        """(session : Session)
-
-        Placeholder for subclasses that implement transactional
-        persistence: commit changes to the current session.  Called by
-        the publisher when a request completes successfully, or is
-        interrupted by a PublishError exception.
-        """
-        pass
-
-
-    # -- Session management --------------------------------------------
-    # these build on the storage mechanism implemented by the
-    # above mapping methods, and are concerned with all the high-
-    # level details of managing web sessions
-
-    def new_session(self, id):
-        """(id : string) -> Session
-
-        Return a new session object, ie. an instance of the session_class
-        class passed to the constructor (defaults to Session).
-        """
-        return self.session_class(id)
-
-    def _get_session_id(self, config):
-        """() -> string
-
-        Find the ID of the current session by looking for the session
-        cookie in the request.  Return None if no such cookie or the
-        cookie has been expired, otherwise return the cookie's value.
-        """
-        id = get_cookie(config.session_cookie_name)
-        if id == "" or id == "*del*":
-            return None
-        else:
-            return id
-
-    def _make_session_id(self):
-        # Generate a session ID, which is just the value of the session
-        # cookie we are about to drop on the user.  (It's also the key
-        # used with the session manager mapping interface.)
-        id = None
-        while id is None or self.has_session(id):
-            id = randbytes(16)  # 128-bit random number
-        return id
-
     def _create_session(self):
         # Create a new session object, with no ID for now - one will
         # be assigned later if we save the session.
         return self.new_session(None)
 
-    def get_session(self):
-        """() -> Session
-
-        Fetch or create a session object for the current session, and
-        return it.  If a session cookie is found in the HTTP request
-        object, use it to look up and return an existing session object.
-        If no session cookie is found, create a new session.
-
-        Note that this method does *not* cause the new session to be
-        stored in the session manager, nor does it drop a session cookie
-        on the user.  Those are both the responsibility of
-        maintain_session(), called at the end of a request.
-        """
-        config = get_publisher().config
-        id = self._get_session_id(config)
-        session = self.get(id) or self._create_session()
-        session._set_access_time(self.ACCESS_TIME_RESOLUTION)
-        return session
-
-    def maintain_session(self, session):
-        """(session : Session)
-
-        Maintain session information.  This method is called after servicing
-        an HTTP request, just before the response is returned.  If a session
-        contains information it is saved and a cookie dropped on the client.
-        If not, the session is discarded and the client will be instructed
-        to delete the session cookie (if any).
-        """
-        if not session.has_info():
-            # Session has no useful info -- forget it.  If it previously
-            # had useful information and no longer does, we have to
-            # explicitly forget it.
-            if session.id and self.has_session(session.id):
-                del self[session.id]
-                self.revoke_session_cookie()
-            return
-
-        if session.id is None:
-            # This is the first time this session has had useful
-            # info -- store it and set the session cookie.
-            session.id = self._make_session_id()
-            self[session.id] = session
-            self.set_session_cookie(session.id)
-
-        elif session.is_dirty():
-            # We have already stored this session, but it's dirty
-            # and needs to be stored again.  This will never happen
-            # with the default Session class, but it's there for
-            # applications using a persistence mechanism that requires
-            # repeatedly storing the same object in the same mapping.
-            self[session.id] = session
-
     def _set_cookie(self, value, **attrs):
-        config = get_publisher().config
-        name = config.session_cookie_name
-        if config.session_cookie_path:
-            path = config.session_cookie_path
-        else:
-            path = get_request().get_environ('SCRIPT_NAME')
-            if not path.endswith("/"):
-                path += "/"
-        domain = config.session_cookie_domain
-        attrs = attrs.copy()
-        if config.session_cookie_secure:
-            attrs['secure'] = 1
-        if config.session_cookie_httponly:
-            attrs['httponly'] = 1
-        get_response().set_cookie(name, value, domain=domain,
-                                  path=path, **attrs)
-        return name
-
-    def set_session_cookie(self, session_id):
-        """(session_id : string)
-
-        Ensure that a session cookie with value 'session_id' will be
-        returned to the client via the response object.
-        """
-        self._set_cookie(session_id)
-
-    def revoke_session_cookie(self):
-        """
-        Remove the session cookie from the remote user's session by
-        resetting the value and maximum age in the response object.  Also
-        remove the cookie from the request so that further processing of
-        this request does not see the cookie's revoked value.
-        """
-        cookie_name = self._set_cookie("", max_age=0)
-        if get_cookie(cookie_name) is not None:
-            del get_request().cookies[cookie_name]
-
-    def expire_session(self):
-        """
-        Expire the current session, ie. revoke the session cookie from
-        the client and remove the session object from the session
-        manager and from the current request.
-        """
-        self.revoke_session_cookie()
-        request = get_request()
-        try:
-            del self[request.session.id]
-        except KeyError:
-            # This can happen if the current session hasn't been saved
-            # yet, eg. if someone tries to leave a session with no
-            # interesting data.  That's not a big deal, so ignore it.
-            pass
-        request.session = None
+        # exists only for backwards compatiblity, use set_session_cookie()
+        set_session_cookie(value, **attrs)
 
     def has_session_cookie(self, must_exist=False):
         """(must_exist : boolean = false) -> bool
@@ -370,33 +417,6 @@ class SessionManager:
             return self.has_session(id)
         else:
             return True
-
-    # -- Hooks into the Quixote main loop ------------------------------
-
-    def start_request(self):
-        """
-        Called near the beginning of each request: after the HTTPRequest
-        object has been built, but before we traverse the URL or call the
-        callable object found by URL traversal.
-        """
-        session = self.get_session()
-        get_request().session = session
-        session.start_request()
-
-    def finish_successful_request(self):
-        """Called near the end of each successful request.  Not called if
-        there were any errors processing the request.
-        """
-        session = get_session()
-        if session is not None:
-            self.maintain_session(session)
-        self.commit_changes(session)
-
-    def finish_failed_request(self):
-        """Called near the end of a failed request (i.e. a exception that was
-        not a PublisherError was raised.
-        """
-        self.abort_changes(get_session())
 
 
 class Session:
@@ -567,3 +587,25 @@ class Session:
         Remove 'token' from the queue of outstanding tokens.
         """
         self._form_tokens.remove(token)
+
+
+def set_session_cookie(session_id, **attrs):
+    """Create a cookie in the HTTP response for 'session_id'.
+    """
+    config = get_publisher().config
+    name = config.session_cookie_name
+    if config.session_cookie_path:
+        path = config.session_cookie_path
+    else:
+        path = get_request().get_environ('SCRIPT_NAME')
+        if not path.endswith('/'):
+            path += '/'
+    domain = config.session_cookie_domain
+    attrs = attrs.copy()
+    if config.session_cookie_secure:
+        attrs['secure'] = 1
+    if config.session_cookie_httponly:
+        attrs['httponly'] = 1
+    get_response().set_cookie(name, session_id, domain=domain, path=path,
+                              **attrs)
+    return name

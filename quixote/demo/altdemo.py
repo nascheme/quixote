@@ -55,7 +55,7 @@ class RootDirectory(Directory):
             content += htmltext(
                 '<p>Hello, %s.</p>') % get_user()
             content += htmltext('<p>%s</p>' % href('logout', 'logout'))
-        sessions = sorted(get_session_manager().items())
+        sessions = sorted([(s.id, s) for s in get_session_manager()])
         if sessions:
             content += htmltext('<table><tr>'
                                 '<th></th>'
