@@ -47,6 +47,23 @@ else:
     def randbytes(n=16):
         raise NotImplementedError('platform missing os.urandom')
 
+
+def safe_str_cmp(a, b):
+    """A (mostly) constant time comparison function for two strings.
+    Returns True if the strings are equal.  Using a constant time
+    function is necessary to prevent timing attacks with checking
+    security tokens (e.g. passwords, form tokens).  The arguments
+    can 'str' or 'bytes' object but mixed types are not allowed.
+    """
+    if not isinstance(a, bytes):
+        a = a.encode('utf-8')
+        b = b.encode('utf-8')
+    result = 0 if len(a) == len(b) else 1
+    for x, y in zip(a, b):
+        result |= x ^ y
+    return result == 0
+
+
 def import_object(name):
     i = name.rfind('.')
     if i != -1:
