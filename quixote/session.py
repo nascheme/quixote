@@ -27,13 +27,67 @@ from quixote.util import randbytes, safe_str_cmp
 CSRF_TOKEN_NAME = 'csrf_token'
 
 
+class SessionStore:
+    """Component used by SessionManager to save/load/delete transactions
+    into some form of storage.
+    """
+    def load_session(self, id):
+        """Return the session if it exists, else return 'None'.
+        """
+        raise NotImplementedError()
+
+    def save_session(self, session):
+        """Save the session in the store.
+        """
+        raise NotImplementedError()
+
+    def delete_session(self, session_id):
+        """Delete the session in the store.
+        """
+        raise NotImplementedError()
+
+    def has_session(self, id):
+        """Return true if the session exists in the store, else false.
+        """
+        return self.load_session(id) is not None
+
+    def __iter__(self):
+        """Return an iterator of all session IDs in the storage.
+        """
+        raise NotImplementedError()
+
+    def transaction_start(self):
+        """Called near the beginning of each request: after the HTTPRequest
+        object has been built, but before we traverse the URL or call the
+        callable object found by URL traversal.
+        """
+        pass
+
+    def transaction_commit(self, session):
+        """Called near the end of each successful request.  Not called if
+        there were any errors processing the request.
+        """
+        pass
+
+    def transaction_abort(self, session):
+        """Called near the end of a failed request (i.e. a exception that was
+        not a PublisherError was raised.
+        """
+        pass
+
+
 class BaseSessionManager:
     """This base class contains the essential methods that a Quixote
     session manager must implement.
     """
 
-    def __init__(self, session_class=None):
+    # use a class attribute in case __init__ not called on subclass
+    store = SessionStore()
+
+    def __init__(self, session_class=None, session_store=None):
         self.session_class = session_class or Session
+        if session_store is not None:
+            self.store = session_store
 
     # Hooks into the Quixote main loop.  These are the only three
     # methods that a session manager *must* implement.
@@ -44,6 +98,7 @@ class BaseSessionManager:
         object has been built, but before we traverse the URL or call the
         callable object found by URL traversal.
         """
+        self.store.transaction_start()
         session = self.get_session()
         get_request().session = session
         session.start_request()
@@ -71,26 +126,35 @@ class BaseSessionManager:
         """Iterate over all the sessions contained by the manager and return
         each Session object.
         """
-        raise NotImplementedError()
+        for session_id in self.store:
+            yield self.store.load_session(session_id)
 
-    def __getitem__(self, session_id):
+    def get(self, session_id):
         """(session_id) -> Session|None
 
         Return the session object identified by 'session_id'.  Return None if
         there is no such session.
         """
-        raise NotImplementedError()
+        return self.store.load_session(session_id)
 
     def __setitem__(self, session_id, session):
         """Store a new or updated session object into the session manager.
         """
-        raise NotImplementedError()
+        return self.store.save_session(session)
 
     def __delitem__(self, session_id):
         """Remove a session from the session manager.  E.g. if the user
         signs out or the session expires.
         """
-        raise NotImplementedError()
+        return self.store.delete_session(session)
+
+    def __contains__(self, session_id):
+        """(session_id : string) -> boolean
+
+        Return true if a session identified by 'session_id' exists in
+        the session manager.
+        """
+        return self.store.has_session(session_id)
 
     # -- Transactional interface ---------------------------------------
     # Useful for applications that provide a transaction-oriented
@@ -107,7 +171,7 @@ class BaseSessionManager:
         session.  Called by the publisher when a request fails,
         ie. when it catches an exception other than PublishError.
         """
-        pass
+        self.store.transaction_abort(session)
 
     def commit_changes(self, session):
         """(session : Session)
@@ -117,7 +181,7 @@ class BaseSessionManager:
         the publisher when a request completes successfully, or is
         interrupted by a PublishError exception.
         """
-        pass
+        self.store.transaction_commit(session)
 
 
     # Below are methods to implement the three Quixote main loop hooks above.
@@ -139,7 +203,7 @@ class BaseSessionManager:
         """
         config = get_publisher().config
         id = self._get_session_id(config)
-        session = self[id]
+        session = self.get(id)
         if session is None:
             session = self.new_session(None)
         session._set_access_time(self.ACCESS_TIME_RESOLUTION)
@@ -163,7 +227,7 @@ class BaseSessionManager:
         # cookie we are about to drop on the user.  (It's also the key
         # used with the session manager mapping interface.)
         id = None
-        while id is None or self[id] is not None:
+        while id is None or id in self:
             id = randbytes(16)  # 128-bit random number
         return id
 
@@ -188,7 +252,7 @@ class BaseSessionManager:
             # Session has no useful info -- forget it.  If it previously
             # had useful information and no longer does, we have to
             # explicitly forget it.
-            if session.id and self[session.id] is not None:
+            if session.id and session.id in self:
                 del self[session.id]
                 self.revoke_session_cookie()
             return
@@ -258,7 +322,7 @@ class NullSessionManager(BaseSessionManager):
     def __iter__(self):
         return iter([])
 
-    def __getitem__(self, session_id):
+    def get(self, session_id):
         return None
 
 
@@ -295,6 +359,7 @@ class SessionManager(BaseSessionManager):
         session_class is used by the new_session() method -- it returns
         an instance of session_class.
         """
+        BaseSessionManager.__init__(self, session_class=session_class)
         self.sessions = {}
         if session_class is None:
             self.session_class = Session
@@ -310,16 +375,16 @@ class SessionManager(BaseSessionManager):
 
     # Implementation of the required methods of the session manager.
 
+    def get(self, session_id, default=None):
+        """(session_id : string, default : any = None) -> Session
+
+        Return the session object identified by 'session_id', or None if
+        no such session.
+        """
+        return self.sessions.get(session_id, default)
+
     def __iter__(self):
         return iter(self.sessions.values())
-
-    def __getitem__(self, session_id):
-        """(session_id : string) -> Session
-
-        Return the session object identified by 'session_id'.  Return None of
-        there is no such session.
-        """
-        return self.sessions.get(session_id)
 
     def __setitem__(self, session_id, session):
         """(session_id : string, session : Session)
@@ -341,11 +406,6 @@ class SessionManager(BaseSessionManager):
         """
         del self.sessions[session_id]
 
-    # The methods that follow are retained for backwards compatibility with
-    # older Quixote applications.  Most of them just provide a more complete
-    # mapping interface for SessionManager but nothing in Quixote expects them
-    # to exist.
-
     def __contains__(self, session_id):
         """(session_id : string) -> boolean
 
@@ -353,6 +413,19 @@ class SessionManager(BaseSessionManager):
         the session manager.
         """
         return session_id in self.sessions
+
+    # The methods that follow are retained for backwards compatibility with
+    # older Quixote applications.  Most of them just provide a more complete
+    # mapping interface for SessionManager but nothing in Quixote expects them
+    # to exist.
+
+    def __getitem__(self, session_id):
+        """(session_id : string) -> Session
+
+        Return the session object identified by 'session_id'.  Raise KeyError
+        if there is no such session.
+        """
+        return self.sessions[session_id]
 
     def has_session(self, session_id):
         return session_id in self.sessions
@@ -385,14 +458,6 @@ class SessionManager(BaseSessionManager):
         manager.
         """
         return list(self.sessions.items())
-
-    def get(self, session_id, default=None):
-        """(session_id : string, default : any = None) -> Session
-
-        Return the session object identified by 'session_id', or None if
-        no such session.
-        """
-        return self.sessions.get(session_id, default)
 
     def _create_session(self):
         # Create a new session object, with no ID for now - one will
