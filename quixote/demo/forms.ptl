@@ -5,6 +5,7 @@ from quixote.form import Form, StringWidget, PasswordWidget, \
      RadiobuttonsWidget, SingleSelectWidget, MultipleSelectWidget, \
      CheckboxWidget, FileWidget
 from quixote.form.css import BASIC_FORM_CSS
+from quixote.util import dump_request
 
 class Topping:
 
@@ -111,6 +112,10 @@ def form_demo():
             '</tr>'
         """
         </table>
+        <h2>Request dump:</h2>
+        """
+        dump_request()
+        """
         </body>
         </html>
         """
