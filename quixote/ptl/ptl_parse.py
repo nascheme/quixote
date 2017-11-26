@@ -84,6 +84,14 @@ class TemplateTransformer(ast.NodeTransformer):
             assign = ast.Assign(targets=[assign_name], value=instance)
             ast.copy_location(assign, node)
             ast.fix_missing_locations(assign)
+            docstring = getattr(node, 'docstring', None)
+            if docstring:
+                # Python 3.7 adds a docstring attribute to FunctionDef
+                # bpo-29463: Add docstring field to some AST nodes. (#46)
+                docstring = ast.Expr(ast.Str(docstring))
+                ast.copy_location(assign, docstring)
+                ast.fix_missing_locations(docstring)
+                node.body.insert(0, self.visit_Expr(docstring))
             node.body.insert(0, assign)
 
             # return _q_output.getvalue()
