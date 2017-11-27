@@ -50,7 +50,8 @@ if build_extensions:
 # If we're running Python 2.3, add extra information
 if hasattr(core, 'setup_keywords'):
     if 'classifiers' in core.setup_keywords:
-        kw['classifiers'] = ['Development Status :: 5 - Production/Stable',
+        kw['classifiers'] = [
+          'Development Status :: 5 - Production/Stable',
           'Environment :: Web Environment',
           'License :: DFSG approved',
           'Intended Audience :: Developers',
@@ -58,6 +59,7 @@ if hasattr(core, 'setup_keywords'):
           'Operating System :: Microsoft :: Windows',
           'Operating System :: MacOS :: MacOS X',
           'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+          'Programming Language :: Python :: 3 :: Only',
           ]
     if 'download_url' in core.setup_keywords:
         kw['download_url'] = ('http://quixote.ca/releases/'
