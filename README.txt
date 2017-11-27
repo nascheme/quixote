@@ -50,4 +50,4 @@ Discussion of Quixote occurs on the quixote-users mailing list:
 The source code is managed using git.  You can checkout a copy using
 the command:
 
-    git clone http://quixote.ca/src/quixote.git
+    git clone https://github.com/nascheme/quixote.git
