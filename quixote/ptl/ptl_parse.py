@@ -7,12 +7,111 @@ by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
-import ast
+import sys
 import re
-import importlib.util
+import io
+import ast
+import tokenize
 
+# special marker for h-strings, cannot appear in source code literals
+HSTRING_MARKER = 'HSTRING\xa0\x00'
+
+# special function names for templates
 HTML_TEMPLATE_PREFIX = "_q_html_template_"
 PLAIN_TEMPLATE_PREFIX = "_q_plain_template_"
+
+def translate_defs(tokens):
+    # Rename the function name for html/plain templates.  The special names
+    # will be recognized by the AST transformer.
+    NAME = tokenize.NAME
+    OP = tokenize.OP
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok.type == NAME and tok.string == 'def':
+            if (tokens[i+2][:2] == (OP, '[') and
+                tokens[i+4][:2] == (OP, ']')):
+                name_tok = list(tokens[i+1])
+                prefix = '_q_%s_template_' % tokens[i+3].string
+                name_tok[1] = prefix + name_tok[1]
+                del tokens[i+2:i+5]
+                tokens[i+1] = tokenize.TokenInfo(*name_tok)
+        i += 1
+
+
+def translate_hstrings(tokens):
+    # Detect h-string literals.  They should up in the token stream
+    # as two tokens, e.g. h"foo":
+    #   NAME    'h'
+    #   STRING  '"foo"'
+    #
+    # We translate them to:
+    #
+    #   STRING f'"<HSTRING_PREFIX>foo"'
+    #
+    # The AST transformer will detect the prefix and wrap them in
+    # calls of htmltext().
+    STRING = tokenize.STRING
+    NAME = tokenize.NAME
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok.type == STRING:
+            if i == 0:
+                i += 1
+                continue
+            if tokens[i-1].type == NAME and tokens[i-1].string == 'h':
+                # found for h-prefixed string
+                str_tok = list(tokens[i])
+                del tokens[i-1]
+                s = ast.literal_eval(str_tok[1])
+                if HSTRING_MARKER in s:
+                    raise SyntaxError('invalid str literal, cannot contain '
+                                      'h-string marker, got %r' % s)
+                # prefix string with marker.  Putting the marker inside the
+                # string is not so elegant but it is an easy way to pass
+                # the annotation along to the AST transformer.  The check
+                # above ensures that no real string contains the marker.
+                s = HSTRING_MARKER + s
+                s = repr(s)
+                if '{' in s:
+                    # h-strings do f-string like evaluation, if the string
+                    # doesn't contain any f-string braces, just use a normal
+                    # string as that generates more efficient bytecode
+                    s = 'f' + s
+                str_tok[1] = s
+                # deindent one character, we stripped (NAME 'h') token
+                srow, scol = str_tok[2]
+                str_tok[2] = (srow, scol-1)
+                tokens[i-1] = tokenize.TokenInfo(*str_tok)
+        i += 1
+
+
+def translate_source(buf, filename='<string>'):
+    """
+    Since we can't modify the parser in the builtin parser module we
+    must do token translation here.  Luckily it does not affect line
+    numbers.
+
+    def foo [plain] (...): -> def _q_plain_template__foo(...):
+
+    def foo [html] (...): -> def _q_html_template__foo(...):
+
+    h'foo' -> f'<HSTRING_PREFIX>foo'
+    """
+    assert isinstance(buf, bytes)
+    fp = io.BytesIO(buf)
+    try:
+        tokens = list(tokenize.tokenize(fp.readline))
+    except SyntaxError as exc:
+        exc_type = type(exc)
+        raise exc_type(str(exc), (filename, exc.lineno, exc.offset, exc.text))
+    translate_hstrings(tokens)
+    translate_defs(tokens)
+    ut = tokenize.Untokenizer()
+    src = ut.untokenize(tokens)
+    return ut.encoding, src
+
 
 class TemplateTransformer(ast.NodeTransformer):
     def __init__(self, *args, **kwargs):
@@ -75,7 +174,7 @@ class TemplateTransformer(ast.NodeTransformer):
             self.__template_type.append(template_type)
             node = self.generic_visit(node)
 
-            # _q_output = _q_TemplateIO()
+            # _q_output = _q_TemplateIO(template_type == 'html')
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
             arg = ast.NameConstant(template_type == 'html')
             instance = ast.Call(func=klass, args=[arg], keywords=[],
@@ -92,6 +191,7 @@ class TemplateTransformer(ast.NodeTransformer):
                 ast.copy_location(assign, docstring)
                 ast.fix_missing_locations(docstring)
                 node.body.insert(0, self.visit_Expr(docstring))
+                node.docstring = ''
             node.body.insert(0, assign)
 
             # return _q_output.getvalue()
@@ -108,102 +208,128 @@ class TemplateTransformer(ast.NodeTransformer):
         return node
 
     def visit_Expr(self, node):
+        node = self.generic_visit(node)
         if self._get_template_type() is not None:
-            node = self.generic_visit(node)
-            # Instead of discarding objects on the stack, call
-            # "_q_output += obj".
-            lval = ast.Name(id='_q_output', ctx=ast.Store())
-            ast.copy_location(lval, node)
-            aug = ast.AugAssign(target=lval, op=ast.Add(), value=node.value)
-            return ast.copy_location(aug, node)
-        else:
-            return node
+            # Inside template function.  Instead of discarding objects on the
+            # stack, call _q_output(obj).
+            name = ast.Name(id='_q_output', ctx=ast.Load())
+            ast.copy_location(name, node)
+            call = ast.Call(func=name, args=[node.value], keywords=[],
+                            starargs=None, kwargs=None)
+            ast.copy_location(call, node)
+            expr = ast.Expr(call)
+            return ast.copy_location(expr, node)
+        return node
 
-    def visit_Str(self, node):
-        if "html" == self._get_template_type():
+    def visit_Str(self, node, html=False):
+        if html or HSTRING_MARKER in node.s:
+            # found h-string marker, remove it.  Note that marker can appear
+            # within the string if there is a string continued over two lines
+            # using backslash.
+            s = ast.Str(node.s.replace(HSTRING_MARKER, ''))
+            ast.copy_location(s, node)
+            # wrap in call to _q_htmltext
             n = ast.Name(id='_q_htmltext', ctx=ast.Load())
             ast.copy_location(n, node)
-            n = ast.Call(func=n, args=[node], keywords=[], starargs=None,
+            n = ast.Call(func=n, args=[s], keywords=[], starargs=None,
                          kwargs=None)
             return ast.copy_location(n, node)
-        else:
-            return node
+        return node
 
     def visit_JoinedStr(self, node):
         # JoinedStr is used for combining the parts of an f-string.
-        # In CPython, it is done with the BUILD_STRING opcode.  We
-        # call quixote.html._q_join() instead
-        node = self.generic_visit(node)
-        if "html" == self._get_template_type():
-            n = ast.Name(id='_q_join', ctx=ast.Load())
-            n = ast.Call(func=n, args=node.values, keywords=[],
-                         starargs=None,
-                         kwargs=None)
-            ast.copy_location(n, node)
-            ast.fix_missing_locations(n)
-            return n
+        # In CPython, it is done with the BUILD_STRING opcode.  For
+        # h-strings, we call quixote.html._q_join() instead.
+        for v in node.values:
+            if isinstance(v, ast.Str) and HSTRING_MARKER in v.s:
+                break # need to use _q_join()
         else:
-            return node
+            # none of the join arguments are htmltext, just use normal
+            # f-string logic
+            return self.generic_visit(node)
+        # call _q_format on the values, call _q_join to create the result
+        values = []
+        for v in node.values:
+            if isinstance(v, ast.FormattedValue):
+                v = self.visit_FormattedValue(v, html=True)
+            elif isinstance(v, ast.Str):
+                v = self.visit_Str(v, html=True)
+            else:
+                v = self.generic_visit(v)
+            values.append(v)
+        n = ast.Name(id='_q_join', ctx=ast.Load())
+        n = ast.Call(func=n, args=values, keywords=[],
+                     starargs=None,
+                     kwargs=None)
+        ast.copy_location(n, node)
+        ast.fix_missing_locations(n)
+        return n
 
-    def visit_FormattedValue(self, node):
+    def visit_FormattedValue(self, node, html=False):
         # FormattedValue is used for the {..} parts of an f-string.
-        # In CPython, there is a FORMAT_VALUE opcode.  We call
-        # quixote.html._q_format instead.
+        # In CPython, there is a FORMAT_VALUE opcode.  For h-strings
+        # call quixote.html._q_format instead.
         node = self.generic_visit(node)
-        if "html" == self._get_template_type():
-            n = ast.Name(id='_q_format', ctx=ast.Load())
-            conversion = ast.copy_location(ast.Num(node.conversion), node)
-            args = [node.value]
-            if node.format_spec is not None:
-                args += [conversion, node.format_spec]
-            elif node.conversion != -1:
-                args += [conversion]
-            n = ast.Call(func=n, args=args,
-                         keywords=[],
-                         starargs=None,
-                         kwargs=None)
-            ast.copy_location(n, node)
-            ast.fix_missing_locations(n)
-            return n
-        else:
+        if not html:
             return node
+        n = ast.Name(id='_q_format', ctx=ast.Load())
+        conversion = ast.copy_location(ast.Num(node.conversion), node)
+        args = [node.value]
+        if node.format_spec is not None:
+            args += [conversion, node.format_spec]
+        elif node.conversion != -1:
+            args += [conversion]
+        n = ast.Call(func=n, args=args,
+                     keywords=[],
+                     starargs=None,
+                     kwargs=None)
+        ast.copy_location(n, node)
+        ast.fix_missing_locations(n)
+        return n
 
 
-_template_re = re.compile(r'''
-    ^(?P<indent>[ \t]*) def (?:[ \t]+)
-    (?P<name>[a-zA-Z_][a-zA-Z_0-9]*)
-    (?:[ \t]*) \[(?P<type>plain|html)\] (?:[ \t]*)
-    (?:[ \t]*[\(\\])
-    ''', re.MULTILINE|re.VERBOSE)
+def translate_ast(node):
+    t = TemplateTransformer()
+    return t.visit(node)
 
-def translate_tokens(buf):
-    """
-    Since we can't modify the parser in the builtin parser module we
-    must do token translation here.  Luckily it does not affect line
-    numbers.
-
-    def foo [plain] (...): -> def _q_plain_template__foo(...):
-
-    def foo [html] (...): -> def _q_html_template__foo(...):
-
-    XXX This parser is too stupid.  For example, it doesn't understand
-    triple quoted strings.
-    """
-    def replacement(match):
-        template_type = match.group('type')
-        return '%sdef _q_%s_template_%s(' % (match.group('indent'),
-                                             template_type,
-                                             match.group('name'))
-    return  _template_re.sub(replacement, buf)
 
 def parse(buf, filename='<string>'):
-    if isinstance(buf, bytes):
-        buf = importlib.util.decode_source(buf)
-    buf = translate_tokens(buf)
+    if isinstance(buf, str):
+        buf = buf.encode('utf-8')
+    encoding, buf = translate_source(buf, filename)
     try:
         node = ast.parse(buf, filename)
     except SyntaxError as e:
         # set the filename attribute
         raise SyntaxError(str(e), (filename, e.lineno, e.offset, e.text))
-    t = TemplateTransformer()
-    return t.visit(node)
+    return translate_ast(node)
+
+
+def main():
+    import argparse
+    import dis
+    try:
+        from astpretty import pprint
+    except ImportError:
+        pprint = ast.dump
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dis', '-d', default=False,
+                        action="store_true",
+                        help="disassemble bytecode")
+    parser.add_argument('--ast', '-a', default=False,
+                        action="store_true",
+                        help="dump AST")
+    parser.add_argument('files', nargs='+')
+    args = parser.parse_args()
+    for fn in args.files:
+        with open(fn, 'rb') as fp:
+            buf = fp.read()
+        tree = parse(buf, fn)
+        if args.ast:
+            pprint(tree)
+        if args.dis:
+            co = compile(tree, fn, 'exec')
+            dis.dis(co)
+
+if __name__ == '__main__':
+    main()

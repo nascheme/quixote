@@ -10,7 +10,6 @@ import struct
 import importlib.util
 import py_compile
 from quixote.ptl.ptl_import import PTL_EXT, PTLFileLoader
-from quixote.ptl.ptl_parse import parse
 
 
 def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
