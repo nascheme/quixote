@@ -192,6 +192,10 @@ class TemplateIO(object):
         self.html = html
         self.data = []
 
+    def __call__(self, s):
+        if s is not None:
+            self.data.append(s)
+
     def __iadd__(self, other):
         if other is not None:
             self.data.append(other)

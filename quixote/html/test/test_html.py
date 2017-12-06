@@ -290,6 +290,22 @@ class TemplateTest (UTest):
             assert 0
         except BrokenError: pass
 
+    def check_text_call(self):
+        t = TemplateIO()
+        assert t.getvalue() == ''
+        t("abcd")
+        assert t.getvalue() == 'abcd'
+        t(None)
+        assert t.getvalue() == 'abcd'
+        t(123)
+        assert t.getvalue() == 'abcd123'
+        t('\\u1234')
+        assert t.getvalue() == 'abcd123\\u1234'
+        try:
+            t(Broken()); t.getvalue()
+            assert 0
+        except BrokenError: pass
+
     def check_html_iadd(self):
         t = TemplateIO(html=1)
         assert t.getvalue() == ''
@@ -305,6 +321,23 @@ class TemplateTest (UTest):
         except BrokenError: pass
         t = TemplateIO(html=1)
         t += markupchars
+        assert t.getvalue() == quotedchars
+
+    def check_html_call(self):
+        t = TemplateIO(html=1)
+        assert t.getvalue() == ''
+        t("abcd")
+        assert t.getvalue() == 'abcd'
+        t(None)
+        assert t.getvalue() == 'abcd'
+        t(123)
+        assert t.getvalue() == 'abcd123'
+        try:
+            t(Broken()); t.getvalue()
+            assert 0
+        except BrokenError: pass
+        t = TemplateIO(html=1)
+        t(markupchars)
         assert t.getvalue() == quotedchars
 
     def check_repr(self):

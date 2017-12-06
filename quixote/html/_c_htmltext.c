@@ -645,6 +645,43 @@ template_io_str(TemplateIO_Object *self)
 }
 
 static PyObject *
+template_call(TemplateIO_Object *self, PyObject *args, PyObject *kw)
+{
+    PyObject *obj, *s;
+    if (!_PyArg_NoKeywords("TemplateIO", kw))
+        return NULL;
+    if (!PyArg_UnpackTuple(args, "TemplateIO", 1, 1, &obj))
+        return NULL;
+    if (obj == Py_None) {
+            Py_INCREF(obj);
+            return obj;
+    }
+    if (htmltextObject_Check(obj)) {
+        s = htmltext_STR(obj);
+        Py_INCREF(s);
+    }
+    else {
+        if (self->html) {
+            PyObject *ss = stringify(obj);
+            if (ss == NULL)
+                return NULL;
+            s = escape(ss);
+            Py_DECREF(ss);
+        }
+        else {
+            s = stringify(obj);
+        }
+        if (s == NULL)
+            return NULL;
+    }
+    if (PyList_Append(self->data, s) != 0)
+        return NULL;
+    Py_DECREF(s);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
 template_io_getvalue(TemplateIO_Object *self)
 {
 	if (self->html) {
@@ -833,7 +870,7 @@ static PyTypeObject TemplateIO_Type = {
 	&template_io_as_seq,	/*tp_as_sequence*/
 	0,			/*tp_as_mapping*/
 	0,			/*tp_hash*/
-	0,			/*tp_call*/
+	(ternaryfunc)template_call,/*tp_call*/
 	(unaryfunc)template_io_str,/*tp_str*/
 	0,			/*tp_getattro  set to PyObject_GenericGetAttr by module init*/
 	0,			/*tp_setattro*/
