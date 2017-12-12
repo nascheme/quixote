@@ -197,6 +197,16 @@ class Form(object):
         for widget in self.get_all_widgets():
             widget.clear_error(request)
 
+    def force_value(self, name, value):
+        """Force the value of a widget to be 'value', even if the form
+        has been submitted and a different value is in the request form data.
+        """
+        widget = self.get_widget(name)
+        if widget is None:
+            raise ValueError('unknown widget %r' % name)
+        widget.clear_error() # calls parse internally
+        widget.set_value(value)
+
     def get_submit(self):
         """() -> string | bool
 
