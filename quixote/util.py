@@ -351,13 +351,17 @@ class StaticBundle(Directory):
     # it is safe to use a very long cache time.
     CACHE_TIME = 3600*24*100
 
-    def __init__(self, dirname, basepath='', encoding=None):
+    def __init__(self, dirname, basepath='', sep='\n', encoding=None):
         """Create a new StaticBundle.  'dirname' is a file path to the
         files on disk.  'basepath' is the base web path for the files and
-        is used by make_path() to generate an absolute path URL.
+        is used by make_path() to generate an absolute path URL.  If files
+        are to be concatenated, 'sep' is used as a separator between files.
+        Using newline is the default since minimized Javascript and CSS
+        sometimes are missing a final newline.
         """
         self.basedir = dirname
         self.basepath = basepath
+        self.sep = sep
         self.encoding = encoding or quixote.DEFAULT_CHARSET
         self.files = {}
         self.paths = {}
@@ -401,6 +405,8 @@ class StaticBundle(Directory):
                 raise errors.TraversalError('static file missing')
             with open(filename, 'r', encoding=self.encoding) as fp:
                 data.write(fp.read())
+            if fn is not filenames[-1]:
+                data.write(self.sep)
             if mime_type is None:
                 mime_type, guess_enc = mimetypes.guess_type(fn, strict=False)
         return data.getvalue(), mime_type
