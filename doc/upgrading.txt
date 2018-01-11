@@ -5,6 +5,22 @@ This document lists backward-incompatible changes in Quixote, and
 explains how to update application code to work with the newer
 version.
 
+Changes from 3.0 to 3.1
+-----------------------
+
+Quixote 3.1 requires at minumum Python 3.6.  The syntax of PTL modules
+has changed to use "h-strings".  In contrast to old versions of PTL,
+only strings marked with the "h" prefix will become 'htmltext' string
+literals.  To convert your .ptl modules, the script
+'tools/hstring_convert.py' should do a nearly complete job.
+
+The 'quixote.session' module has been refactored and the 'SessionStore'
+class has been introduced.  Backwards compatibility with the old
+'SessionManager' and 'Session' APIs should be quite good.  However, if
+you are using an SQL database to store sessions, using a subclass of
+'SessionStore' will likely make things simpler.
+
+
 Changes from 2.8 to 2.9
 -----------------------
 
