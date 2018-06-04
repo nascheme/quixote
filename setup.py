@@ -9,8 +9,8 @@
 
 import sys
 
-if sys.version_info < (3,4,0):
-    raise SystemExit("You need python 3.4.0 or later to run this script")
+if sys.version_info < (3,6,0):
+    raise SystemExit("You need python 3.6.0 or later to run this script")
 
 from distutils import core
 from distutils.extension import Extension
