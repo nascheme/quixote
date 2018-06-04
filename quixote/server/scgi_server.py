@@ -29,12 +29,17 @@ class QuixoteHandler(scgi_server.SCGIHandler):
             response = self.publisher.process(input, env)
             try:
                 response.write(output)
+                output.flush()
             except IOError as err:
                 self.publisher.log("IOError while sending response "
                                    "ignored: %s" % err)
         finally:
-            input.close()
-            output.close()
+            try:
+                input.close()
+                output.close()
+            except IOError as err:
+                self.publisher.log("IOError while closing SCGI socket "
+                                   "ignored: %s" % err)
 
 
 def run(create_publisher, host='localhost', port=3000, script_name=None,
