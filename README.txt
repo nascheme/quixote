@@ -40,12 +40,8 @@ Availability, home page, and mailing lists
 The Quixote home page is:
     http://quixote.ca/
 
-There is wiki at:
-
-    http://quixote.ca/qx/
-
 Discussion of Quixote occurs on the quixote-users mailing list:
-    http://mail.mems-exchange.org/mailman/listinfo/quixote-users/
+    http://lists.quixote.ca/cgi-bin/mailman/listinfo/quixote-users
 
 The source code is managed using git.  You can checkout a copy using
 the command:
