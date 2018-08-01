@@ -186,7 +186,8 @@ class Config:
         # The config file is Python code -- makes life easy.
         config_vars = {}
         try:
-            execfile(filename, config_vars)
+            with open(filename, 'r') as f:
+                exec(f.read(), config_vars)
         except IOError as exc:
             if exc.filename is None:    # arg! execfile() loses filename
                 exc.filename = filename
