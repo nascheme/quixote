@@ -113,6 +113,12 @@ def translate_source(buf, filename='<string>'):
     return ut.encoding, src
 
 
+def _is_str_node(n):
+    # Python 3.8 replaces Str with Constant
+    return (isinstance(n, ast.Str) or
+            (isinstance(n, ast.Constant) and isinstance(n.value, str)))
+
+
 class TemplateTransformer(ast.NodeTransformer):
     def __init__(self, *args, **kwargs):
         ast.NodeTransformer.__init__(self, *args, **kwargs)
@@ -185,7 +191,7 @@ class TemplateTransformer(ast.NodeTransformer):
             ast.fix_missing_locations(assign)
             docstring = getattr(node, 'docstring', None)
             if docstring:
-                # Python 3.7 adds a docstring attribute to FunctionDef
+                # Python 3.7 alpha adds a docstring attribute to FunctionDef
                 # bpo-29463: Add docstring field to some AST nodes. (#46)
                 docstring = ast.Expr(ast.Str(docstring))
                 ast.copy_location(assign, docstring)
@@ -221,7 +227,9 @@ class TemplateTransformer(ast.NodeTransformer):
             return ast.copy_location(expr, node)
         return node
 
-    def visit_Str(self, node, html=False):
+    def visit_Constant(self, node, html=False):
+        if not _is_str_node(node):
+            return node
         if html or HSTRING_MARKER in node.s:
             # found h-string marker, remove it.  Note that marker can appear
             # within the string if there is a string continued over two lines
@@ -236,12 +244,16 @@ class TemplateTransformer(ast.NodeTransformer):
             return ast.copy_location(n, node)
         return node
 
+    def visit_Str(self, node, html=False):
+        # exists for backwards compatibility, Python 3.8 uses Constant
+        return self.visit_Constant(node, html=html)
+
     def visit_JoinedStr(self, node):
         # JoinedStr is used for combining the parts of an f-string.
         # In CPython, it is done with the BUILD_STRING opcode.  For
         # h-strings, we call quixote.html._q_join() instead.
         for v in node.values:
-            if isinstance(v, ast.Str) and HSTRING_MARKER in v.s:
+            if _is_str_node(v) and HSTRING_MARKER in v.s:
                 break # need to use _q_join()
         else:
             # none of the join arguments are htmltext, just use normal
@@ -252,8 +264,8 @@ class TemplateTransformer(ast.NodeTransformer):
         for v in node.values:
             if isinstance(v, ast.FormattedValue):
                 v = self.visit_FormattedValue(v, html=True)
-            elif isinstance(v, ast.Str):
-                v = self.visit_Str(v, html=True)
+            elif _is_str_node(v):
+                v = self.visit_Constant(v, html=True)
             else:
                 v = self.generic_visit(v)
             values.append(v)
