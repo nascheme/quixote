@@ -11,7 +11,7 @@ class ExtraDirectory(Resolving, Directory):
     _q_exports = ["", "form", "src", "chunked"]
 
     def _q_index [html] (self):
-        """
+        h"""
         <html>
         <head><title>Quixote Demo Extras</title></head>
         <body>

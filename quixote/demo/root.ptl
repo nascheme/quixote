@@ -16,7 +16,7 @@ class RootDirectory(Directory):
     @export(name='')
     def index [html] (self):
         print("debug message from the index page")
-        """
+        h"""
         <html>
         <head>
         <title>Quixote Demo</title>
@@ -58,7 +58,7 @@ class RootDirectory(Directory):
 
     @export
     def simple [html] (self):
-        '<html><body>Hello!</body></html>'
+        h'<html><body>Hello!</body></html>'
 
     @export
     def plain(self):
@@ -75,14 +75,14 @@ class RootDirectory(Directory):
 
     @export
     def dumpreq [html] (self):
-        """
+        h"""
         <html>
         <head><title>HTTPRequest Object</title></head>
         <body>
         <h1>HTTPRequest Object</h1>
         """
         dump_request()
-        """
+        h"""
         </body>
         </html>
         """

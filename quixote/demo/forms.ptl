@@ -58,7 +58,7 @@ def form_demo():
     form.add_submit("go", "Go!")
 
     def render [html] ():
-        """
+        h"""
         <html>
         <head><title>Quixote Form Demo</title>
         <style type="text/css">
@@ -69,7 +69,7 @@ def form_demo():
         <h1>Quixote Form Demo</h1>
         """ % BASIC_FORM_CSS
         form.render()
-        """
+        h"""
         </body>
         </html>
         """
@@ -82,7 +82,7 @@ def form_demo():
     # The data has been submitted and verified.  Do something interesting
     # with it (save it in DB, send email, etc.).  We'll just display it.
     def success [html] ():
-        """
+        h"""
         <html>
         <head><title>Quixote Form Demo</title></head>
         <body>
@@ -96,26 +96,26 @@ def form_demo():
         """
         for widget in form.get_all_widgets():
             value = widget.parse()
-            '<tr>'
-            '  <td>%s</td>' % widget.get_name()
-            '  <td>%s</td>' % getattr(value, str('__class__'),
+            h'<tr>'
+            h'  <td>%s</td>' % widget.get_name()
+            h'  <td>%s</td>' % getattr(value, str('__class__'),
                                       type(value)).__name__
-            '<td>'
+            h'<td>'
             if value is None:
-                "<i>None</i>"
+                h"<i>None</i>"
             elif isinstance(widget, FileWidget):
                 repr(value)
-                ' (%s bytes %s)' % (len(value.fp.read()), value.get_size())
+                h' (%s bytes %s)' % (len(value.fp.read()), value.get_size())
             else:
                 repr(value)
-            '</td>'
-            '</tr>'
-        """
+            h'</td>'
+            h'</tr>'
+        h"""
         </table>
         <h2>Request dump:</h2>
         """
         dump_request()
-        """
+        h"""
         </body>
         </html>
         """
