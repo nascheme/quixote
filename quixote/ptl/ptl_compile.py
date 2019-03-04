@@ -64,7 +64,7 @@ def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
     except FileExistsError:
         pass
     source_stats = loader.path_stats(file)
-    bytecode = importlib._bootstrap_external._code_to_bytecode(
+    bytecode = _code_to_bytecode(
             code, source_stats['mtime'], source_stats['size'])
     mode = importlib._bootstrap_external._calc_mode(file)
     importlib._bootstrap_external._write_atomic(cfile, bytecode, mode)
@@ -332,6 +332,13 @@ def main():
     return True
 
 
+if hasattr(importlib._bootstrap_external, '_code_to_bytecode'):
+    _code_to_bytecode = importlib._bootstrap_external._code_to_bytecode
+else:
+    # renamed in Python 3.7
+    _code_to_bytecode = importlib._bootstrap_external._code_to_timestamp_pyc
+
+
 def compile_template(input, filename, output=None):
     """(input, filename) -> code
 
@@ -343,7 +350,7 @@ def compile_template(input, filename, output=None):
     if output is not None:
         # The 'output' parameter is for backwards compatibility with old
         # versions of Quixote.  New code should not supply it.
-        bytecode = importlib._bootstrap_external._code_to_bytecode(code, 0, 0)
+        bytecode = _code_to_bytecode(code, 0, 0)
         output.write(bytecode)
     return code
 
