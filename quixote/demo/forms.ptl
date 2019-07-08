@@ -1,8 +1,9 @@
 """Demonstrate the Quixote form class.
 """
 import time
-from quixote.form import Form, StringWidget, PasswordWidget, \
-     RadiobuttonsWidget, SingleSelectWidget, MultipleSelectWidget, \
+from quixote.ptl import ptl_html
+from quixote.form import Form, StringWidget, PasswordWidget,\
+     RadiobuttonsWidget, SingleSelectWidget, MultipleSelectWidget,\
      CheckboxWidget, FileWidget
 from quixote.form.css import BASIC_FORM_CSS
 from quixote.util import dump_request
@@ -57,8 +58,9 @@ def form_demo():
     form.add_hidden('time', value=time.time())
     form.add_submit("go", "Go!")
 
-    def render [html] ():
-        h"""
+    @ptl_html
+    def render():
+        F"""
         <html>
         <head><title>Quixote Form Demo</title>
         <style type="text/css">
@@ -69,7 +71,7 @@ def form_demo():
         <h1>Quixote Form Demo</h1>
         """ % BASIC_FORM_CSS
         form.render()
-        h"""
+        F"""
         </body>
         </html>
         """
@@ -81,8 +83,9 @@ def form_demo():
 
     # The data has been submitted and verified.  Do something interesting
     # with it (save it in DB, send email, etc.).  We'll just display it.
-    def success [html] ():
-        h"""
+    @ptl_html
+    def success():
+        F"""
         <html>
         <head><title>Quixote Form Demo</title></head>
         <body>
@@ -96,26 +99,26 @@ def form_demo():
         """
         for widget in form.get_all_widgets():
             value = widget.parse()
-            h'<tr>'
-            h'  <td>%s</td>' % widget.get_name()
-            h'  <td>%s</td>' % getattr(value, str('__class__'),
+            F'<tr>'
+            F'  <td>%s</td>' % widget.get_name()
+            F'  <td>%s</td>' % getattr(value, str('__class__'),
                                       type(value)).__name__
-            h'<td>'
+            F'<td>'
             if value is None:
-                h"<i>None</i>"
+                F"<i>None</i>"
             elif isinstance(widget, FileWidget):
                 repr(value)
-                h' (%s bytes %s)' % (len(value.fp.read()), value.get_size())
+                F' (%s bytes %s)' % (len(value.fp.read()), value.get_size())
             else:
                 repr(value)
-            h'</td>'
-            h'</tr>'
-        h"""
+            F'</td>'
+            F'</tr>'
+        F"""
         </table>
         <h2>Request dump:</h2>
         """
         dump_request()
-        h"""
+        F"""
         </body>
         </html>
         """

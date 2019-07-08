@@ -4,6 +4,7 @@ import time
 import base64
 
 from quixote import get_response
+from quixote.ptl import ptl_html
 from quixote.directory import Directory, export, subdir
 from quixote.errors import PublishError
 from quixote.util import dump_request
@@ -14,9 +15,10 @@ class RootDirectory(Directory):
     _q_exports = ['extras']
 
     @export(name='')
-    def index [html] (self):
+    @ptl_html
+    def index(self):
         print("debug message from the index page")
-        h"""
+        F"""
         <html>
         <head>
         <title>Quixote Demo</title>
@@ -57,8 +59,9 @@ class RootDirectory(Directory):
         """
 
     @export
-    def simple [html] (self):
-        h'<html><body>Hello!</body></html>'
+    @ptl_html
+    def simple(self):
+        F'<html><body>Hello!</body></html>'
 
     @export
     def plain(self):
@@ -74,15 +77,16 @@ class RootDirectory(Directory):
         raise PublishError("Publishing error raised by publish_error")
 
     @export
-    def dumpreq [html] (self):
-        h"""
+    @ptl_html
+    def dumpreq(self):
+        F"""
         <html>
         <head><title>HTTPRequest Object</title></head>
         <body>
         <h1>HTTPRequest Object</h1>
         """
         dump_request()
-        h"""
+        F"""
         </body>
         </html>
         """

@@ -1,5 +1,6 @@
 import os
 from quixote import get_response
+from quixote.ptl import ptl_html
 from quixote.directory import Directory, Resolving
 from quixote.util import StaticDirectory
 from quixote.demo.integers import IntegerUI
@@ -10,8 +11,9 @@ class ExtraDirectory(Resolving, Directory):
 
     _q_exports = ["", "form", "src", "chunked"]
 
-    def _q_index [html] (self):
-        h"""
+    @ptl_html
+    def _q_index(self):
+        F"""
         <html>
         <head><title>Quixote Demo Extras</title></head>
         <body>

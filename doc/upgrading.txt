@@ -5,6 +5,31 @@ This document lists backward-incompatible changes in Quixote, and
 explains how to update application code to work with the newer
 version.
 
+Changes from 3.1 to 3.2
+-----------------------
+
+Quixote 3.2 adds support for a new style of PTL code.  This new style is
+valid Python syntax.  The advantage of using valid Python syntax is that
+you may use linters and code formatting tools (like flake8 and black).
+Instead of using the [html] and [plain] annotation on functions, you can
+use decorators.  E.g.
+
+    from quixote.ptl import ptl_html, ptl_plain
+
+    @ptl_html
+    def foo():
+        F'this is an HTML string'
+
+    @ptl_plain
+    def bar():
+        f'this is a plain text string'
+
+You can use the script tools/ptl_to_decorator.py to convert code to use
+the new style.  The script will fix the function definitions and change
+h-strings to HTML F-strings.  It will not add imports for the decorators
+however.
+
+
 Changes from 3.0 to 3.1
 -----------------------
 

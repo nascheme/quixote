@@ -16,9 +16,10 @@ import tokenize
 # special marker for h-strings, cannot appear in source code literals
 HSTRING_MARKER = 'HSTRING\xa0\x00'
 
-# special function names for templates
-HTML_TEMPLATE_PREFIX = "_q_html_template_"
-PLAIN_TEMPLATE_PREFIX = "_q_plain_template_"
+TEMPLATE_TYPES = {
+    'ptl_html': 'html',
+    'ptl_plain': 'plain',
+}
 
 def translate_defs(tokens):
     # Rename the function name for html/plain templates.  The special names
@@ -60,11 +61,26 @@ def translate_hstrings(tokens):
             if i == 0:
                 i += 1
                 continue
-            if tokens[i-1].type == NAME and tokens[i-1].string == 'h':
-                # found for h-prefixed string
+            need_dedent = False
+            prefix = tok.string[:2]
+            if prefix in {'F"', "F'"}:
+                # found a F-prefixed string
+                have_h_string = True
+                str_tok = list(tok)
+                s = tok[1][1:] # string value with 'F' stripped
+            elif tokens[i-1].type == NAME and tokens[i-1].string == 'h':
+                # found a h-prefixed string
+                have_h_string = True
                 str_tok = list(tokens[i])
+                s = str_tok[1]
+                # h prefix is separate token, remove it
                 del tokens[i-1]
-                s = ast.literal_eval(str_tok[1])
+                i -= 1
+                need_dedent = True
+            else:
+                have_h_string = False
+            if have_h_string:
+                s = ast.literal_eval(s)
                 if HSTRING_MARKER in s:
                     raise SyntaxError('invalid str literal, cannot contain '
                                       'h-string marker, got %r' % s)
@@ -80,10 +96,11 @@ def translate_hstrings(tokens):
                     # string as that generates more efficient bytecode
                     s = 'f' + s
                 str_tok[1] = s
-                # deindent one character, we stripped (NAME 'h') token
-                srow, scol = str_tok[2]
-                str_tok[2] = (srow, scol-1)
-                tokens[i-1] = tokenize.TokenInfo(*str_tok)
+                if need_dedent:
+                    # deindent one character, we stripped (NAME 'h') token
+                    srow, scol = str_tok[2]
+                    str_tok[2] = (srow, scol-1)
+                tokens[i] = tokenize.TokenInfo(*str_tok)
         i += 1
 
 
@@ -98,6 +115,7 @@ def translate_source(buf, filename='<string>'):
     def foo [html] (...): -> def _q_html_template__foo(...):
 
     h'foo' -> f'<HSTRING_PREFIX>foo'
+    F'foo' -> f'<HSTRING_PREFIX>foo'
     """
     assert isinstance(buf, bytes)
     fp = io.BytesIO(buf)
@@ -163,20 +181,23 @@ class TemplateTransformer(ast.NodeTransformer):
 
     def visit_FunctionDef(self, node):
         name = node.name
-        if not re.match('_q_(html|plain)_template_', name):
-            # just a normal function
+        template_type = None
+        # look for @html or @plain decorator
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Name):
+                if dec.id in TEMPLATE_TYPES:
+                    template_type = TEMPLATE_TYPES[dec.id]
+        if template_type is None:
+            # look for old-style [html] or [plain] annotation
+            m = re.match('_q_(html|plain)_template_(.*)', name)
+            if m:
+                template_type = m.group(1)
+                name = m.group(2)
+        if template_type is None:
             self.__template_type.append(None)
             node = self.generic_visit(node)
         else:
-            if name.startswith(PLAIN_TEMPLATE_PREFIX):
-                node.name = name[len(PLAIN_TEMPLATE_PREFIX):]
-                template_type = "plain"
-            elif name.startswith(HTML_TEMPLATE_PREFIX):
-                node.name = name[len(HTML_TEMPLATE_PREFIX):]
-                template_type = "html"
-            else:
-                raise RuntimeError('unknown prefix on %s' % name)
-
+            node.name = name
             self.__template_type.append(template_type)
             node = self.generic_visit(node)
 

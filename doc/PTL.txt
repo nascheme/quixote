@@ -10,11 +10,11 @@ this model by merely tweaking Python to make it easier to generate
 HTML pages (or other forms of text).  In other words, PTL is basically
 Python with a novel way to specify function return values.
 
-Specifically, a PTL template is designated by inserting a ``[plain]``
-or ``[html]`` modifier after the function name.  The value of
-expressions inside templates are kept, not discarded.  If the type is
-``[html]`` then the return value from the function is a special string
-type, which tracks HTML special character escaping (i.e. special
+Specifically, a PTL template is designated by decorating a function with
+the `ptl_plain` or `ptl_html` decorator (from the `quixote.ptl` module).
+The value of expressions inside templates are kept, not discarded.  For
+HTML templates, the return value from the function is a special string
+type, which tracks HTML special character escaping (i.e.  special
 characters are escaped exactly once).
 
 
@@ -23,7 +23,10 @@ Plain text templates
 
 Here's a sample plain text template::
 
-    def foo [plain] (x, y = 5):
+    from quixote.ptl import ptl_plain
+
+    @ptl_plain
+    def foo(x, y = 5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
         print('Input values:', x, y)
@@ -50,7 +53,8 @@ The difference between a template and a regular Python function is that
 inside a template the result of expressions are saved as the return
 value of that template.  Look at the first part of the example again::
 
-    def foo [plain] (x, y=5):
+    @ptl_plain
+    def foo(x, y=5):
         "This is a chunk of static text."
         greeting = "hello world" # statement, no PTL output
         print('Input values:', x, y)
@@ -65,7 +69,7 @@ string::
     in a variety of ways.
 
 Normally when Python evaluates expressions inside functions, it just
-discards their values, but in a ``[plain]`` PTL template the value is
+discards their values, but in a plain text PTL template the value is
 converted to a string using ``str()`` and appended to the template's
 return value.  There's a single exception to this rule: ``None`` is the
 only value that's ever ignored, adding nothing to the output.  (If this
@@ -92,7 +96,8 @@ traces to a template.
 
 Inside templates, you can use all of Python's control-flow statements::
 
-    def numbers [plain] (n):
+    @ptl_plain
+    def numbers(n):
         for i in range(n):
             i
             " " # PTL does not add any whitespace
@@ -100,7 +105,8 @@ Inside templates, you can use all of Python's control-flow statements::
 Calling ``numbers(5)`` will return the string ``"1 2 3 4 5 "``.  You can
 also have conditional logic or exception blocks::
 
-    def international_hello [plain] (language):
+    @ptl_plain
+    def international_hello(language):
         if language == "english":
             "hello"
         elif language == "french":
@@ -112,7 +118,7 @@ also have conditional logic or exception blocks::
 HTML templates
 --------------
 
-Since PTL is usually used to generate HTML documents, an ``[html]``
+Since PTL is usually used to generate HTML documents, an HTML
 template type has been provided to make generating HTML easier.  
 
 A common error when generating HTML is to grab data from the browser
@@ -135,11 +141,11 @@ and can be safely sent to the client.  The function ``htmlescape(string)``
 is used to escape data, and it always returns an ``htmltext``
 instance.  It does nothing if the argument is already ``htmltext``.
 
-If a template function is declared ``[html]`` instead of ``[text]``
-then the return value of the function becomes an 'htmltext' instance.
-``htmltext`` type is like the ``str`` type except that operations
-combining strings and ``htmltext`` instances will result in the string
-being passed through ``htmlescape()``.  For example::
+If a template function is decorated with `ptl_html` instead of
+`ptl_plain` then the return value of the function becomes an 'htmltext'
+instance.  ``htmltext`` type is like the ``str`` type except that
+operations combining strings and ``htmltext`` instances will result in
+the string being passed through ``htmlescape()``.  For example::
 
     >>> from quixote.html import htmltext
     >>> htmltext('a') + 'b'
@@ -164,19 +170,20 @@ absolutely sure this piece of data cannot contain malicious HTML code
 injected by a user.  Don't escape HTML special characters because I want
 them."
 
-To include literal 'htmltext' data in .ptl modules, use the h-string
-notation (similar to f-strings, introduced in Python 3.6).  For example:
+To include literal 'htmltext' data in .ptl modules, use the HTML f-string
+notation (upper-case prefix).  For example:
 
     def format_title(title):
-        h'<h1>{title}</h1>'
+        return F'<h1>{title}</h1>'
 
-The literal strings using the h-string notation are htmltext instances.
-The ``htmltext`` type prevents their contents from being escaped by the
-``htmlescape`` function.  You will only need to use ``htmltext`` when
-HTML markup comes from outside the template.  For example, if you want
-to include a file containing HTML::
+The literal strings using the HTML f-string notation are htmltext
+instances.  The ``htmltext`` type prevents their contents from being
+escaped by the ``htmlescape`` function.  You will only need to use
+``htmltext`` when HTML markup comes from outside the template.  For
+example, if you want to include a file containing HTML::
 
-    def output_file [html] ():
+    @ptl_html
+    def output_file():
         '<html><body>' # does not get escaped
         with open('myfile.html') as fp:
             htmltext(fp.read())
@@ -186,13 +193,14 @@ In the common case, templates won't be dealing with HTML markup from
 external sources, so you can write straightforward code.  Consider
 this function to generate the contents of the ``HEAD`` element::
 
-    def meta_tags [html] (title, description):
-        h'<title>{title}</title>'
-        h'<meta name="description" content="{description}">\n'
+    @ptl_html
+    def meta_tags(title, description):
+        F'<title>{title}</title>'
+        F'<meta name="description" content="{description}">\n'
 
-There are no calls to ``htmlescape()`` at all, but the h-string literals
-are ``htmltext`` instances, so the data in the `title` and `description`
-variables will automatically be escaped::
+There are no calls to ``htmlescape()`` at all, but the HTML f-string
+literals are ``htmltext`` instances, so the data in the `title` and
+`description` variables will automatically be escaped::
 
     >>> t.meta_tags('Catalog', 'A catalog of our cool products')
     <htmltext '<title>Catalog</title>
