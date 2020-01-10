@@ -448,7 +448,7 @@ class HTTPResponse:
                 # Clients and proxies are allowed to ignore Expires in
                 # certain cases and use stale pages (RFC 2616 sections
                 # 13.1.5 and 14.9.4).
-                cache_control = "max-age=0, must-revalidate"
+                cache_control = "max-age=0, no-cache"
             if ("expires" not in self.headers and
                     "cache-control" not in self.headers):
                 # If either of these headers are set then don't add
