@@ -4,8 +4,6 @@
 
 import sys
 import os
-import stat
-import imp
 import struct
 import importlib.util
 import py_compile
