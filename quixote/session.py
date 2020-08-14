@@ -146,7 +146,7 @@ class BaseSessionManager:
         """Remove a session from the session manager.  E.g. if the user
         signs out or the session expires.
         """
-        return self.store.delete_session(session)
+        return self.store.delete_session(session_id)
 
     def __contains__(self, session_id):
         """(session_id : string) -> boolean
