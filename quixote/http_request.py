@@ -150,6 +150,7 @@ class HTTPRequest:
 
     def __init__(self, stdin, environ):
         self.stdin = stdin
+        self._stdin = None # set after stdin is buffered to temp file
         self.environ = environ
         self.form = {}
         self.session = None
@@ -185,25 +186,12 @@ class HTTPRequest:
                 self.environ['PATH_INFO'] = path
 
     def process_inputs(self):
-        query = self.get_query()
-        if query:
-            self.form.update(parse_query(query, self.charset))
         length = self.environ.get('CONTENT_LENGTH') or "0"
         try:
             length = int(length)
         except ValueError:
             raise RequestError('invalid content-length header')
-        read_body = length > 0
-        ctype = self.environ.get("CONTENT_TYPE")
-        if ctype:
-            ctype, ctype_params = parse_header(ctype)
-            if ctype == 'application/x-www-form-urlencoded':
-                self._process_urlencoded(length, ctype_params)
-                read_body = False
-            elif ctype == 'multipart/form-data':
-                self._process_multipart(length, ctype_params)
-                read_body = False
-        if read_body:
+        if self._stdin is None:
             # We must consume entire request body as some clients and
             # middleware expect that.  We cannot rely on the application to
             # read it completely (e.g. if there is some PublishError raised).
@@ -221,6 +209,22 @@ class HTTPRequest:
             fp.seek(0)
             self._stdin = self.stdin
             self.stdin = fp
+        else:
+            # In the case of a database conflict, process_inputs() might
+            # be called more than once.  In this case, there is no need
+            # to buffer stdin but reset the form data and input file.
+            self.stdin.seek(0)
+            self.form.clear()
+        query = self.get_query()
+        if query:
+            self.form.update(parse_query(query, self.charset))
+        ctype = self.environ.get("CONTENT_TYPE")
+        if ctype:
+            ctype, ctype_params = parse_header(ctype)
+            if ctype == 'application/x-www-form-urlencoded':
+                self._process_urlencoded(length, ctype_params)
+            elif ctype == 'multipart/form-data':
+                self._process_multipart(length, ctype_params)
 
     def _process_urlencoded(self, length, params):
         query = self.stdin.read(length)
