@@ -401,13 +401,15 @@ class HTTPResponse:
                 name = name.lower()
                 if val is None:
                     continue
-                if name in ('expires', 'domain', 'path', 'max_age', 'comment'):
-                    name = name.replace('_', '-')
-                    chunks.append('%s=%s' % (name, val))
+                elif name == 'value':
+                    continue
                 elif name == 'secure' and val:
                     chunks.append("secure")
                 elif name == 'httponly' and val:
                     chunks.append("httponly")
+                else:
+                    name = name.replace('_', '-')
+                    chunks.append('%s=%s' % (name, val))
             cookie_headers.append(("Set-Cookie", '; '.join(chunks)))
         return cookie_headers
 
