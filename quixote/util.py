@@ -19,7 +19,7 @@ import io
 import base64
 import mimetypes
 import urllib.request, urllib.parse, urllib.error
-import xmlrpc.client
+from xmlrpc.server import loads, dumps, Fault
 from email.utils import formatdate
 try:
     import secrets
@@ -92,20 +92,20 @@ def xmlrpc(request, func):
     data = request.stdin.read(length)
 
     # Parse arguments
-    params, method = xmlrpc.client.loads(data)
+    params, method = loads(data)
 
     try:
         result = func(method, params)
-    except xmlrpc.client.Fault as exc:
+    except Fault as exc:
         result = exc
     except:
         # report exception back to client
-        result = xmlrpc.client.dumps(
-            xmlrpc.client.Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
+        result = dumps(
+            Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
             )
     else:
         result = (result,)
-        result = xmlrpc.client.dumps(result, methodresponse=1)
+        result = dumps(result, methodresponse=1)
 
     request.response.set_content_type('text/xml')
     return result
