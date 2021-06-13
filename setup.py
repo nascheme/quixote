@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-#try:
-#    from setuptools import setup
-#except ImportError:
-#    print('(WARNING: importing distutils, not setuptools!)')
-#    from distutils.core import setup
 
 # Setup script for Quixote
 
@@ -12,8 +7,8 @@ import sys
 if sys.version_info < (3,6,0):
     raise SystemExit("You need python 3.6.0 or later to run this script")
 
-from distutils import core
-from distutils.extension import Extension
+import sys
+from setuptools import setup, Extension
 from quixote.ptl.qx_distutils import qx_build_py
 from quixote import __version__
 
@@ -36,9 +31,8 @@ kw = {'name': "Quixote",
 
       'ext_modules': [],
 
-      'cmdclass': {'build_py': qx_build_py},
+      #'cmdclass': {'build_py': qx_build_py},
 
-#      'test_suite' : 'nose.collector'
      }
 
 
@@ -47,26 +41,20 @@ build_extensions = sys.platform != 'win32'
 if build_extensions:
     kw['ext_modules'].append(htmltext)
 
-# If we're running Python 2.3, add extra information
-if hasattr(core, 'setup_keywords'):
-    if 'classifiers' in core.setup_keywords:
-        kw['classifiers'] = [
-          'Development Status :: 5 - Production/Stable',
-          'Environment :: Web Environment',
-          'License :: DFSG approved',
-          'Intended Audience :: Developers',
-          'Operating System :: Unix',
-          'Operating System :: Microsoft :: Windows',
-          'Operating System :: MacOS :: MacOS X',
-          'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-          'Programming Language :: Python :: 3 :: Only',
-          ]
-    if 'download_url' in core.setup_keywords:
-        kw['download_url'] = ('http://quixote.ca/releases/'
-                              'Quixote-%s.tar.gz' % kw['version'])
-    if 'url' in core.setup_keywords:
-        kw['url'] = 'http://www.quixote.ca/'
-    if 'platforms' in core.setup_keywords:
-        kw['platforms'] = 'Most'
+kw['classifiers'] = [
+  'Development Status :: 5 - Production/Stable',
+  'Environment :: Web Environment',
+  'License :: DFSG approved',
+  'Intended Audience :: Developers',
+  'Operating System :: Unix',
+  'Operating System :: Microsoft :: Windows',
+  'Operating System :: MacOS :: MacOS X',
+  'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+  'Programming Language :: Python :: 3 :: Only',
+  ]
+kw['download_url'] = ('http://quixote.ca/releases/'
+                      'Quixote-%s.tar.gz' % kw['version'])
+kw['url'] = 'http://www.quixote.ca/'
+kw['platforms'] = 'Most'
 
-core.setup(**kw)
+setup(**kw)
