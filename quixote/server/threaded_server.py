@@ -15,22 +15,47 @@ class ThreadingHTTPServer(
     pass
 
 
+def _buffer_request_body(rfile, env):
+    """Read the HTTP request body into a temporary file.  Return an
+    open file object that points to the start of the file.
+    """
+    length = env.get('HTTP_CONTENT_LENGTH', 0)
+    try:
+        length = int(length)
+    except ValueError:
+        length = 0
+    body = tempfile.SpooledTemporaryFile()
+    remaining = length
+    while remaining > 0:
+        s = rfile.read(min(remaining, 10000))
+        if not s:
+            break
+        body.write(s)
+        remaining -= len(s)
+    body.seek(0)
+    return body
+
+
 class HTTPRequestHandler(simple_server.HTTPRequestHandler):
     def process(self, env, include_body=True):
         """Process a single request, in front-end HTTP server thread."""
-        # submit work to executor
-        f = _PROCESSOR.submit(_process, self.rfile, env, include_body)
-        # wait for result from backend
-        status, reason, body = f.result()
+        request_body = _buffer_request_body(self.rfile, env)
+        try:
+            # submit work to executor
+            f = _PROCESSOR.submit(_process, request_body, env, include_body)
+            # wait for result from backend
+            status, reason, response_body = f.result()
+        finally:
+            request_body.close()
         try:
             self.send_response(status, reason)
             self.flush_headers()
             while True:
-                buf = body.read(20000)
+                buf = response_body.read(20000)
                 if not buf:
                     break
                 self.wfile.write(buf)
-            body.close()
+            response_body.close()
         except IOError as err:
             print("IOError while sending response ignored: %s" % err)
 
