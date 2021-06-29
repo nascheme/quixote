@@ -3,6 +3,7 @@
 """
 import sys
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from socketserver import ThreadingMixIn
 from quixote import get_publisher
@@ -15,10 +16,15 @@ class ThreadingHTTPServer(
     pass
 
 
+def print_thread(msg):
+    print('in thread', msg, threading.get_native_id())
+
+
 def _buffer_request_body(rfile, env):
     """Read the HTTP request body into a temporary file.  Return an
     open file object that points to the start of the file.
     """
+    print_thread('_buffer_request_body')
     length = env.get('HTTP_CONTENT_LENGTH', 0)
     try:
         length = int(length)
@@ -39,6 +45,7 @@ def _buffer_request_body(rfile, env):
 class HTTPRequestHandler(simple_server.HTTPRequestHandler):
     def process(self, env, include_body=True):
         """Process a single request, in front-end HTTP server thread."""
+        print_thread('handler process')
         request_body = _buffer_request_body(self.rfile, env)
         try:
             # submit work to executor
@@ -62,6 +69,7 @@ class HTTPRequestHandler(simple_server.HTTPRequestHandler):
 
 def _process(rfile, env, include_body):
     """Process a single request, in background Quixote thread."""
+    print_thread('backend process')
     response = get_publisher().process(rfile, env)
     status, reason = response.get_status_code(), response.get_reason_phrase()
     # write body to temporary file, this ensures that write() runs in the
@@ -92,6 +100,7 @@ def run(create_publisher, host='', port=80, https=False):
         max_workers=1,
         initializer=create_publisher,
     ) as _PROCESSOR:
+        print_thread('serve forever')
         try:
             httpd.serve_forever()
         finally:
