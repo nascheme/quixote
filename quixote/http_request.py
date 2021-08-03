@@ -148,14 +148,21 @@ class HTTPRequest:
 
     DEFAULT_CHARSET = None # defaults to quixote.DEFAULT_CHARSET
 
-    def __init__(self, stdin, environ):
+    def __init__(self, stdin, environ, seekable=False):
         self.stdin = stdin
         self._stdin = None # set after stdin is buffered to temp file
+        self.body_is_seekable = seekable
         self.environ = environ
         self.form = {}
         self.session = None
         self.charset = self.DEFAULT_CHARSET or quixote.DEFAULT_CHARSET
         self.response = HTTPResponse()
+
+        length = environ.get('CONTENT_LENGTH') or 0
+        try:
+            self._content_length = int(length)
+        except ValueError:
+            raise RequestError('invalid content-length header')
 
         # The strange treatment of SERVER_PORT_SECURE is because IIS
         # sets this environment variable to "0" for non-SSL requests
@@ -185,36 +192,34 @@ class HTTPRequest:
                 path = path[len(script):]
                 self.environ['PATH_INFO'] = path
 
-    def process_inputs(self):
-        length = self.environ.get('CONTENT_LENGTH') or "0"
-        try:
-            length = int(length)
-        except ValueError:
-            raise RequestError('invalid content-length header')
-        if self._stdin is None:
-            # We must consume entire request body as some clients and
-            # middleware expect that.  We cannot rely on the application to
-            # read it completely (e.g. if there is some PublishError raised).
-            if length < 20000:
-                fp = io.BytesIO()
-            else:
-                fp = tempfile.TemporaryFile("w+b")
-            remaining = length
-            while remaining > 0:
-                s = self.stdin.read(min(remaining, 10000))
-                if not s:
-                    raise RequestError('unexpected end of request body')
-                fp.write(s)
-                remaining -= len(s)
-            fp.seek(0)
-            self._stdin = self.stdin
-            self.stdin = fp
-        else:
-            # In the case of a database conflict, process_inputs() might
-            # be called more than once.  In this case, there is no need
-            # to buffer stdin but reset the form data and input file.
+    def make_body_seekable(self):
+        """Ensure that 'stdin' is a seekable file object.
+        """
+        if self.body_is_seekable:
             self.stdin.seek(0)
-            self.form.clear()
+            return
+        if self._content_length < 20000:
+            fp = io.BytesIO()
+        else:
+            fp = tempfile.TemporaryFile("w+b")
+        remaining = self._content_length
+        while remaining > 0:
+            s = self.stdin.read(min(remaining, 10000))
+            if not s:
+                raise RequestError('unexpected end of request body')
+            fp.write(s)
+            remaining -= len(s)
+        fp.seek(0)
+        self._stdin = self.stdin
+        self.stdin = fp
+        self.body_is_seekable = True
+
+    def process_inputs(self):
+        self.make_body_seekable()
+        # In the case of a database conflict, process_inputs() might
+        # be called more than once.  In this case, there is no need
+        # to buffer stdin but reset the form data and input file.
+        self.form.clear()
         query = self.get_query()
         if query:
             self.form.update(parse_query(query, self.charset))
@@ -222,9 +227,9 @@ class HTTPRequest:
         if ctype:
             ctype, ctype_params = parse_header(ctype)
             if ctype == 'application/x-www-form-urlencoded':
-                self._process_urlencoded(length, ctype_params)
+                self._process_urlencoded(self._content_length, ctype_params)
             elif ctype == 'multipart/form-data':
-                self._process_multipart(length, ctype_params)
+                self._process_multipart(self._content_length, ctype_params)
 
     def _process_urlencoded(self, length, params):
         query = self.stdin.read(length)
