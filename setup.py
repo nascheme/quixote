@@ -3,14 +3,17 @@
 # Setup script for Quixote
 
 import sys
-
-if sys.version_info < (3,6,0):
-    raise SystemExit("You need python 3.6.0 or later to run this script")
-
-import sys
 from setuptools import setup, Extension
 from quixote.ptl.qx_distutils import qx_build_py
 from quixote import __version__
+
+LONG_DESC = """\
+Quixote is a framework for developing Web applications in Python.
+The target is web applications that are developed and maintained by
+Python programmers. Quixote includes PTL, the Python Template Language for
+producing HTML with Python code.  Use of PTL is not required in Quixote
+applications.
+"""
 
 # a fast htmltext type
 htmltext = Extension(name="quixote.html._c_htmltext",
@@ -19,6 +22,7 @@ htmltext = Extension(name="quixote.html._c_htmltext",
 kw = {'name': "Quixote",
       'version': __version__,
       'description': "A small and flexible Python Web application framework",
+      'long_description': LONG_DESC,
       'author': "The Quixote developers",
       'author_email': "webmaster@quixote.ca",
       'url': "http://www.quixote.ca/",
@@ -28,8 +32,8 @@ kw = {'name': "Quixote",
       'packages': ['quixote',  'quixote.demo', 'quixote.form',
                    'quixote.html', 'quixote.ptl',
                    'quixote.server'],
-
       'ext_modules': [],
+      'python_requires': '>=3.6',
 
       #'cmdclass': {'build_py': qx_build_py},
 
