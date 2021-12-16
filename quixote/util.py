@@ -128,6 +128,10 @@ class FileStream(Stream):
             raise StopIteration
         return chunk
 
+    def close(self):
+        if hasattr(self.fp, 'close'):
+            self.fp.close()
+
 
 class StaticFile:
 

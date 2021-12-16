@@ -274,6 +274,8 @@ class HTTPResponse:
             crc = zlib.crc32(chunk, crc) & 0xffffffff
             n += len(chunk)
             yield co.compress(chunk)
+        if isinstance(body, Stream):
+            body.close()
         crc = struct.pack("<LL", _LOWU32(crc), _LOWU32(n))
         yield co.flush() + crc
 
@@ -493,10 +495,13 @@ class HTTPResponse:
         if self.body is None:
             pass
         elif isinstance(self.body, Stream):
-            for chunk in self.body:
-                if not isinstance(chunk, bytes):
-                    chunk = self._encode_chunk(chunk)
-                yield chunk
+            try:
+                for chunk in self.body:
+                    if not isinstance(chunk, bytes):
+                        chunk = self._encode_chunk(chunk)
+                    yield chunk
+            finally:
+                self.body.close()
         else:
             yield self.body # already encoded
 
@@ -576,3 +581,7 @@ class Stream:
 
     def __iter__(self):
         return iter(self.iterable)
+
+    def close(self):
+        """Called after the response has been streamed."""
+        pass
