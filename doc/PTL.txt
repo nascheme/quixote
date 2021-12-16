@@ -171,7 +171,7 @@ injected by a user.  Don't escape HTML special characters because I want
 them."
 
 To include literal 'htmltext' data in .ptl modules, use the HTML f-string
-notation (upper-case prefix).  For example:
+notation (upper-case prefix).  For example::
 
     def format_title(title):
         return F'<h1>{title}</h1>'
@@ -217,7 +217,7 @@ Note how the title and description have had HTML-escaping applied to them.
 
 Two implementations of ``htmltext`` are provided, one written in pure
 Python and a second one implemented as a C extension.  Both versions
-have seen production use.  
+have seen production use.
 
 
 PTL modules
