@@ -5,6 +5,7 @@ Tools for sending mail from Quixote applications.
 import email.utils
 from email.header import Header
 from smtplib import SMTP
+
 try:
     from smtplib import SMTP_SSL
     import ssl
@@ -13,6 +14,7 @@ except ImportError:
 import quixote
 
 EMAIL_ENCODING = 'utf-8'
+
 
 class RFC822Mailbox:
     """
@@ -41,7 +43,7 @@ class RFC822Mailbox:
         Create a new RFC822Mailbox instance.  The variety of call
         signatures is purely for your convenience.
         """
-        if (len(args) == 1 and type(args[0]) is tuple):
+        if len(args) == 1 and type(args[0]) is tuple:
             args = args[0]
 
         if len(args) == 1:
@@ -53,7 +55,8 @@ class RFC822Mailbox:
             raise TypeError(
                 "invalid number of arguments: "
                 "expected 1 or 2 strings or "
-                "a tuple of 1 or 2 strings")
+                "a tuple of 1 or 2 strings"
+            )
 
         self.addr_spec = addr_spec
         self.real_name = real_name
@@ -96,6 +99,7 @@ def _ensure_mailbox(s):
 # explicitly listed in the message headers.
 MAX_HEADER_RECIPIENTS = 10
 
+
 def _add_recip_headers(headers, field_name, addrs):
     if not addrs:
         return
@@ -109,7 +113,9 @@ def _add_recip_headers(headers, field_name, addrs):
             headers.append("    %s," % addr)
         headers.append("    %s" % addrs[-1])
     else:
-        headers.append("%s: (long recipient list suppressed) : ;" % field_name)
+        headers.append(
+            "%s: (long recipient list suppressed) : ;" % field_name
+        )
 
 
 def _encode_header(s):
@@ -121,13 +127,24 @@ def _encode_header(s):
         return s
 
 
-def sendmail(subject, msg_body, to_addrs,
-             from_addr=None, cc_addrs=None,
-             extra_headers=None,
-             smtp_sender=None, smtp_recipients=None,
-             mail_server=None, mail_debug_addr=None,
-             username=None, password=None, mail_port=None,
-             use_ssl=False, use_tls=False, config=None):
+def sendmail(
+    subject,
+    msg_body,
+    to_addrs,
+    from_addr=None,
+    cc_addrs=None,
+    extra_headers=None,
+    smtp_sender=None,
+    smtp_recipients=None,
+    mail_server=None,
+    mail_debug_addr=None,
+    username=None,
+    password=None,
+    mail_port=None,
+    use_ssl=False,
+    use_tls=False,
+    config=None,
+):
     """
     Send an email message to a list of recipients via a local SMTP
     server.  In normal use, you supply a list of primary recipient
@@ -197,6 +214,7 @@ def sendmail(subject, msg_body, to_addrs,
     """
     if not mail_server and config is None:
         from quixote import get_publisher
+
         config = get_publisher().config
 
     from_addr = from_addr or config.mail_from
@@ -217,7 +235,8 @@ def sendmail(subject, msg_body, to_addrs,
     # Make sure we have a "From" address
     if from_addr is None:
         raise RuntimeError(
-            "no from_addr supplied, and MAIL_FROM not set in config file")
+            "no from_addr supplied, and MAIL_FROM not set in config file"
+        )
 
     # Ensure all of our addresses are really RFC822Mailbox objects.
     from_addr = _ensure_mailbox(from_addr)
@@ -226,8 +245,10 @@ def sendmail(subject, msg_body, to_addrs,
         cc_addrs = list(map(_ensure_mailbox, cc_addrs))
 
     # Start building the message headers.
-    headers = ["From: %s" % from_addr.format(),
-               "Subject: %s" % _encode_header(subject)]
+    headers = [
+        "From: %s" % from_addr.format(),
+        "Subject: %s" % _encode_header(subject),
+    ]
     _add_recip_headers(headers, "To", to_addrs)
     if cc_addrs:
         _add_recip_headers(headers, "Cc", cc_addrs)
@@ -241,18 +262,22 @@ def sendmail(subject, msg_body, to_addrs,
         if name.lower() == 'content-type':
             break
     else:
-        headers.append('Content-Type: text/plain; charset=%s' % EMAIL_ENCODING)
+        headers.append(
+            'Content-Type: text/plain; charset=%s' % EMAIL_ENCODING
+        )
 
     if mail_debug_addr:
-        debug1 = ("[debug mode, message actually sent to %s]\n"
-                  % mail_debug_addr)
+        debug1 = (
+            "[debug mode, message actually sent to %s]\n" % mail_debug_addr
+        )
         if smtp_recipients:
-            debug2 = ("[original SMTP recipients: %s]\n"
-                      % ", ".join(smtp_recipients))
+            debug2 = "[original SMTP recipients: %s]\n" % ", ".join(
+                smtp_recipients
+            )
         else:
             debug2 = ""
 
-        sep = ("-"*72) + "\n"
+        sep = ("-" * 72) + "\n"
         msg_body = debug1 + debug2 + sep + msg_body
 
         smtp_recipients = [mail_debug_addr]
@@ -267,8 +292,9 @@ def sendmail(subject, msg_body, to_addrs,
         if cc_addrs:
             smtp_recipients.extend([addr.addr_spec for addr in cc_addrs])
     else:
-        smtp_recipients = [_ensure_mailbox(recip).addr_spec
-                           for recip in smtp_recipients]
+        smtp_recipients = [
+            _ensure_mailbox(recip).addr_spec for recip in smtp_recipients
+        ]
 
     message = "\n".join(headers) + "\n\n" + msg_body
     # smtplib requires bytes

@@ -9,9 +9,11 @@ import urllib.request, urllib.parse, urllib.error
 import quixote
 from quixote import get_publisher
 from quixote.util import import_object
+
 try:
     from scgi.systemd_socket import get_systemd_socket
 except ImportError:
+
     def get_systemd_socket():
         return None
 
@@ -48,7 +50,6 @@ class SockInheritHTTPServer(HTTPServer):
             self.server_port = port
 
 
-
 class HTTPRequestHandler(BaseHTTPRequestHandler):
 
     required_cgi_environment = {}
@@ -64,7 +65,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             SERVER_PORT=str(self.server.server_port),
             REQUEST_METHOD=method,
             REMOTE_ADDR=self.client_address[0],
-            SCRIPT_NAME='')
+            SCRIPT_NAME='',
+        )
         if '?' in self.path:
             env['PATH_INFO'], env['QUERY_STRING'] = self.path.split('?', 1)
         else:
@@ -94,9 +96,13 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             # single threaded server, persistent connections will block others
             response.set_header('connection', 'close')
         try:
-            self.send_response(response.get_status_code(), response.get_reason_phrase())
+            self.send_response(
+                response.get_status_code(), response.get_reason_phrase()
+            )
             self.flush_headers()
-            response.write(self.wfile, include_status=False, include_body=include_body)
+            response.write(
+                self.wfile, include_status=False, include_body=include_body
+            )
         except IOError as err:
             print("IOError while sending response ignored: %s" % err)
 
@@ -121,6 +127,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_response_only(code, message)
         self.send_header('Server', self.version_string())
 
+
 def run(create_publisher, host='', port=80, https=False):
     """Runs a simple, single threaded, synchronous HTTP server that
     publishes a Quixote application.
@@ -128,10 +135,12 @@ def run(create_publisher, host='', port=80, https=False):
     if https:
         HTTPRequestHandler.required_cgi_environment['HTTPS'] = 'on'
     httpd = SockInheritHTTPServer((host, port), HTTPRequestHandler)
+
     def handle_error(request, client_address):
         HTTPServer.handle_error(httpd, request, client_address)
         if sys.exc_info()[0] is SystemExit:
             raise
+
     httpd.handle_error = handle_error
     publisher = create_publisher()
     if publisher.logger.access_log is None:
@@ -141,20 +150,33 @@ def run(create_publisher, host='', port=80, https=False):
     finally:
         httpd.server_close()
 
+
 def main(args=None, _run=run):
     from quixote.server.util import get_server_parser
+
     if args is None:
         args = sys.argv[1:]
     parser = get_server_parser(run.__doc__)
     parser.add_option(
-        '--https', dest="https", default=False, action="store_true",
-        help=("Force the scheme for all requests to be https.  "
-              "Not that this is for running the simple server "
-              "through a proxy or tunnel that provides real SSL "
-              "support.  The simple server itself does not. "))
+        '--https',
+        dest="https",
+        default=False,
+        action="store_true",
+        help=(
+            "Force the scheme for all requests to be https.  "
+            "Not that this is for running the simple server "
+            "through a proxy or tunnel that provides real SSL "
+            "support.  The simple server itself does not. "
+        ),
+    )
     (options, args) = parser.parse_args(args=args)
-    _run(import_object(options.factory), host=options.host, port=options.port,
-         https=options.https)
+    _run(
+        import_object(options.factory),
+        host=options.host,
+        port=options.port,
+        https=options.https,
+    )
+
 
 if __name__ == '__main__':
     main()

@@ -3,6 +3,7 @@
 import quixote
 from quixote.errors import TraversalError
 
+
 class DirectoryClass(type):
     """A meta-class for Directory.  Its purpose is to process methods
     that are exported using the export() and subdir() decorators.
@@ -46,7 +47,7 @@ class Directory(object, metaclass=DirectoryClass):
         """
         if component in self._q_exports:
             if component == '':
-                return '_q_index' # implicit mapping
+                return '_q_index'  # implicit mapping
             else:
                 return component
         else:
@@ -81,8 +82,11 @@ class Directory(object, metaclass=DirectoryClass):
         else:
             obj = self._q_lookup(component)
         if obj is None:
-            raise TraversalError(private_msg=('directory %r has no component '
-                                              '%r' % (self, component)))
+            raise TraversalError(
+                private_msg=(
+                    'directory %r has no component ' '%r' % (self, component)
+                )
+            )
         if path:
             if hasattr(obj, '_q_traverse'):
                 return obj._q_traverse(path)
@@ -100,14 +104,17 @@ class Directory(object, metaclass=DirectoryClass):
             print("Adding slash to: %r " % path)
             return quixote.redirect(path + "/", permanent=True)
         else:
-            raise TraversalError(private_msg=('directory %r is not '
-                                              'callable' % self))
+            raise TraversalError(
+                private_msg=('directory %r is not ' 'callable' % self)
+            )
+
 
 class AccessControlled(object):
     """
     A mix-in class that calls the _q_access() method before traversing
     into the directory.
     """
+
     def _q_access(self):
         pass
 
@@ -123,6 +130,7 @@ class Resolving(object):
     not an instance attribute.  _q_resolve is expected to return the
     component object.
     """
+
     def _q_resolve(self, name):
         return None
 
@@ -139,12 +147,14 @@ def export(func=None, name=None):
     provided then the name of the page defaults to the name of the
     function (method).
     """
+
     def do_export(func):
         if name is None:
             func._q_name = func.__name__
         else:
             func._q_name = name
         return func
+
     if func is None:
         return do_export
     else:
@@ -156,12 +166,14 @@ def subdir(func=None, name=None):
     is not provided then the name of the directory defaults to the name
     of the function (method).
     """
+
     def do_export(func):
         if name is None:
             func._q_name = func.__name__
         else:
             func._q_name = name
         return property(func)
+
     if func is None:
         return do_export
     else:

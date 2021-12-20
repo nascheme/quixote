@@ -21,6 +21,7 @@ import mimetypes
 import urllib.request, urllib.parse, urllib.error
 import xmlrpc.server as _xmlrpc
 from email.utils import formatdate
+
 try:
     import secrets
 except ImportError:
@@ -39,9 +40,12 @@ elif hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
     def _encode_base64(s):
         return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
+
     def randbytes(n=16):
         """Return bytes of random data as a text string."""
         return _encode_base64(os.urandom(n))
+
+
 else:
     # give up, we used to try to provide a less secure version
     def randbytes(n=16):
@@ -68,12 +72,13 @@ def import_object(name):
     i = name.rfind('.')
     if i != -1:
         module_name = name[:i]
-        object_name = name[i+1:]
+        object_name = name[i + 1 :]
         __import__(module_name)
         return getattr(sys.modules[module_name], object_name)
     else:
         __import__(name)
         return sys.modules[name]
+
 
 def xmlrpc(request, func):
     """xmlrpc(request:Request, func:callable) : string
@@ -102,7 +107,7 @@ def xmlrpc(request, func):
         # report exception back to client
         result = _xmlrpc.dumps(
             _xmlrpc.Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
-            )
+        )
     else:
         result = (result,)
         result = _xmlrpc.dumps(result, methodresponse=1)
@@ -139,8 +144,14 @@ class StaticFile:
     Wrapper for a static file on the filesystem.
     """
 
-    def __init__(self, path, follow_symlinks=False,
-                 mime_type=None, encoding=None, cache_time=None):
+    def __init__(
+        self,
+        path,
+        follow_symlinks=False,
+        mime_type=None,
+        encoding=None,
+        cache_time=None,
+    ):
         """StaticFile(path:string, follow_symlinks:bool)
 
         Initialize instance with the absolute path to the file.  If
@@ -162,8 +173,9 @@ class StaticFile:
         if not os.path.isabs(path):
             raise ValueError("Path %r is not absolute" % path)
         # Decide the Content-Type of the file
-        guess_mime, guess_enc = mimetypes.guess_type(os.path.basename(path),
-                                                     strict=False)
+        guess_mime, guess_enc = mimetypes.guess_type(
+            os.path.basename(path), strict=False
+        )
         self.mime_type = mime_type or guess_mime or 'text/plain'
         self.encoding = encoding or guess_enc or None
         self.cache_time = cache_time
@@ -171,12 +183,14 @@ class StaticFile:
 
     def __call__(self):
         if not self.follow_symlinks and os.path.islink(self.path):
-            raise errors.TraversalError(private_msg="Path %r is a symlink" % self.path)
+            raise errors.TraversalError(
+                private_msg="Path %r is a symlink" % self.path
+            )
         request = quixote.get_request()
         response = quixote.get_response()
 
         if self.cache_time is None:
-            response.set_expires(None) # don't set the Expires header
+            response.set_expires(None)  # don't set the Expires header
         else:
             # explicitly allow client to cache page by setting the Expires
             # header, this is even more efficient than the using
@@ -214,9 +228,16 @@ class StaticDirectory(Directory):
 
     FILE_CLASS = StaticFile
 
-    def __init__(self, path, use_cache=False, list_directory=False,
-                 follow_symlinks=False, cache_time=None, file_class=None,
-                 index_filenames=None):
+    def __init__(
+        self,
+        path,
+        use_cache=False,
+        list_directory=False,
+        follow_symlinks=False,
+        cache_time=None,
+        file_class=None,
+        index_filenames=None,
+    ):
         """(path:string, use_cache:bool, list_directory:bool,
             follow_symlinks:bool, cache_time:int,
             file_class=None, index_filenames:[string])
@@ -263,8 +284,9 @@ class StaticDirectory(Directory):
                     obj = self._q_lookup(name)
                 except errors.TraversalError:
                     continue
-                if (not isinstance(obj, StaticDirectory)
-                        and hasattr(obj, '__call__')):
+                if not isinstance(obj, StaticDirectory) and hasattr(
+                    obj, '__call__'
+                ):
                     return obj()
         if self.list_directory:
             title = 'Index of %s' % quixote.get_path()
@@ -277,13 +299,19 @@ class StaticDirectory(Directory):
             for filename in files:
                 filepath = os.path.join(self.path, filename)
                 marker = os.path.isdir(filepath) and "/" or ""
-                r += template % (urllib.parse.quote(filename), filename, marker)
+                r += template % (
+                    urllib.parse.quote(filename),
+                    filename,
+                    marker,
+                )
             r += htmltext('</pre>')
             body = r.getvalue()
         else:
             title = 'Directory listing denied'
-            body = htmltext('<p>This directory does not allow its contents '
-                            'to be listed.</p>')
+            body = htmltext(
+                '<p>This directory does not allow its contents '
+                'to be listed.</p>'
+            )
         return errors.format_page(title, body)
 
     def _q_lookup(self, name):
@@ -292,7 +320,9 @@ class StaticDirectory(Directory):
         or StaticDirectory wrapper of it; use caching if that is in use.
         """
         if name in ('.', '..'):
-            raise errors.TraversalError(private_msg="Attempt to use '.', '..'")
+            raise errors.TraversalError(
+                private_msg="Attempt to use '.', '..'"
+            )
         if name in self.cache:
             # Get item from cache
             item = self.cache[name]
@@ -307,14 +337,22 @@ class StaticDirectory(Directory):
                     item_filepath = os.path.join(self.path, dest)
 
             if os.path.isdir(item_filepath):
-                item = self.__class__(item_filepath, self.use_cache,
-                                      self.list_directory,
-                                      self.follow_symlinks, self.cache_time,
-                                      self.file_class, self.index_filenames)
+                item = self.__class__(
+                    item_filepath,
+                    self.use_cache,
+                    self.list_directory,
+                    self.follow_symlinks,
+                    self.cache_time,
+                    self.file_class,
+                    self.index_filenames,
+                )
 
             elif os.path.isfile(item_filepath):
-                item = self.file_class(item_filepath, self.follow_symlinks,
-                                       cache_time=self.cache_time)
+                item = self.file_class(
+                    item_filepath,
+                    self.follow_symlinks,
+                    cache_time=self.cache_time,
+                )
             else:
                 raise errors.TraversalError
             if self.use_cache:
@@ -327,8 +365,7 @@ class MemoryFile:
     data for the file is stored as a 'str' object.
     """
 
-    def __init__(self, data, mime_type=None, encoding=None,
-                 cache_time=None):
+    def __init__(self, data, mime_type=None, encoding=None, cache_time=None):
         self.data = data
         self.mime_type = mime_type or 'text/plain'
         self.encoding = encoding or quixote.DEFAULT_CHARSET
@@ -353,7 +390,7 @@ class StaticBundle(Directory):
 
     # Because we generate a path based on the modification time of the file
     # it is safe to use a very long cache time.
-    CACHE_TIME = 3600*24*100
+    CACHE_TIME = 3600 * 24 * 100
 
     def __init__(self, dirname, basepath='', sep='\n', encoding=None):
         """Create a new StaticBundle.  'dirname' is a file path to the
@@ -439,14 +476,19 @@ class StaticBundle(Directory):
                 # it is a virtual file created by concatenating text files
                 filenames = filename.split(',')
                 data, mime_type = self._read_static_data(filenames)
-                static_file = MemoryFile(data, mime_type=mime_type,
-                                         encoding=self.encoding,
-                                         cache_time=cache_time)
+                static_file = MemoryFile(
+                    data,
+                    mime_type=mime_type,
+                    encoding=self.encoding,
+                    cache_time=cache_time,
+                )
             else:
                 # it is a single static file
-                static_file = StaticFile(os.path.join(self.basedir, filename),
-                                         encoding=self.encoding,
-                                         cache_time=cache_time)
+                static_file = StaticFile(
+                    os.path.join(self.basedir, filename),
+                    encoding=self.encoding,
+                    cache_time=cache_time,
+                )
             self.files[filename] = static_file
         # We have the file wrapper created and ready, call it to return the
         # reponse data.
@@ -478,22 +520,18 @@ def dump_request(request=None):
     """Dump an HTTPRequest object as HTML."""
     row_fmt = htmltext('<tr><th>%s</th><td>%s</td></tr>')
     r = TemplateIO(html=True)
-    r += htmltext('<h3>form</h3>'
-                  '<table>')
+    r += htmltext('<h3>form</h3>' '<table>')
     for k, v in request.form.items():
         r += row_fmt % (k, v)
-    r += htmltext('</table>'
-                  '<h3>cookies</h3>'
-                  '<table>')
+    r += htmltext('</table>' '<h3>cookies</h3>' '<table>')
     for k, v in request.cookies.items():
         r += row_fmt % (k, v)
-    r += htmltext('</table>'
-                  '<h3>environ</h3>'
-                  '<table>')
+    r += htmltext('</table>' '<h3>environ</h3>' '<table>')
     for k, v in request.environ.items():
         r += row_fmt % (k, v)
     r += htmltext('</table>')
     return r.getvalue()
+
 
 def get_directory_path():
     """() -> [object]

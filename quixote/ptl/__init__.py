@@ -256,13 +256,12 @@ def _check_template(func):
 
 
 def ptl_html(func):
-    """Decorator for HTML template function.
-    """
-    #_check_template(func)
+    """Decorator for HTML template function."""
+    # _check_template(func)
     return func
 
+
 def ptl_plain(func):
-    """Decorator for plain-text template function.
-    """
-    #_check_template(func)
+    """Decorator for plain-text template function."""
+    # _check_template(func)
     return func

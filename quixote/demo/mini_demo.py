@@ -12,8 +12,8 @@ will be sent to the terminal.
 from quixote.publish import Publisher
 from quixote.directory import Directory, export
 
-class RootDirectory(Directory):
 
+class RootDirectory(Directory):
     @export(name='')
     def index(self):
         return '''<html>
@@ -29,11 +29,11 @@ class RootDirectory(Directory):
 
 
 def create_publisher():
-    return Publisher(RootDirectory(),
-                     display_exceptions='plain')
+    return Publisher(RootDirectory(), display_exceptions='plain')
 
 
 if __name__ == '__main__':
     from quixote.server.simple_server import run
+
     print('creating demo listening on http://localhost:8080/')
     run(create_publisher, host='localhost', port=8080)

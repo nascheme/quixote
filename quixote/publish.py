@@ -6,13 +6,18 @@ import time
 import urllib.parse
 import cgitb
 
-from quixote.errors import PublishError, MethodNotAllowedError, \
-        format_publish_error, INTERNAL_ERROR_MESSAGE
+from quixote.errors import (
+    PublishError,
+    MethodNotAllowedError,
+    format_publish_error,
+    INTERNAL_ERROR_MESSAGE,
+)
 from quixote import util
 from quixote.config import Config
 from quixote.http_response import HTTPResponse
 from quixote.http_request import HTTPRequest
 from quixote.logger import DefaultLogger
+
 
 class Publisher:
     """
@@ -45,26 +50,37 @@ class Publisher:
         the HTTP request currently being processed.
     """
 
-    def __init__(self, root_directory, logger=None, session_manager=None,
-                 config=None, **kwargs):
+    def __init__(
+        self,
+        root_directory,
+        logger=None,
+        session_manager=None,
+        config=None,
+        **kwargs,
+    ):
         global _publisher
         if config is None:
             self.config = Config(**kwargs)
         else:
             if kwargs:
-                raise ValueError("cannot provide both 'config' object and"
-                                 " config arguments")
+                raise ValueError(
+                    "cannot provide both 'config' object and"
+                    " config arguments"
+                )
             self.config = config
         if logger is None:
-            self.logger = DefaultLogger(error_log=self.config.error_log,
-                                        access_log=self.config.access_log,
-                                        error_email=self.config.error_email)
+            self.logger = DefaultLogger(
+                error_log=self.config.error_log,
+                access_log=self.config.access_log,
+                error_email=self.config.error_email,
+            )
         else:
             self.logger = logger
         if session_manager is not None:
             self.session_manager = session_manager
         else:
             from quixote.session import NullSessionManager
+
             self.session_manager = NullSessionManager()
 
         if _publisher is not None:
@@ -73,8 +89,9 @@ class Publisher:
 
         if not hasattr(getattr(root_directory, '_q_traverse'), '__call__'):
             raise TypeError(
-                'Expected something with a _q_traverse method, got %r' %
-                root_directory)
+                'Expected something with a _q_traverse method, got %r'
+                % root_directory
+            )
         self.root_directory = root_directory
         self._request = None
 
@@ -85,33 +102,27 @@ class Publisher:
         self.logger.log(msg)
 
     def parse_request(self, request):
-        """Parse the request information waiting in 'request'.
-        """
+        """Parse the request information waiting in 'request'."""
         request.process_inputs()
 
     def start_request(self):
-        """Called at the start of each request.
-        """
+        """Called at the start of each request."""
         self.session_manager.start_request()
 
     def _set_request(self, request):
-        """Set the current request object.
-        """
+        """Set the current request object."""
         self._request = request
 
     def _clear_request(self):
-        """Unset the current request object.
-        """
+        """Unset the current request object."""
         self._request = None
 
     def get_request(self):
-        """Return the current request object.
-        """
+        """Return the current request object."""
         return self._request
 
     def finish_successful_request(self):
-        """Called at the end of a successful request.
-        """
+        """Called at the end of a successful request."""
         self.session_manager.finish_successful_request()
 
     def format_publish_error(self, exc):
@@ -125,7 +136,7 @@ class Publisher:
         the request.
         """
         if not self.config.display_exceptions and exc.private_msg:
-            exc.private_msg = None # hide it
+            exc.private_msg = None  # hide it
         request = get_request()
         request.response = HTTPResponse(status=exc.status_code)
         output = self.format_publish_error(exc)
@@ -143,17 +154,16 @@ class Publisher:
         request = get_request()
         original_response = request.response
         request.response = HTTPResponse()
-        #self.log("caught an error (%s), reporting it." %
+        # self.log("caught an error (%s), reporting it." %
         #         sys.exc_info()[1])
 
         (exc_type, exc_value, tb) = sys.exc_info()
         error_summary = traceback.format_exception_only(exc_type, exc_value)
-        error_summary = error_summary[0][0:-1] # de-listify and strip newline
+        error_summary = error_summary[0][0:-1]  # de-listify and strip newline
 
-        plain_error_msg = self._generate_plaintext_error(request,
-                                                         original_response,
-                                                         exc_type, exc_value,
-                                                         tb)
+        plain_error_msg = self._generate_plaintext_error(
+            request, original_response, exc_type, exc_value, tb
+        )
 
         if not self.config.display_exceptions:
             # DISPLAY_EXCEPTIONS is false, so return the most
@@ -163,10 +173,9 @@ class Publisher:
         elif self.config.display_exceptions == 'html':
             # Generate a spiffy HTML display using cgitb
             request.response.set_header("Content-Type", "text/html")
-            user_error_msg = self._generate_cgitb_error(request,
-                                                        original_response,
-                                                        exc_type, exc_value,
-                                                        tb)
+            user_error_msg = self._generate_cgitb_error(
+                request, original_response, exc_type, exc_value, tb
+            )
         else:
             # Generate a plaintext page containing the traceback
             request.response.set_header("Content-Type", "text/plain")
@@ -179,13 +188,12 @@ class Publisher:
         self.session_manager.finish_failed_request()
         return user_error_msg
 
-
     def _generate_internal_error(self, request):
         return INTERNAL_ERROR_MESSAGE
 
-
-    def _generate_plaintext_error(self, request, original_response,
-                                  exc_type, exc_value, tb):
+    def _generate_plaintext_error(
+        self, request, original_response, exc_type, exc_value, tb
+    ):
         error_file = io.StringIO()
 
         # format the traceback
@@ -198,9 +206,9 @@ class Publisher:
 
         return error_file.getvalue()
 
-
-    def _generate_cgitb_error(self, request, original_response,
-                              exc_type, exc_value, tb):
+    def _generate_cgitb_error(
+        self, request, original_response, exc_type, exc_value, tb
+    ):
         # let cgitb.Hook have the type it wants...
         error_file = io.StringIO()
         hook = cgitb.Hook(file=error_file)
@@ -220,7 +228,6 @@ class Publisher:
 
         return error_file.getvalue()
 
-
     def try_publish(self, request):
         """(request : HTTPRequest) -> object
 
@@ -236,7 +243,8 @@ class Publisher:
         if path and path[:1] != '/':
             return redirect(
                 request.get_environ('SCRIPT_NAME', '') + '/' + path,
-                permanent=True)
+                permanent=True,
+            )
         components = path[1:].split('/')
         output = self.root_directory._q_traverse(components)
         # The callable ran OK, commit any changes to the session
@@ -282,12 +290,12 @@ class Publisher:
 
     def process(self, stdin, env):
         """(stdin : stream, env : dict) -> HTTPResponse
-        
-        Process a single request, given a stream, stdin, containing the 
-        incoming request and a dictionary, env, containing the web server's 
+
+        Process a single request, given a stream, stdin, containing the
+        incoming request and a dictionary, env, containing the web server's
         environment.
-        
-        An HTTPRequest object is created and the process_request() method is 
+
+        An HTTPRequest object is created and the process_request() method is
         called and passed the request object.
         """
         request = HTTPRequest(stdin, env)
@@ -297,27 +305,32 @@ class Publisher:
 # Publisher singleton, only one of these per process.
 _publisher = None
 
+
 def get_publisher():
     return _publisher
+
 
 def get_request():
     return _publisher.get_request()
 
+
 def get_response():
     return _publisher.get_request().response
 
+
 def get_field(name, default=None):
-    '''Return the query parameter or form field named 'name'.  If
+    """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, a list of values is returned.
-    '''
+    """
     return _publisher.get_request().get_field(name, default)
 
+
 def get_param(name, default=None):
-    '''Return the query parameter or form field named 'name'.  If
+    """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, return the last value specified.
-    '''
+    """
     value = _publisher.get_request().get_field(name, default)
     if isinstance(value, list):
         if value:
@@ -326,11 +339,14 @@ def get_param(name, default=None):
             return default
     return value
 
+
 def get_cookie(name, default=None):
     return _publisher.get_request().get_cookie(name, default)
 
+
 def get_path(n=0):
     return _publisher.get_request().get_path(n)
+
 
 def redirect(location, permanent=False):
     """(location : string, permanent : boolean = false) -> string
@@ -344,11 +360,14 @@ def redirect(location, permanent=False):
     location = urllib.parse.urljoin(request.get_url(), str(location))
     return request.response.redirect(location, permanent)
 
+
 def get_session():
     return _publisher.get_request().session
 
+
 def get_session_manager():
     return _publisher.session_manager
+
 
 def get_user():
     session = _publisher.get_request().session
@@ -357,9 +376,12 @@ def get_user():
     else:
         return session.user
 
+
 def get_wsgi_app():
     from quixote.wsgi import QWIP
+
     return QWIP(_publisher)
+
 
 def cleanup():
     global _publisher

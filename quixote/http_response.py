@@ -4,6 +4,7 @@ Provides the HTTPResponse class.
 """
 
 import time
+
 try:
     import zlib
 except ImportError:
@@ -62,27 +63,34 @@ status_reasons = {
     507: 'Insufficient Storage',
 }
 
-_GZIP_HEADER = (b"\037\213" # magic
-                b"\010" # compression method
-                b"\000" # flags
-                b"\000\000\000\000" # time, who cares?
-                b"\002"
-                b"\377")
+_GZIP_HEADER = (
+    b"\037\213"  # magic
+    b"\010"  # compression method
+    b"\000"  # flags
+    b"\000\000\000\000"  # time, who cares?
+    b"\002"
+    b"\377"
+)
 
 # content that is already compressed, don't bother trying
-_GZIP_EXCLUDE = set(["application/pdf",
-                     "application/zip",
-                     "audio/mpeg",
-                     "image/gif",
-                     "image/jpeg",
-                     "image/png",
-                     "video/mpeg",
-                     "video/quicktime",
-                     "video/x-msvideo",
-                     ])
+_GZIP_EXCLUDE = set(
+    [
+        "application/pdf",
+        "application/zip",
+        "audio/mpeg",
+        "image/gif",
+        "image/jpeg",
+        "image/png",
+        "video/mpeg",
+        "video/quicktime",
+        "video/x-msvideo",
+    ]
+)
+
 
 def _LOWU32(i):
     return i & 0xFFFFFFFF
+
 
 class HTTPResponse:
     """
@@ -137,17 +145,18 @@ class HTTPResponse:
     """
 
     DEFAULT_CONTENT_TYPE = 'text/html'
-    DEFAULT_CHARSET = None # defaults to quixote.DEFAULT_CHARSET
+    DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
 
-
-    def __init__(self, status=200, body=None, content_type=None, charset=None):
+    def __init__(
+        self, status=200, body=None, content_type=None, charset=None
+    ):
         """
         Creates a new HTTP response.
         """
         self.content_type = content_type or self.DEFAULT_CONTENT_TYPE
-        self.charset = (charset or
-                        self.DEFAULT_CHARSET or
-                        quixote.DEFAULT_CHARSET)
+        self.charset = (
+            charset or self.DEFAULT_CHARSET or quixote.DEFAULT_CHARSET
+        )
         self.set_status(status)
         self.headers = {}
 
@@ -228,13 +237,12 @@ class HTTPResponse:
 
     def set_expires(self, seconds=0, minutes=0, hours=0, days=0):
         if seconds is None:
-            self.cache = None # don't generate 'Expires' header
+            self.cache = None  # don't generate 'Expires' header
         else:
-            self.cache = seconds + 60*(minutes + 60*(hours + 24*days))
+            self.cache = seconds + 60 * (minutes + 60 * (hours + 24 * days))
 
     def _encode_chunk(self, chunk):
-        """(chunk : str) -> bytes
-        """
+        """(chunk : str) -> bytes"""
         if isinstance(chunk, str):
             if self.charset is None:
                 # iso-8859-1 is the default for the HTTP protocol if charset
@@ -249,12 +257,11 @@ class HTTPResponse:
         return chunk
 
     def _compress_body(self, body):
-        """(body: bytes) -> bytes
-        """
+        """(body: bytes) -> bytes"""
         n = len(body)
         compressed_body = b''.join(self._generate_compressed([body]))
         ratio = float(n) / len(compressed_body)
-        #print("gzip original size %d, ratio %.1f" % (n, ratio))
+        # print("gzip original size %d, ratio %.1f" % (n, ratio))
         if ratio > 1.0:
             # only compress if we save space
             self.set_header("Content-Encoding", "gzip")
@@ -263,15 +270,16 @@ class HTTPResponse:
             return body
 
     def _generate_compressed(self, body):
-        co = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS,
-                                  zlib.DEF_MEM_LEVEL, 0)
-        crc = zlib.crc32(b'') & 0xffffffff
+        co = zlib.compressobj(
+            6, zlib.DEFLATED, -zlib.MAX_WBITS, zlib.DEF_MEM_LEVEL, 0
+        )
+        crc = zlib.crc32(b'') & 0xFFFFFFFF
         n = 0
         yield _GZIP_HEADER
         for chunk in body:
             if not isinstance(chunk, bytes):
                 chunk = self._encode_chunk(stringify(chunk))
-            crc = zlib.crc32(chunk, crc) & 0xffffffff
+            crc = zlib.crc32(chunk, crc) & 0xFFFFFFFF
             n += len(chunk)
             yield co.compress(chunk)
         if isinstance(body, Stream):
@@ -384,8 +392,7 @@ class HTTPResponse:
             return len(self.body)
 
     def enable_transfer_chunked(self):
-        """Allow response to be sent as "Transfer-Encoding: chunked"
-        """
+        """Allow response to be sent as "Transfer-Encoding: chunked" """
         self._allow_chunked = True
 
     def _gen_cookie_headers(self):
@@ -424,11 +431,11 @@ class HTTPResponse:
         # Date header
         now = time.time()
         if "date" not in self.headers:
-            self.headers['date'] =  formatdate(now, usegmt=True)
+            self.headers['date'] = formatdate(now, usegmt=True)
 
         # Cache directives
         if self.cache is None or "expires" in self.headers:
-            pass # don't mess with the expires or cache control header
+            pass  # don't mess with the expires or cache control header
         else:
             # We add both an Expires header and a Cache-Control header
             # with a max-age directive.  The max-age directive takes
@@ -453,8 +460,10 @@ class HTTPResponse:
                 # certain cases and use stale pages (RFC 2616 sections
                 # 13.1.5 and 14.9.4).
                 cache_control = "max-age=0, no-cache"
-            if ("expires" not in self.headers and
-                    "cache-control" not in self.headers):
+            if (
+                "expires" not in self.headers
+                and "cache-control" not in self.headers
+            ):
                 # If either of these headers are set then don't add
                 # any of them. We assume the programmer knows what he
                 # is doing in that case.
@@ -490,8 +499,7 @@ class HTTPResponse:
         return headers
 
     def _generate_encoded_body(self):
-        """Return a sequence of body chunks, encoded using 'charset'.
-        """
+        """Return a sequence of body chunks, encoded using 'charset'."""
         if self.body is None:
             pass
         elif isinstance(self.body, Stream):
@@ -503,7 +511,7 @@ class HTTPResponse:
             finally:
                 self.body.close()
         else:
-            yield self.body # already encoded
+            yield self.body  # already encoded
 
     def _generate_transfer_chunked(self, stream):
         """Convert a sequence of encoded body data into the format
@@ -516,7 +524,9 @@ class HTTPResponse:
         # The stream is terminated by a zero length chunk.
         for chunk in stream:
             if chunk:
-                yield b''.join([('%x\r\n' % len(chunk)).encode(), chunk, b'\r\n'])
+                yield b''.join(
+                    [('%x\r\n' % len(chunk)).encode(), chunk, b'\r\n']
+                )
         yield b'0\r\n\r\n'
 
     def generate_body_chunks(self):
@@ -575,6 +585,7 @@ class Stream:
         the number of bytes that will be produced by the stream, None
         if it is not known.  Used to set the Content-Length header.
     """
+
     def __init__(self, iterable, length=None):
         self.iterable = iterable
         self.length = length

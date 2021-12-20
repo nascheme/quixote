@@ -3,27 +3,40 @@ class (useful for transitioning existing forms).
 '''
 
 from quixote import get_request, get_path, redirect
-from quixote.form import Form as _Form, Widget, StringWidget, FileWidget, \
-    PasswordWidget, TextWidget, CheckboxWidget, RadiobuttonsWidget, \
-    SingleSelectWidget, SelectWidget, OptionSelectWidget, \
-    MultipleSelectWidget, SubmitWidget, HiddenWidget, \
-    FloatWidget, IntWidget
+from quixote.form import (
+    Form as _Form,
+    Widget,
+    StringWidget,
+    FileWidget,
+    PasswordWidget,
+    TextWidget,
+    CheckboxWidget,
+    RadiobuttonsWidget,
+    SingleSelectWidget,
+    SelectWidget,
+    OptionSelectWidget,
+    MultipleSelectWidget,
+    SubmitWidget,
+    HiddenWidget,
+    FloatWidget,
+    IntWidget,
+)
 from quixote.html import url_quote
 
 _widget_names = {
-    "string" : StringWidget,
-    "file" : FileWidget,
-    "password" : PasswordWidget,
-    "text" : TextWidget,
-    "checkbox" : CheckboxWidget,
-    "single_select" : SingleSelectWidget,
-    "radiobuttons" : RadiobuttonsWidget,
-    "multiple_select" : MultipleSelectWidget,
-    "submit_button" : SubmitWidget,
-    "hidden" : HiddenWidget,
-    "float" : FloatWidget,
-    "int" : IntWidget,
-    "option_select" : OptionSelectWidget,
+    "string": StringWidget,
+    "file": FileWidget,
+    "password": PasswordWidget,
+    "text": TextWidget,
+    "checkbox": CheckboxWidget,
+    "single_select": SingleSelectWidget,
+    "radiobuttons": RadiobuttonsWidget,
+    "multiple_select": MultipleSelectWidget,
+    "submit_button": SubmitWidget,
+    "hidden": HiddenWidget,
+    "float": FloatWidget,
+    "int": IntWidget,
+    "option_select": OptionSelectWidget,
 }
 
 
@@ -33,14 +46,29 @@ class Form(_Form):
         self.cancel_url = None
         self.action_url = self.action
 
-    def add_widget(self, widget_class, name, value=None,
-                   title=None, hint=None, required=False, **kwargs):
+    def add_widget(
+        self,
+        widget_class,
+        name,
+        value=None,
+        title=None,
+        hint=None,
+        required=False,
+        **kwargs,
+    ):
         try:
             widget_class = _widget_names[widget_class]
         except KeyError:
             pass
-        self.add(widget_class, name, value=value, title=title, hint=hint,
-                 required=required, **kwargs)
+        self.add(
+            widget_class,
+            name,
+            value=value,
+            title=title,
+            hint=hint,
+            required=required,
+            **kwargs,
+        )
 
     def add_submit_button(self, name, value):
         self.add_submit(name, value)

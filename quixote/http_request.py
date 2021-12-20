@@ -47,6 +47,7 @@ def get_content_type(environ):
     else:
         return None
 
+
 def _decode_string(s, charset):
     try:
         return s.decode(charset)
@@ -54,6 +55,7 @@ def _decode_string(s, charset):
         raise RequestError('unknown charset %r' % charset)
     except UnicodeDecodeError:
         raise RequestError('invalid %r encoded string' % charset)
+
 
 def parse_header(line):
     """Parse a Content-type like header.
@@ -70,19 +72,23 @@ def parse_header(line):
         i = p.find('=')
         if i >= 0:
             name = p[:i].strip().lower()
-            value = p[i+1:].strip()
+            value = p[i + 1 :].strip()
             if len(value) >= 2 and value[0] == value[-1] == '"':
                 value = value[1:-1]
             pdict[name] = value
     return key, pdict
 
+
 def parse_content_disposition(full_cdisp):
     (cdisp, cdisp_params) = parse_header(full_cdisp)
     name = cdisp_params.get('name')
     if not (cdisp == 'form-data' and name):
-        raise RequestError('expected Content-Disposition: form-data '
-                           'with a "name" parameter: got %r' % full_cdisp)
+        raise RequestError(
+            'expected Content-Disposition: form-data '
+            'with a "name" parameter: got %r' % full_cdisp
+        )
     return (name, cdisp_params.get('filename'))
+
 
 def parse_query(qs, charset):
     """(qs: string) -> {key:string, string|[string]}
@@ -99,16 +105,19 @@ def parse_query(qs, charset):
         else:
             name, value = chunk.split('=', 1)
         try:
-            name = urllib.parse.unquote_plus(name, encoding=charset,
-                                             errors='strict')
-            value = urllib.parse.unquote_plus(value, encoding=charset,
-                                              errors='strict')
+            name = urllib.parse.unquote_plus(
+                name, encoding=charset, errors='strict'
+            )
+            value = urllib.parse.unquote_plus(
+                value, encoding=charset, errors='strict'
+            )
         except LookupError:
             raise RequestError('unknown charset %r' % charset)
         except UnicodeDecodeError:
             raise RequestError('invalid %r encoded string' % charset)
         _add_field_value(fields, name, value)
     return fields
+
 
 def _add_field_value(fields, name, value):
     if name in fields:
@@ -146,11 +155,11 @@ class HTTPRequest:
     when handling an exception.
     """
 
-    DEFAULT_CHARSET = None # defaults to quixote.DEFAULT_CHARSET
+    DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
 
     def __init__(self, stdin, environ, seekable=False):
         self.stdin = stdin
-        self._stdin = None # set after stdin is buffered to temp file
+        self._stdin = None  # set after stdin is buffered to temp file
         self.body_is_seekable = seekable
         self.environ = environ
         self.form = {}
@@ -168,8 +177,10 @@ class HTTPRequest:
         # sets this environment variable to "0" for non-SSL requests
         # (most web servers -- well, Apache at least -- simply don't set
         # it in that case).
-        if (environ.get('HTTPS', 'off').lower() in ('on', 'yes', '1') or
-            environ.get('SERVER_PORT_SECURE', '0') != '0'):
+        if (
+            environ.get('HTTPS', 'off').lower() in ('on', 'yes', '1')
+            or environ.get('SERVER_PORT_SECURE', '0') != '0'
+        ):
             self.scheme = "https"
         else:
             self.scheme = "http"
@@ -189,12 +200,11 @@ class HTTPRequest:
             script = environ['SCRIPT_NAME']
             path = environ['PATH_INFO']
             if path.startswith(script):
-                path = path[len(script):]
+                path = path[len(script) :]
                 self.environ['PATH_INFO'] = path
 
     def make_body_seekable(self):
-        """Ensure that 'stdin' is a seekable file object.
-        """
+        """Ensure that 'stdin' is a seekable file object."""
         if self.body_is_seekable:
             self.stdin.seek(0)
             return
@@ -250,7 +260,7 @@ class HTTPRequest:
         mimeinput = MIMEInput(self.stdin, boundary, length)
         try:
             for line in mimeinput.readpart():
-                pass # discard lines up to first boundary
+                pass  # discard lines up to first boundary
             while mimeinput.moreparts():
                 self._process_multipart_body(mimeinput, charset)
         except EOFError:
@@ -268,16 +278,19 @@ class HTTPRequest:
         ctype, ctype_params = parse_header(headers.get('content-type', ''))
         if ctype and 'charset' in ctype_params:
             charset = ctype_params['charset']
-        cdisp, cdisp_params = parse_header(headers.get('content-disposition',
-                                                       ''))
+        cdisp, cdisp_params = parse_header(
+            headers.get('content-disposition', '')
+        )
         if not cdisp:
             raise RequestError('expected Content-Disposition header')
         name = cdisp_params.get('name')
         filename = cdisp_params.get('filename')
         if not (cdisp == 'form-data' and name):
-            raise RequestError('expected Content-Disposition: form-data'
-                               'with a "name" parameter: got %r' %
-                               headers.get('content-disposition', ''))
+            raise RequestError(
+                'expected Content-Disposition: form-data'
+                'with a "name" parameter: got %r'
+                % headers.get('content-disposition', '')
+            )
         # FIXME: should really to handle Content-Transfer-Encoding and other
         # MIME complexity here.  See RFC2048 for the full horror story.
         if filename:
@@ -320,8 +333,7 @@ class HTTPRequest:
         return self.form
 
     def get_method(self):
-        """Returns the HTTP method for this request
-        """
+        """Returns the HTTP method for this request"""
         return self.environ.get('REQUEST_METHOD', 'GET')
 
     def formiter(self):
@@ -349,9 +361,11 @@ class HTTPRequest:
             return http_host
         server_name = self.environ["SERVER_NAME"].strip()
         server_port = self.environ.get("SERVER_PORT")
-        if (not server_port or
-            (self.get_scheme() == "http" and server_port == "80") or
-            (self.get_scheme() == "https" and server_port == "443")):
+        if (
+            not server_port
+            or (self.get_scheme() == "http" and server_port == "80")
+            or (self.get_scheme() == "https" and server_port == "443")
+        ):
             return server_name
         else:
             return server_name + ":" + server_port
@@ -385,12 +399,12 @@ class HTTPRequest:
             return path
         else:
             path_comps = path.split('/')
-            if abs(n) > len(path_comps)-1:
+            if abs(n) > len(path_comps) - 1:
                 raise ValueError("n=%d too big for path '%s'" % (n, path))
             if n > 0:
                 return '/'.join(path_comps[:-n])
             elif n < 0:
-                return '/'.join(path_comps[:-n+1])
+                return '/'.join(path_comps[: -n + 1])
             else:
                 assert 0, "Unexpected value for n (%s)" % n
 
@@ -421,8 +435,11 @@ class HTTPRequest:
         "http://foo.com/bar".  Does not include the query string (if
         any).
         """
-        return "%s://%s%s" % (self.get_scheme(), self.get_server(),
-                              urllib.parse.quote(self.get_path(n)))
+        return "%s://%s%s" % (
+            self.get_scheme(),
+            self.get_server(),
+            urllib.parse.quote(self.get_path(n)),
+        )
 
     def get_environ(self, key, default=None):
         """get_environ(key : string) -> string
@@ -457,7 +474,6 @@ class HTTPRequest:
         accept_types = self.environ.get('HTTP_ACCEPT', "")
         return self._parse_pref_header(accept_types)
 
-
     def _parse_pref_header(self, S):
         """_parse_pref_header(S:string) : {string:float}
         Parse a list of HTTP preferences (content types, encodings) and
@@ -477,29 +493,28 @@ class HTTPRequest:
                 except ValueError:
                     continue
                 if encoding == "*":
-                    continue # stupid, ignore it
+                    continue  # stupid, ignore it
                 if q > 0:
                     found[encoding] = q
         return found
 
     def dump(self):
-        result=[]
-        row='%-15s %s'
+        result = []
+        row = '%-15s %s'
 
         result.append("Form:")
         for k, v in sorted(self.form.items()):
-            result.append(row % (k,v))
+            result.append(row % (k, v))
 
         result.append("")
         result.append("Cookies:")
         for k, v in sorted(self.cookies.items()):
-            result.append(row % (k,v))
-
+            result.append(row % (k, v))
 
         result.append("")
         result.append("Environment:")
         for k, v in sorted(self.environ.items()):
-            result.append(row % (k,v))
+            result.append(row % (k, v))
         return "\n".join(result)
 
     def guess_browser_version(self):
@@ -544,11 +559,12 @@ class HTTPRequest:
         m = _http_product_re.match(ua)
         if not m:
             import sys
+
             sys.stderr.write("couldn't parse User-Agent header: %r\n" % ua)
             return (None, None)
 
         name, version = m.groups()
-        ua = ua[m.end():].lstrip()
+        ua = ua[m.end() :].lstrip()
 
         if ua.startswith('('):
             # we need to handle nested comments since MSIE uses them
@@ -572,8 +588,11 @@ class HTTPRequest:
         else:
             comment_chunks = []
 
-        if ("compatible" in comment_chunks and
-            len(comment_chunks) > 1 and comment_chunks[1]):
+        if (
+            "compatible" in comment_chunks
+            and len(comment_chunks) > 1
+            and comment_chunks[1]
+        ):
             # A-ha!  Someone is kidding around, pretending to be what
             # they are not.  Most likely MSIE masquerading as Mozilla,
             # but lots of other clients (eg. Konqueror) do the same.
@@ -598,7 +617,8 @@ class HTTPRequest:
 
 
 # See RFC 2109 for details.  Note that this parser is more liberal.
-_COOKIE_RE = re.compile(r"""
+_COOKIE_RE = re.compile(
+    r"""
                 \s*
                 (?P<name>[^=;,\s]+)
                 \s*
@@ -613,7 +633,10 @@ _COOKIE_RE = re.compile(r"""
                 )?
                 \s*
                 [;,]?
-                """, re.VERBOSE)
+                """,
+    re.VERBOSE,
+)
+
 
 def parse_cookies(text):
     result = {}
@@ -630,8 +653,10 @@ def parse_cookies(text):
         result[name] = value
     return result
 
+
 # characters considered safe in a filename
 _SAFE_PAT = re.compile(r'[^\w@&+=., -]')
+
 
 def make_safe_filename(s):
     return _SAFE_PAT.sub('_', s)
@@ -669,12 +694,12 @@ class Upload:
             bspos = orig_filename.rfind("\\")
             cpos = orig_filename.rfind(":")
             spos = orig_filename.rfind("/")
-            if bspos != -1:                 # eg. "\foo\bar" or "D:\ding\dong"
-                filename = orig_filename[bspos+1:]
-            elif cpos != -1:                # eg. "C:foo" or ":ding:dong:foo"
-                filename = orig_filename[cpos+1:]
-            elif spos != -1:                # eg. "foo/bar/baz" or "/tmp/blah"
-                filename = orig_filename[spos+1:]
+            if bspos != -1:  # eg. "\foo\bar" or "D:\ding\dong"
+                filename = orig_filename[bspos + 1 :]
+            elif cpos != -1:  # eg. "C:foo" or ":ding:dong:foo"
+                filename = orig_filename[cpos + 1 :]
+            elif spos != -1:  # eg. "foo/bar/baz" or "/tmp/blah"
+                filename = orig_filename[spos + 1 :]
             else:
                 filename = orig_filename
 
@@ -714,13 +739,11 @@ class Upload:
         self.fp.close()
 
     def get_size(self):
-        """Return the size of the file, in bytes.
-        """
+        """Return the size of the file, in bytes."""
         if self.fp is None:
             return 0
         else:
             return os.fstat(self.fp.fileno()).st_size
-
 
 
 class LineInput:
@@ -741,6 +764,7 @@ class LineInput:
           characters then EOFError is raised
 
     """
+
     def __init__(self, fp, length):
         self.fp = fp
         self.length = length
@@ -770,6 +794,7 @@ class LineInput:
         else:
             self.buf = b''
             return buf
+
 
 class MIMEInput:
     """

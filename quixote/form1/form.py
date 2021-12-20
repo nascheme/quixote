@@ -8,19 +8,22 @@ from quixote.html import url_quote, htmltag, htmltext, nl2br, TemplateIO
 from quixote.form1.widget import FormValueError, HiddenWidget
 
 
-class FormTokenWidget (HiddenWidget):
+class FormTokenWidget(HiddenWidget):
     def render(self, request):
         self.value = get_session().create_form_token()
         return HiddenWidget.render(self, request)
 
 
-JAVASCRIPT_MARKUP = htmltext('''\
+JAVASCRIPT_MARKUP = htmltext(
+    '''\
 <script type="text/javascript">
 <!--
 %s
 // -->
 </script>
-''')
+'''
+)
+
 
 class Form:
     """
@@ -78,20 +81,25 @@ class Form:
 
     """
 
-    TOKEN_NAME = "_form_id" # name of hidden token widget
+    TOKEN_NAME = "_form_id"  # name of hidden token widget
 
     def __init__(self, method="post", enctype=None, use_tokens=1):
 
         if method not in ("post", "get"):
-            raise ValueError("Form method must be 'post' or 'get', "
-                             "not %r" % method)
+            raise ValueError(
+                "Form method must be 'post' or 'get', " "not %r" % method
+            )
         self.method = method
 
         if enctype is not None and enctype not in (
-            "application/x-www-form-urlencoded", "multipart/form-data"):
-            raise ValueError("Form enctype must be "
-                               "'application/x-www-form-urlencoded' or "
-                               "'multipart/form-data', not %r" % enctype)
+            "application/x-www-form-urlencoded",
+            "multipart/form-data",
+        ):
+            raise ValueError(
+                "Form enctype must be "
+                "'application/x-www-form-urlencoded' or "
+                "'multipart/form-data', not %r" % enctype
+            )
         self.enctype = enctype
 
         # The first major component of a form: its widgets.  We want
@@ -127,7 +135,6 @@ class Form:
         # calls to 'add_widget()', which updates the data structures we
         # just defined.
 
-
     # -- Layout (rendering) methods ------------------------------------
 
     # The third major component of a web form is layout.  These methods
@@ -142,17 +149,20 @@ class Form:
         # Render a form as HTML.
         assert type(action_url) in (StringType, htmltext)
         r = TemplateIO(html=1)
-        r += self._render_start(request, action_url,
-                                enctype=self.enctype, method=self.method)
+        r += self._render_start(
+            request, action_url, enctype=self.enctype, method=self.method
+        )
         r += self._render_body(request)
         r += self._render_finish(request)
         return r.getvalue()
 
-    def _render_start(self, request, action,
-                      enctype=None, method='post', name=None):
+    def _render_start(
+        self, request, action, enctype=None, method='post', name=None
+    ):
         r = TemplateIO(html=1)
-        r += htmltag('form', enctype=enctype, method=method,
-                     action=action, name=name)
+        r += htmltag(
+            'form', enctype=enctype, method=method, action=action, name=name
+        )
         r += self._render_hidden_widgets(request)
         return r.getvalue()
 
@@ -163,13 +173,16 @@ class Form:
         return r.getvalue()
 
     def _render_sep(self, text, line=1):
-        return htmltext('<tr><td colspan="3">%s<strong><big>%s'
-                        '</big></strong></td></tr>') % \
-                                      (line and htmltext('<hr>') or '', text)
+        return htmltext(
+            '<tr><td colspan="3">%s<strong><big>%s'
+            '</big></strong></td></tr>'
+        ) % (line and htmltext('<hr>') or '', text)
 
     def _render_error(self, error):
         if error:
-            return htmltext('<font color="red">%s</font><br />') % nl2br(error)
+            return htmltext('<font color="red">%s</font><br />') % nl2br(
+                error
+            )
         else:
             return ''
 
@@ -188,8 +201,7 @@ class Form:
         r = TemplateIO(html=1)
         r += htmltext('<tr><th colspan="3" align="left">')
         r += title
-        r += htmltext('</th></tr>'
-                      '<tr><td>&nbsp;&nbsp;</td><td>')
+        r += htmltext('</th></tr>' '<tr><td>&nbsp;&nbsp;</td><td>')
         r += widget.render(request)
         r += htmltext('</td><td>')
         r += self._render_error(self.error.get(widget.name))
@@ -221,20 +233,24 @@ class Form:
 
     def _render_error_notice(self, request):
         if self.error:
-            r = htmltext('<tr><td colspan="3">'
-                         '<font color="red"><strong>Warning:</strong></font> '
-                         'there were errors processing your form.  '
-                         'See below for details.'
-                         '</td></tr>')
+            r = htmltext(
+                '<tr><td colspan="3">'
+                '<font color="red"><strong>Warning:</strong></font> '
+                'there were errors processing your form.  '
+                'See below for details.'
+                '</td></tr>'
+            )
         else:
             r = ''
         return r
 
     def _render_required_notice(self, request):
         if any(self.required.values()):
-            r = htmltext('<tr><td colspan="3">'
-                         '<b>*</b> = <em>required field</em>'
-                         '</td></tr>')
+            r = htmltext(
+                '<tr><td colspan="3">'
+                '<b>*</b> = <em>required field</em>'
+                '</td></tr>'
+            )
         else:
             r = ''
         return r
@@ -251,7 +267,7 @@ class Form:
 
     def _render_javascript(self, request):
         """Render javacript code for the form, if any.
-           Insert code lexically sorted by code_id
+        Insert code lexically sorted by code_id
         """
         javascript_code = request.response.javascript_code
         if javascript_code:
@@ -265,7 +281,6 @@ class Form:
             if form_code:
                 return JAVASCRIPT_MARKUP % htmltext(''.join(form_code))
         return ''
-
 
     # -- Processing methods --------------------------------------------
 
@@ -338,9 +353,10 @@ class Form:
                     # if there are other errors then don't show the token
                     # error, the form needs to be resubmitted anyhow
                     self.error[self.TOKEN_NAME] = (
-                           "The form you have submitted is invalid.  It has "
-                           "already been submitted or has expired. Please "
-                           "review and resubmit the form.")
+                        "The form you have submitted is invalid.  It has "
+                        "already been submitted or has expired. Please "
+                        "review and resubmit the form."
+                    )
             else:
                 request.session.remove_form_token(token)
 
@@ -348,7 +364,6 @@ class Form:
             return self.render(request, action_url)
         else:
             return self.action(request, submit, values)
-
 
     # -- Convenience methods -------------------------------------------
 
@@ -399,10 +414,15 @@ class Form:
             self.error[name] = str(exc)
             return None
 
-    def store_value(self, widget_name, request, target,
-                    mode="modifier",
-                    key=None,
-                    missing_error=None):
+    def store_value(
+        self,
+        widget_name,
+        request,
+        target,
+        mode="modifier",
+        key=None,
+        missing_error=None,
+    ):
         """store_value(widget_name : string,
                        request : HTTPRequest,
                        target : instance | dict,
@@ -439,8 +459,10 @@ class Form:
             mod(value)
         elif mode == "direct":
             if not hasattr(target, key):
-                raise AttributeError("target object %s doesn't have attribute %s" %
-                       (repr(target), key))
+                raise AttributeError(
+                    "target object %s doesn't have attribute %s"
+                    % (repr(target), key)
+                )
             setattr(target, key, value)
         elif mode == "dict":
             target[key] = value
@@ -456,11 +478,18 @@ class Form:
     def set_widget_value(self, widget_name, value):
         self.widgets[widget_name].set_value(value)
 
-
     # -- Form population methods ---------------------------------------
 
-    def add_widget(self, widget_type, name, value=None,
-                   title=None, hint=None, required=0, **args):
+    def add_widget(
+        self,
+        widget_type,
+        name,
+        value=None,
+        title=None,
+        hint=None,
+        required=0,
+        **args,
+    ):
         """add_widget(widget_type : string | Widget,
                       name : string,
                       value : any = None,
@@ -503,10 +532,12 @@ class Form:
         self.add_submit_button("cancel", caption)
         self.cancel_url = url
 
+
 # class Form
 
 
 _widget_class = {}
+
 
 def register_widget_class(klass, widget_type=None):
     global _widget_class
@@ -514,6 +545,7 @@ def register_widget_class(klass, widget_type=None):
         widget_type = klass.widget_type
     assert widget_type is not None, "widget_type must be defined"
     _widget_class[widget_type] = klass
+
 
 def get_widget_class(widget_type):
     global _widget_class

@@ -1,4 +1,3 @@
-
 BASIC_FORM_CSS = """\
 form.quixote div.title {
     font-weight: bold;

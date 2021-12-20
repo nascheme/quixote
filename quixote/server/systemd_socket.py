@@ -5,6 +5,7 @@ import socket
 
 SD_LISTEN_FDS_START = 3
 
+
 def _set_close_on_exec(fds):
     try:
         import fcntl
@@ -41,7 +42,7 @@ def _socket_from_fd(fd):
     # getsockname() return value.
     s = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_STREAM)
     name = s.getsockname()
-    s.close() # fromfd() calls dup, close the new fd
+    s.close()  # fromfd() calls dup, close the new fd
     if isinstance(name, (str, bytes)):
         family = socket.AF_UNIX
     elif ':' in name[0]:
@@ -50,13 +51,12 @@ def _socket_from_fd(fd):
         family = socket.AF_INET
     # we assume we are getting a SOCK_STREAM socket
     s = socket.fromfd(fd, family, socket.SOCK_STREAM)
-    os.close(fd) # fromfd() calls dup, close old fd
+    os.close(fd)  # fromfd() calls dup, close old fd
     return s
 
 
 def get_systemd_socket():
-    """Return the inherited socket, if there is one.  If not, return None.
-    """
+    """Return the inherited socket, if there is one.  If not, return None."""
     num = sd_listen_fds()
     if not num:
         return None

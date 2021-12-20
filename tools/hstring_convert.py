@@ -14,10 +14,11 @@ import tokenize
 import ast
 import re
 
+
 def translate_hstrings(tokens):
     i = 0
     context = [False]
-    html_def = False # True if upcoming indent enters html template
+    html_def = False  # True if upcoming indent enters html template
     # test if string contains markup characters and needs escaping.  We
     # also include strings that contain % format characters (otherwise str
     # formatting would convert htmltext to str).  If the string doesn't
@@ -31,9 +32,11 @@ def translate_hstrings(tokens):
     while i < len(tokens):
         tok = tokens[i]
         if tok.type == tokenize.NAME and tok.string == 'def':
-            if (tokens[i+2][:2] == (tokenize.OP, '[') and
-                tokens[i+3][1] == 'html' and
-                tokens[i+4][:2] == (tokenize.OP, ']')):
+            if (
+                tokens[i + 2][:2] == (tokenize.OP, '[')
+                and tokens[i + 3][1] == 'html'
+                and tokens[i + 4][:2] == (tokenize.OP, ']')
+            ):
                 html_def = True
             else:
                 html_def = False
@@ -52,8 +55,10 @@ def translate_hstrings(tokens):
             s = str_tok[1]
             if s[:1] == 'f':
                 # we could support this, just gets more complicated
-                raise RuntimeError('f-strings in PTL source not supported '
-                                   'by conversion. %r' % tok.line)
+                raise RuntimeError(
+                    'f-strings in PTL source not supported '
+                    'by conversion. %r' % tok.line
+                )
             if s[:1] not in {'"', "'", 'u'}:
                 raise RuntimeError('bad string in html template %r' % s)
             if need_escape(ast.literal_eval(s)) or is_join(tok.line):
@@ -80,13 +85,22 @@ def translate(fn, verbose=False):
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--verbose', default=False,
-                        action='store_true',
-                        help="write source to stdout")
-    parser.add_argument('--write', '-w', default=False,
-                        action="store_true",
-                        help="re-write files")
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        default=False,
+        action='store_true',
+        help="write source to stdout",
+    )
+    parser.add_argument(
+        '--write',
+        '-w',
+        default=False,
+        action="store_true",
+        help="re-write files",
+    )
     parser.add_argument('files', nargs='+')
     args = parser.parse_args()
     if not args.write:
@@ -100,6 +114,7 @@ def main():
             os.rename(fn, fn + '~')
             with open(fn, 'w', encoding=encoding) as fp:
                 fp.write(src)
+
 
 if __name__ == '__main__':
     main()

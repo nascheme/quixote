@@ -19,8 +19,14 @@ doc/session-mgmt.txt for information on session persistence.
 
 from time import time, localtime, strftime
 
-from quixote import get_publisher, get_cookie, get_response, get_request, \
-     get_session, get_param
+from quixote import (
+    get_publisher,
+    get_cookie,
+    get_response,
+    get_request,
+    get_session,
+    get_param,
+)
 from quixote.util import randbytes, safe_str_cmp
 
 
@@ -31,29 +37,25 @@ class SessionStore:
     """Component used by SessionManager to save/load/delete transactions
     into some form of storage.
     """
+
     def load_session(self, id):
-        """Return the session if it exists, else return 'None'.
-        """
+        """Return the session if it exists, else return 'None'."""
         raise NotImplementedError()
 
     def save_session(self, session):
-        """Save the session in the store.
-        """
+        """Save the session in the store."""
         raise NotImplementedError()
 
     def delete_session(self, session_id):
-        """Delete the session in the store.
-        """
+        """Delete the session in the store."""
         raise NotImplementedError()
 
     def has_session(self, id):
-        """Return true if the session exists in the store, else false.
-        """
+        """Return true if the session exists in the store, else false."""
         return self.load_session(id) is not None
 
     def __iter__(self):
-        """Return an iterator of all session IDs in the storage.
-        """
+        """Return an iterator of all session IDs in the storage."""
         raise NotImplementedError()
 
     def transaction_start(self):
@@ -138,8 +140,7 @@ class BaseSessionManager:
         return self.store.load_session(session_id)
 
     def __setitem__(self, session_id, session):
-        """Store a new or updated session object into the session manager.
-        """
+        """Store a new or updated session object into the session manager."""
         return self.store.save_session(session)
 
     def __delitem__(self, session_id):
@@ -182,7 +183,6 @@ class BaseSessionManager:
         interrupted by a PublishError exception.
         """
         self.store.transaction_commit(session)
-
 
     # Below are methods to implement the three Quixote main loop hooks above.
     # Other session manager implementions may re-use these or do their own
@@ -304,7 +304,6 @@ class BaseSessionManager:
         request.session = None
 
 
-
 class NullSessionManager(BaseSessionManager):
     """A session manager that does nothing.  It is the default session
     manager.
@@ -347,8 +346,7 @@ class SessionManager(BaseSessionManager):
         the collection of sessions managed by this SessionManager
     """
 
-    ACCESS_TIME_RESOLUTION = 1 # in seconds
-
+    ACCESS_TIME_RESOLUTION = 1  # in seconds
 
     def __init__(self, session_class=None, session_mapping=None):
         """(session_class : class = Session, session_mapping : mapping = None)
@@ -392,8 +390,10 @@ class SessionManager(BaseSessionManager):
         Store 'session' in the session manager under 'session_id'.
         """
         if not isinstance(session, self.session_class):
-            raise TypeError("session not an instance of %r: %r"
-                            % (self.session_class, session))
+            raise TypeError(
+                "session not an instance of %r: %r"
+                % (self.session_class, session)
+            )
         assert session.id is not None, "session ID not set"
         assert session_id == session.id, "session ID mismatch"
         self.sessions[session_id] = session
@@ -521,14 +521,14 @@ class Session:
     (which you might want to override for type-checking).
     """
 
-    MAX_FORM_TOKENS = 16 # maximum number of outstanding form tokens
+    MAX_FORM_TOKENS = 16  # maximum number of outstanding form tokens
 
     def __init__(self, id):
         self.id = id
         self.user = None
         self._remote_address = get_request().get_environ("REMOTE_ADDR")
         self._creation_time = self._access_time = time()
-        self._form_tokens = [] # queue
+        self._form_tokens = []  # queue
         self._csrf_token = None
 
     def __repr__(self):
@@ -621,14 +621,12 @@ class Session:
         # _now arg is for SessionManager's use
         return (_now or time()) - self._access_time
 
-
     # -- Methods for SessionManager only -------------------------------
 
     def _set_access_time(self, resolution):
         now = time()
         if now - self._access_time > resolution:
             self._access_time = now
-
 
     # -- Form token methods --------------------------------------------
 
@@ -673,7 +671,7 @@ class Session:
         CSRF token.
         """
         if self._csrf_token is None:
-            self._csrf_token = randbytes(16) # 128-bit random number
+            self._csrf_token = randbytes(16)  # 128-bit random number
         return self._csrf_token
 
     def valid_csrf_token(self, name=None):
@@ -691,8 +689,7 @@ class Session:
 
 
 def set_session_cookie(session_id, **attrs):
-    """Create a cookie in the HTTP response for 'session_id'.
-    """
+    """Create a cookie in the HTTP response for 'session_id'."""
     config = get_publisher().config
     name = config.session_cookie_name
     if config.session_cookie_path:
@@ -707,6 +704,7 @@ def set_session_cookie(session_id, **attrs):
         attrs['secure'] = 1
     if config.session_cookie_httponly:
         attrs['httponly'] = 1
-    get_response().set_cookie(name, session_id, domain=domain, path=path,
-                              **attrs)
+    get_response().set_cookie(
+        name, session_id, domain=domain, path=path, **attrs
+    )
     return name

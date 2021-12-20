@@ -10,6 +10,7 @@ from quixote.errors import PublishError
 from quixote.util import dump_request
 from quixote.demo.extras import ExtraDirectory
 
+
 class RootDirectory(Directory):
 
     _q_exports = ['extras']
@@ -116,7 +117,6 @@ class RootDirectory(Directory):
 
 
 class DynamicDirectory(Directory):
-
     def __init__(self):
         self.birthday = time.asctime()
 
@@ -126,12 +126,13 @@ class DynamicDirectory(Directory):
         return "This little page was created on %s." % self.birthday
 
 
-
-FAVICON = base64.b64decode("""\
+FAVICON = base64.b64decode(
+    """\
 AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAADJZmEA4KilAMJQSwDZko8Aujo0AOi9uwDRfHgA9+npAP///wDw1NIAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAiIiIiIiIiIiIiIiIiIiIiIiIiIiSQDiIiIiIiGRYSIiIiIYkRFiIiIiFQlhk
 RYiIiIBAeGRAiIiIFEE2aUQYiIhkSHV4RGiIiGRIiIhEaIiIZEiIiERoiIiUSYiJRJiIiIZDiING
 iIiIh2RlEmeIiIiIiBYYiIiIiIiIiIiIiIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-""")
+"""
+)

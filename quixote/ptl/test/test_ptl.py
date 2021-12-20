@@ -19,9 +19,16 @@ def run_ptl(*source):
     # When the ptl compiler compiles a module, it places _q_TemplateIO
     # and _q_htmltext into the globals of the module.  Here, we don't
     # have a module, but we provide these same globals for eval.
-    eval(compile_template(StringIO('\n'.join(source)), 'test'),
-         dict(_q_TemplateIO=TemplateIO, _q_htmltext=htmltext,
-              _q_join=_q_join, _q_format=_q_format))
+    eval(
+        compile_template(StringIO('\n'.join(source)), 'test'),
+        dict(
+            _q_TemplateIO=TemplateIO,
+            _q_htmltext=htmltext,
+            _q_join=_q_join,
+            _q_format=_q_format,
+        ),
+    )
+
 
 def test_html():
     run_ptl(
@@ -32,7 +39,9 @@ def test_html():
         'assert type(f(1)) == htmltext',
         'assert f("") == "&"',
         'assert f("&") == "&&amp;"',
-        'assert f(htmltext("&")) == "&&"')
+        'assert f(htmltext("&")) == "&&"',
+    )
+
 
 def test_plain():
     run_ptl(
@@ -44,7 +53,9 @@ def test_plain():
         'assert f("") == "&"',
         'assert f("&") == "&&"',
         'assert f(htmltext("&")) == "&&"',
-        'assert type(f(htmltext("&"))) == str')
+        'assert type(f(htmltext("&"))) == str',
+    )
+
 
 def test_syntax():
     run_ptl('def f(a):\n    a')
@@ -61,6 +72,7 @@ def test_syntax():
 
 
 if HAVE_FSTRINGS:
+
     def test_fstring():
         run_ptl(
             'from ptl import htmltext',
@@ -68,7 +80,8 @@ if HAVE_FSTRINGS:
             '    f"x{a}"',
             'assert type(f(1)) == htmltext',
             'assert f("&") == "x&amp;"',
-            'assert f(htmltext("&")) == "x&"')
+            'assert f(htmltext("&")) == "x&"',
+        )
 
     def test_q_join():
         assert _q_join('x', '&') == 'x&amp;'
@@ -88,4 +101,5 @@ if HAVE_FSTRINGS:
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__])

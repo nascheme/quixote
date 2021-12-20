@@ -4,19 +4,28 @@ way of building HTML forms that are composed of Widget objects.
 
 from quixote import get_request, get_session, get_publisher
 from quixote.html import htmltag, htmltext, TemplateIO
-from quixote.form.widget import HiddenWidget, StringWidget, TextWidget, \
-    CheckboxWidget, SingleSelectWidget, RadiobuttonsWidget, \
-    MultipleSelectWidget, ResetWidget, SubmitWidget, FloatWidget, \
-    IntWidget, PasswordWidget
+from quixote.form.widget import (
+    HiddenWidget,
+    StringWidget,
+    TextWidget,
+    CheckboxWidget,
+    SingleSelectWidget,
+    RadiobuttonsWidget,
+    MultipleSelectWidget,
+    ResetWidget,
+    SubmitWidget,
+    FloatWidget,
+    IntWidget,
+    PasswordWidget,
+)
 
 
 class FormTokenWidget(HiddenWidget):
-
     def _parse(self, request):
         token = request.form.get(self.name)
         session = get_session()
         if not session.has_form_token(token):
-            self.error = 'invalid' # this error does not get displayed
+            self.error = 'invalid'  # this error does not get displayed
         else:
             session.remove_form_token(token)
 
@@ -46,36 +55,45 @@ class Form(object):
         names used in the form and the widgets associated with them
     """
 
-    TOKEN_NAME = "_form_id" # name of hidden token widget
+    TOKEN_NAME = "_form_id"  # name of hidden token widget
 
-    JAVASCRIPT_MARKUP = htmltext('<script type="text/javascript">\n'
-                                 '<!--\n'
-                                 '%s\n'
-                                 '// -->\n'
-                                 '</script>\n')
+    JAVASCRIPT_MARKUP = htmltext(
+        '<script type="text/javascript">\n'
+        '<!--\n'
+        '%s\n'
+        '// -->\n'
+        '</script>\n'
+    )
 
-    TOKEN_NOTICE = htmltext('<div class="errornotice">'
-                            'The form you have submitted is invalid.  Most '
-                            'likely it has been successfully submitted once '
-                            'already.  Please review the the form data '
-                            'and submit the form again.'
-                            '</div>')
+    TOKEN_NOTICE = htmltext(
+        '<div class="errornotice">'
+        'The form you have submitted is invalid.  Most '
+        'likely it has been successfully submitted once '
+        'already.  Please review the the form data '
+        'and submit the form again.'
+        '</div>'
+    )
 
-    ERROR_NOTICE = htmltext('<div class="errornotice">'
-                            'There were errors processing your form.  '
-                            'See below for details.'
-                            '</div>')
+    ERROR_NOTICE = htmltext(
+        '<div class="errornotice">'
+        'There were errors processing your form.  '
+        'See below for details.'
+        '</div>'
+    )
 
-    def __init__(self,
-                 method="post",
-                 action=None,
-                 enctype=None,
-                 use_tokens=True,
-                 **attrs):
+    def __init__(
+        self,
+        method="post",
+        action=None,
+        enctype=None,
+        use_tokens=True,
+        **attrs,
+    ):
 
         if method not in ("post", "get"):
-            raise ValueError("Form method must be 'post' or 'get', "
-                             "not %r" % method)
+            raise ValueError(
+                "Form method must be 'post' or 'get', " "not %r" % method
+            )
         self.method = method
         self.action = action or self._get_default_action()
         if 'class' not in attrs:
@@ -87,10 +105,14 @@ class Form(object):
         self._names = {}
 
         if enctype is not None and enctype not in (
-            "application/x-www-form-urlencoded", "multipart/form-data"):
-            raise ValueError("Form enctype must be "
-                               "'application/x-www-form-urlencoded' or "
-                               "'multipart/form-data', not %r" % enctype)
+            "application/x-www-form-urlencoded",
+            "multipart/form-data",
+        ):
+            raise ValueError(
+                "Form enctype must be "
+                "'application/x-www-form-urlencoded' or "
+                "'multipart/form-data', not %r" % enctype
+            )
         self.enctype = enctype
 
         if use_tokens and self.method == "post":
@@ -142,8 +164,7 @@ class Form(object):
         return self._names.get(name)
 
     def get_submit_widgets(self):
-        """() -> [SubmitWidget]
-        """
+        """() -> [SubmitWidget]"""
         return self.submit_widgets
 
     def get_all_widgets(self):
@@ -186,7 +207,7 @@ class Form(object):
         if self.is_submitted():
             for widget in self.get_all_widgets():
                 if widget.has_error(request=request):
-                    has_errors =  True
+                    has_errors = True
         return has_errors
 
     def clear_errors(self):
@@ -204,7 +225,7 @@ class Form(object):
         widget = self.get_widget(name)
         if widget is None:
             raise ValueError('unknown widget %r' % name)
-        widget.clear_error() # calls parse internally
+        widget.clear_error()  # calls parse internally
         widget.set_value(value)
 
     def get_submit(self):
@@ -245,9 +266,9 @@ class Form(object):
         widget = widget_class(name, *args, **kwargs)
         self._names[name] = widget
         if isinstance(widget, SubmitWidget):
-            self.submit_widgets.append(widget) # will be rendered at end
+            self.submit_widgets.append(widget)  # will be rendered at end
         elif isinstance(widget, HiddenWidget):
-            self.hidden_widgets.append(widget) # will be render at beginning
+            self.hidden_widgets.append(widget)  # will be render at beginning
         else:
             self.widgets.append(widget)
 
@@ -289,7 +310,6 @@ class Form(object):
     def add_int(self, name, value=None, **kwargs):
         self.add(IntWidget, name, value, **kwargs)
 
-
     # -- Layout (rendering) methods ------------------------------------
 
     def render(self):
@@ -304,9 +324,13 @@ class Form(object):
 
     def _render_start(self):
         r = TemplateIO(html=True)
-        r += htmltag('form', method=self.method,
-                     enctype=self.enctype, action=self.action,
-                     **self.attrs)
+        r += htmltag(
+            'form',
+            method=self.method,
+            enctype=self.enctype,
+            action=self.action,
+            **self.attrs,
+        )
         r += self._render_hidden_widgets()
         return r.getvalue()
 

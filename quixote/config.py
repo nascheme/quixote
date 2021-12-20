@@ -26,11 +26,11 @@ care what happens in the future.
 # all.  This should probably be the email address of your web
 # administrator.
 ERROR_EMAIL = None
-#ERROR_EMAIL = 'webmaster@example.com'
+# ERROR_EMAIL = 'webmaster@example.com'
 
 # Filename for writing the Quixote access log; None for no access log.
 ACCESS_LOG = None
-#ACCESS_LOG = "/www/log/quixote-access.log"
+# ACCESS_LOG = "/www/log/quixote-access.log"
 
 # Filename for logging error messages and debugging output; if None,
 # everything will be sent to standard error (normally ending up in the
@@ -74,8 +74,8 @@ SESSION_COOKIE_NAME = "QX_session"
 # use your application's root URL (ie. SCRIPT_NAME in a CGI-like
 # environment), meaning the session cookie will be sent to all URLs
 # controlled by your application, but no other.
-SESSION_COOKIE_DOMAIN = None    # eg. ".example.com"
-SESSION_COOKIE_PATH = None      # eg. "/"
+SESSION_COOKIE_DOMAIN = None  # eg. ".example.com"
+SESSION_COOKIE_PATH = None  # eg. "/"
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = False
 
@@ -95,8 +95,8 @@ SESSION_COOKIE_HTTPONLY = False
 # sender for all outgoing e-mail.  If you don't set it, your application
 # will crash the first time it tries to send e-mail without an explicit
 # "From" address.
-MAIL_FROM = None     # eg. "webmaster@example.com"
-                     # or  ("webmaster@example.com", "Example Webmaster")
+MAIL_FROM = None  # eg. "webmaster@example.com"
+# or  ("webmaster@example.com", "Example Webmaster")
 
 # E-mail is sent by connecting to an SMTP server on MAIL_SERVER.  This
 # server must be configured to relay outgoing e-mail from the current
@@ -125,11 +125,12 @@ MAIL_ALLOW_SSLV3 = False
 # If MAIL_DEBUG_ADDR is set, then all e-mail will actually be sent to
 # this address rather than the intended recipients.  This should be a
 # single, bare e-mail address.
-MAIL_DEBUG_ADDR = None   # eg. "developers@example.com"
+MAIL_DEBUG_ADDR = None  # eg. "developers@example.com"
 
 
 # -- End config variables ----------------------------------------------
 # (no user serviceable parts after this point)
+
 
 class Config:
     """Holds all Quixote configuration variables -- see above for
@@ -160,10 +161,10 @@ class Config:
         'mail_use_tls',
         'mail_allow_sslv3',
         'mail_debug_addr',
-        ]
+    ]
 
     def __init__(self, **kwargs):
-        self.set_from_dict(globals()) # set defaults
+        self.set_from_dict(globals())  # set defaults
         for name, value in kwargs.items():
             if name not in self.config_vars:
                 raise ValueError('unknown config variable %r' % name)
@@ -189,7 +190,7 @@ class Config:
             with open(filename, 'r') as f:
                 exec(f.read(), config_vars)
         except IOError as exc:
-            if exc.filename is None:    # arg! execfile() loses filename
+            if exc.filename is None:  # arg! execfile() loses filename
                 exc.filename = filename
             raise exc
         self.set_from_dict(config_vars)

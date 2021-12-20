@@ -7,11 +7,26 @@ and/or composing the standard widget classes.
 """
 
 from quixote.form1.form import Form, register_widget_class, FormTokenWidget
-from quixote.form1.widget import Widget, StringWidget, FileWidget, \
-     PasswordWidget, TextWidget, CheckboxWidget, RadiobuttonsWidget, \
-     SingleSelectWidget, SelectWidget, OptionSelectWidget, \
-     MultipleSelectWidget, ListWidget, SubmitButtonWidget, HiddenWidget, \
-     FloatWidget, IntWidget, CollapsibleListWidget, FormValueError
+from quixote.form1.widget import (
+    Widget,
+    StringWidget,
+    FileWidget,
+    PasswordWidget,
+    TextWidget,
+    CheckboxWidget,
+    RadiobuttonsWidget,
+    SingleSelectWidget,
+    SelectWidget,
+    OptionSelectWidget,
+    MultipleSelectWidget,
+    ListWidget,
+    SubmitButtonWidget,
+    HiddenWidget,
+    FloatWidget,
+    IntWidget,
+    CollapsibleListWidget,
+    FormValueError,
+)
 
 # Register the standard widget classes
 register_widget_class(StringWidget)

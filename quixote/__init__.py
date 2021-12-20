@@ -6,15 +6,27 @@ A small and flexible Python web application framework.
 __version__ = '3.6a1'
 
 # These are frequently needed by Quixote applications.
-from quixote.publish import \
-     get_publisher, get_request, get_response, get_path, redirect, \
-     get_session, get_session_manager, get_user, get_field, get_cookie, \
-     get_wsgi_app, cleanup, get_param
+from quixote.publish import (
+    get_publisher,
+    get_request,
+    get_response,
+    get_path,
+    redirect,
+    get_session,
+    get_session_manager,
+    get_user,
+    get_field,
+    get_cookie,
+    get_wsgi_app,
+    cleanup,
+    get_param,
+)
 
 
 # This is the default charset used by the HTTPRequest, HTTPResponse,
 # DefaultLogger, and sendmail components.
 DEFAULT_CHARSET = 'utf-8'
+
 
 def enable_ptl():
     """

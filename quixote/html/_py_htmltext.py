@@ -2,6 +2,7 @@
 TemplateIO.
 """
 
+
 def _escape_string(s):
     if isinstance(s, bytes):
         raise TypeError('escape_string no longer accepts bytes')
@@ -13,8 +14,10 @@ def _escape_string(s):
     s = s.replace('"', "&quot;")
     return s
 
+
 # backwards comptibility, unneeded in Python 3
 stringify = str
+
 
 class htmltext(object):
     """The htmltext string-like type.  This type serves as a tag
@@ -28,7 +31,7 @@ class htmltext(object):
         self.s = str(s)
 
     # XXX make read-only
-    #def __setattr__(self, name, value):
+    # def __setattr__(self, name, value):
     #    raise AttributeError, 'immutable object'
 
     def __getstate__(self):
@@ -45,13 +48,13 @@ class htmltext(object):
 
     def __eq__(self, other):
         if isinstance(other, htmltext):
-            return (self.s == other.s)
-        return (self.s == other)
+            return self.s == other.s
+        return self.s == other
 
     def __lt__(self, other):
         if isinstance(other, htmltext):
-            return (self.s < other.s)
-        return (self.s < other)
+            return self.s < other.s
+        return self.s < other
 
     def __hash__(self):
         return hash(self.s)
@@ -94,7 +97,9 @@ class htmltext(object):
             elif isinstance(item, str):
                 quoted_items.append(_escape_string(item))
             else:
-                raise TypeError('join() requires string arguments (got %r)' % item)
+                raise TypeError(
+                    'join() requires string arguments (got %r)' % item
+                )
         return htmltext(self.s.join(quoted_items))
 
     def startswith(self, s):
@@ -131,6 +136,7 @@ class htmltext(object):
     def capitalize(self):
         return htmltext(self.s.capitalize())
 
+
 class _QuoteWrapper(object):
     # helper for htmltext class __mod__
 
@@ -149,19 +155,18 @@ class _QuoteWrapper(object):
         return _wraparg(self.value[key])
 
 
-
 def _wraparg(arg):
     if isinstance(arg, htmltext):
         return str(arg)
     elif isinstance(arg, str):
         return _escape_string(arg)
-    elif (isinstance(arg, int) or
-          isinstance(arg, float)):
+    elif isinstance(arg, int) or isinstance(arg, float):
         # ints, floats are okay
         return arg
     else:
         # everything is gets wrapped
         return _QuoteWrapper(arg)
+
 
 def htmlescape(s):
     """htmlescape(s) -> htmltext
@@ -175,7 +180,7 @@ def htmlescape(s):
     else:
         s = str(s)
     # inline _escape_string for speed
-    s = s.replace("&", "&amp;") # must be done first
+    s = s.replace("&", "&amp;")  # must be done first
     s = s.replace("<", "&lt;")
     s = s.replace(">", "&gt;")
     s = s.replace('"', "&quot;")
@@ -183,8 +188,7 @@ def htmlescape(s):
 
 
 class TemplateIO(object):
-    """Collect output for PTL scripts.
-    """
+    """Collect output for PTL scripts."""
 
     __slots__ = ['html', 'data']
 
@@ -202,8 +206,11 @@ class TemplateIO(object):
         return self
 
     def __repr__(self):
-        return ("<%s at %x: %d chunks>" %
-                (self.__class__.__name__, id(self), len(self.data)))
+        return "<%s at %x: %d chunks>" % (
+            self.__class__.__name__,
+            id(self),
+            len(self.data),
+        )
 
     def __str__(self):
         return str(self.getvalue())

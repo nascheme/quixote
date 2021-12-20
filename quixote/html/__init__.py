@@ -42,19 +42,27 @@ import urllib.request, urllib.parse, urllib.error
 
 try:
     # faster C implementation
-    from quixote.html._c_htmltext import htmltext, htmlescape, \
-        stringify, TemplateIO
+    from quixote.html._c_htmltext import (
+        htmltext,
+        htmlescape,
+        stringify,
+        TemplateIO,
+    )
 except ImportError:
-    from quixote.html._py_htmltext import htmltext, htmlescape, \
-        stringify, TemplateIO
+    from quixote.html._py_htmltext import (
+        htmltext,
+        htmlescape,
+        stringify,
+        TemplateIO,
+    )
 
 from quixote.html._py_htmltext import _wraparg
 
-ValuelessAttr = object() # magic singleton object
+ValuelessAttr = object()  # magic singleton object
+
 
 def htmltag(tag, xml_end=False, css_class=None, **attrs):
-    """Create a HTML tag.
-    """
+    """Create a HTML tag."""
     r = ["<%s" % tag]
     if css_class is not None:
         attrs['class'] = css_class
@@ -62,8 +70,7 @@ def htmltag(tag, xml_end=False, css_class=None, **attrs):
         if val is ValuelessAttr:
             val = attr
         if val is not None:
-            r.append(' %s="%s"' % (attr,
-                                   stringify(htmlescape(val))))
+            r.append(' %s="%s"' % (attr, stringify(htmlescape(val))))
     if xml_end:
         r.append(" />")
     else:
@@ -72,17 +79,22 @@ def htmltag(tag, xml_end=False, css_class=None, **attrs):
 
 
 def href(url, text, title=None, **attrs):
-    return (htmltag("a", href=url, title=title, **attrs) +
-            htmlescape(text) +
-            htmltext("</a>"))
+    return (
+        htmltag("a", href=url, title=title, **attrs)
+        + htmlescape(text)
+        + htmltext("</a>")
+    )
+
 
 def url_with_query(path, **attrs):
     result = htmltext(url_quote(path))
     if attrs:
         attrs = sorted(attrs.items())
-        result += "?" + "&".join([url_quote(key) + "=" + url_quote(value)
-                                  for key, value in attrs])
+        result += "?" + "&".join(
+            [url_quote(key) + "=" + url_quote(value) for key, value in attrs]
+        )
     return result
+
 
 def nl2br(value):
     """nl2br(value : any) -> htmltext
@@ -108,14 +120,16 @@ def url_quote(value, fallback=None):
             return fallback
     return urllib.parse.quote(stringify(value))
 
+
 def _q_join(*args):
     # Used by f-strings to join the {..} parts
     return htmltext('').join(args)
 
+
 def _q_format(value, conversion=-1, format_spec=None):
     # Used by f-strings to format the {..} parts
     if conversion == -1 and format_spec is None:
-        return htmlescape(value) # simple and fast case
+        return htmlescape(value)  # simple and fast case
     if conversion == -1:
         fmt = '{%s}'
     else:
@@ -137,6 +151,8 @@ def _q_format(value, conversion=-1, format_spec=None):
 
 
 _saved = None
+
+
 def use_qpy():
     """
     Switch to using 'qpy' as an alternative.
@@ -153,6 +169,7 @@ def use_qpy():
         htmlescape = qpy.h8.quote
         TemplateIO = qpy_TemplateIO
 
+
 def cleanup_qpy():
     global _saved, htmltext, stringify, htmlescape, TemplateIO
 
@@ -161,6 +178,7 @@ def cleanup_qpy():
 
 
 _ETAGO_PAT = re.compile(r'</')
+
 
 def js_escape(s):
     """Escape Javascript code to be embedded in HTML.

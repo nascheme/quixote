@@ -21,6 +21,7 @@ TEMPLATE_TYPES = {
     'ptl_plain': 'plain',
 }
 
+
 def translate_defs(tokens):
     # Rename the function name for html/plain templates.  The special names
     # will be recognized by the AST transformer.
@@ -30,13 +31,15 @@ def translate_defs(tokens):
     while i < len(tokens):
         tok = tokens[i]
         if tok.type == NAME and tok.string == 'def':
-            if (tokens[i+2][:2] == (OP, '[') and
-                tokens[i+4][:2] == (OP, ']')):
-                name_tok = list(tokens[i+1])
-                prefix = '_q_%s_template_' % tokens[i+3].string
+            if tokens[i + 2][:2] == (OP, '[') and tokens[i + 4][:2] == (
+                OP,
+                ']',
+            ):
+                name_tok = list(tokens[i + 1])
+                prefix = '_q_%s_template_' % tokens[i + 3].string
                 name_tok[1] = prefix + name_tok[1]
-                del tokens[i+2:i+5]
-                tokens[i+1] = tokenize.TokenInfo(*name_tok)
+                del tokens[i + 2 : i + 5]
+                tokens[i + 1] = tokenize.TokenInfo(*name_tok)
         i += 1
 
 
@@ -67,14 +70,14 @@ def translate_hstrings(tokens):
                 # found a F-prefixed string
                 have_h_string = True
                 str_tok = list(tok)
-                s = tok[1][1:] # string value with 'F' stripped
-            elif tokens[i-1].type == NAME and tokens[i-1].string == 'h':
+                s = tok[1][1:]  # string value with 'F' stripped
+            elif tokens[i - 1].type == NAME and tokens[i - 1].string == 'h':
                 # found a h-prefixed string
                 have_h_string = True
                 str_tok = list(tokens[i])
                 s = str_tok[1]
                 # h prefix is separate token, remove it
-                del tokens[i-1]
+                del tokens[i - 1]
                 i -= 1
                 need_dedent = True
             else:
@@ -82,8 +85,10 @@ def translate_hstrings(tokens):
             if have_h_string:
                 s = ast.literal_eval(s)
                 if HSTRING_MARKER in s:
-                    raise SyntaxError('invalid str literal, cannot contain '
-                                      'h-string marker, got %r' % s)
+                    raise SyntaxError(
+                        'invalid str literal, cannot contain '
+                        'h-string marker, got %r' % s
+                    )
                 # prefix string with marker.  Putting the marker inside the
                 # string is not so elegant but it is an easy way to pass
                 # the annotation along to the AST transformer.  The check
@@ -99,7 +104,7 @@ def translate_hstrings(tokens):
                 if need_dedent:
                     # deindent one character, we stripped (NAME 'h') token
                     srow, scol = str_tok[2]
-                    str_tok[2] = (srow, scol-1)
+                    str_tok[2] = (srow, scol - 1)
                 tokens[i] = tokenize.TokenInfo(*str_tok)
         i += 1
 
@@ -133,8 +138,9 @@ def translate_source(buf, filename='<string>'):
 
 def _is_str_node(n):
     # Python 3.8 replaces Str with Constant
-    return (isinstance(n, ast.Str) or
-            (isinstance(n, ast.Constant) and isinstance(n.value, str)))
+    return isinstance(n, ast.Str) or (
+        isinstance(n, ast.Constant) and isinstance(n.value, str)
+    )
 
 
 class TemplateTransformer(ast.NodeTransformer):
@@ -154,27 +160,31 @@ class TemplateTransformer(ast.NodeTransformer):
             return None
 
     def visit_Module(self, node):
-        html_imp = ast.ImportFrom(module='quixote.html',
-                                  names=[ast.alias(name='TemplateIO',
-                                                   asname='_q_TemplateIO'),
-                                         ast.alias(name='htmltext',
-                                                   asname='_q_htmltext'),
-                                         ast.alias(name='_q_join',
-                                                   asname='_q_join'),
-                                         ast.alias(name='_q_format',
-                                                   asname='_q_format'),
-                                         ],
-                                  level=0)
+        html_imp = ast.ImportFrom(
+            module='quixote.html',
+            names=[
+                ast.alias(name='TemplateIO', asname='_q_TemplateIO'),
+                ast.alias(name='htmltext', asname='_q_htmltext'),
+                ast.alias(name='_q_join', asname='_q_join'),
+                ast.alias(name='_q_format', asname='_q_format'),
+            ],
+            level=0,
+        )
         ast.fix_missing_locations(html_imp)
-        vars_imp = ast.ImportFrom(module='builtins',
-                                  names=[ast.alias(name='vars',
-                                                   asname='_q_vars')], level=0)
+        vars_imp = ast.ImportFrom(
+            module='builtins',
+            names=[ast.alias(name='vars', asname='_q_vars')],
+            level=0,
+        )
         ast.fix_missing_locations(vars_imp)
         ptl_imports = [vars_imp, html_imp]
         # skip __future__ statements
         idx = 0
         for i, stmt in enumerate(node.body):
-            if isinstance(stmt, ast.ImportFrom) and stmt.module == '__future__':
+            if (
+                isinstance(stmt, ast.ImportFrom)
+                and stmt.module == '__future__'
+            ):
                 idx = i + 1
         node.body[idx:idx] = ptl_imports
         return self.generic_visit(node)
@@ -204,8 +214,13 @@ class TemplateTransformer(ast.NodeTransformer):
             # _q_output = _q_TemplateIO(template_type == 'html')
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
             arg = ast.NameConstant(template_type == 'html')
-            instance = ast.Call(func=klass, args=[arg], keywords=[],
-                                starargs=None, kwargs=None)
+            instance = ast.Call(
+                func=klass,
+                args=[arg],
+                keywords=[],
+                starargs=None,
+                kwargs=None,
+            )
             assign_name = ast.Name(id='_q_output', ctx=ast.Store())
             assign = ast.Assign(targets=[assign_name], value=instance)
             ast.copy_location(assign, node)
@@ -224,8 +239,9 @@ class TemplateTransformer(ast.NodeTransformer):
             # return _q_output.getvalue()
             n = ast.Name(id='_q_output', ctx=ast.Load())
             n = ast.Attribute(value=n, attr='getvalue', ctx=ast.Load())
-            n = ast.Call(func=n, args=[], keywords=[], starargs=None,
-                         kwargs=None)
+            n = ast.Call(
+                func=n, args=[], keywords=[], starargs=None, kwargs=None
+            )
             ret = ast.Return(value=n)
             ast.copy_location(ret, node.body[-1])
             ast.fix_missing_locations(ret)
@@ -241,8 +257,13 @@ class TemplateTransformer(ast.NodeTransformer):
             # stack, call _q_output(obj).
             name = ast.Name(id='_q_output', ctx=ast.Load())
             ast.copy_location(name, node)
-            call = ast.Call(func=name, args=[node.value], keywords=[],
-                            starargs=None, kwargs=None)
+            call = ast.Call(
+                func=name,
+                args=[node.value],
+                keywords=[],
+                starargs=None,
+                kwargs=None,
+            )
             ast.copy_location(call, node)
             expr = ast.Expr(call)
             return ast.copy_location(expr, node)
@@ -260,8 +281,9 @@ class TemplateTransformer(ast.NodeTransformer):
             # wrap in call to _q_htmltext
             n = ast.Name(id='_q_htmltext', ctx=ast.Load())
             ast.copy_location(n, node)
-            n = ast.Call(func=n, args=[s], keywords=[], starargs=None,
-                         kwargs=None)
+            n = ast.Call(
+                func=n, args=[s], keywords=[], starargs=None, kwargs=None
+            )
             return ast.copy_location(n, node)
         return node
 
@@ -275,7 +297,7 @@ class TemplateTransformer(ast.NodeTransformer):
         # h-strings, we call quixote.html._q_join() instead.
         for v in node.values:
             if _is_str_node(v) and HSTRING_MARKER in v.s:
-                break # need to use _q_join()
+                break  # need to use _q_join()
         else:
             # none of the join arguments are htmltext, just use normal
             # f-string logic
@@ -291,9 +313,9 @@ class TemplateTransformer(ast.NodeTransformer):
                 v = self.generic_visit(v)
             values.append(v)
         n = ast.Name(id='_q_join', ctx=ast.Load())
-        n = ast.Call(func=n, args=values, keywords=[],
-                     starargs=None,
-                     kwargs=None)
+        n = ast.Call(
+            func=n, args=values, keywords=[], starargs=None, kwargs=None
+        )
         ast.copy_location(n, node)
         ast.fix_missing_locations(n)
         return n
@@ -312,10 +334,9 @@ class TemplateTransformer(ast.NodeTransformer):
             args += [conversion, node.format_spec]
         elif node.conversion != -1:
             args += [conversion]
-        n = ast.Call(func=n, args=args,
-                     keywords=[],
-                     starargs=None,
-                     kwargs=None)
+        n = ast.Call(
+            func=n, args=args, keywords=[], starargs=None, kwargs=None
+        )
         ast.copy_location(n, node)
         ast.fix_missing_locations(n)
         return n
@@ -341,17 +362,22 @@ def parse(buf, filename='<string>'):
 def main():
     import argparse
     import dis
+
     try:
         from astpretty import pprint
     except ImportError:
         pprint = ast.dump
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dis', '-d', default=False,
-                        action="store_true",
-                        help="disassemble bytecode")
-    parser.add_argument('--ast', '-a', default=False,
-                        action="store_true",
-                        help="dump AST")
+    parser.add_argument(
+        '--dis',
+        '-d',
+        default=False,
+        action="store_true",
+        help="disassemble bytecode",
+    )
+    parser.add_argument(
+        '--ast', '-a', default=False, action="store_true", help="dump AST"
+    )
     parser.add_argument('files', nargs='+')
     args = parser.parse_args()
     for fn in args.files:
@@ -363,6 +389,7 @@ def main():
         if args.dis:
             co = compile(tree, fn, 'exec')
             dis.dis(co)
+
 
 if __name__ == '__main__':
     main()

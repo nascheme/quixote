@@ -35,7 +35,6 @@ class ExtraDirectory(Resolving, Directory):
           </ul>
         """
 
-
     def _q_resolve(self, component):
         # _q_resolve() is a hook that can be used to import only
         # when it's actually accessed.  This can be used to make
@@ -43,6 +42,7 @@ class ExtraDirectory(Resolving, Directory):
         # to import every single module when it starts running.
         if component == 'form':
             from quixote.demo.forms import form_demo
+
             return form_demo
 
     def _q_lookup(self, component):
@@ -56,9 +56,12 @@ class ExtraDirectory(Resolving, Directory):
             yield 'The server does not know how long this will be.\n'
             for i in range(30):
                 yield 'line %d\n' % i
+
         get_response().set_content_type('text/plain')
         return Stream(gen_content())
 
     import quixote
-    src = StaticDirectory(os.path.dirname(quixote.__file__),
-                          list_directory=True)
+
+    src = StaticDirectory(
+        os.path.dirname(quixote.__file__), list_directory=True
+    )

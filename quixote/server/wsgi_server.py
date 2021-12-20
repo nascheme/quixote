@@ -6,8 +6,11 @@ be useful as an example as to how to run a Quixote application under
 WSGI.
 """
 import sys
-from wsgiref.simple_server import WSGIServer, ServerHandler, \
-    WSGIRequestHandler
+from wsgiref.simple_server import (
+    WSGIServer,
+    ServerHandler,
+    WSGIRequestHandler,
+)
 from quixote.wsgi import QWIP
 from quixote.util import import_object
 
@@ -24,20 +27,24 @@ class RequestHandler(WSGIRequestHandler):
             self.send_error(414)
             return
 
-        if not self.parse_request(): # An error code has been sent, just exit
+        if not self.parse_request():  # An error code has been sent, just exit
             return
 
         handler = ServerHandler(
-            self.rfile, self.wfile, self.get_stderr(), self.get_environ(),
-            multithread=False, multiprocess=False)
+            self.rfile,
+            self.wfile,
+            self.get_stderr(),
+            self.get_environ(),
+            multithread=False,
+            multiprocess=False,
+        )
 
-        handler.request_handler = self      # backpointer for logging
+        handler.request_handler = self  # backpointer for logging
         handler.run(self.server.get_app())
 
 
 def run(create_publisher, host='', port=80, handler_class=RequestHandler):
-    """Runs a Quixote application using the simple server from wsgiref.
-    """
+    """Runs a Quixote application using the simple server from wsgiref."""
     publisher = create_publisher()
     app = QWIP(publisher)
     server = WSGIServer((host, port), handler_class)
@@ -50,6 +57,7 @@ def run(create_publisher, host='', port=80, handler_class=RequestHandler):
 
 def main(args=None):
     from quixote.server.util import get_server_parser
+
     if args is None:
         args = sys.argv[1:]
     parser = get_server_parser(run.__doc__)

@@ -24,8 +24,10 @@ class Wrapper:
     def __str__(self):
         return self.s
 
+
 class BrokenError(Exception):
     pass
+
 
 class Broken:
     def __str__(self):
@@ -34,17 +36,20 @@ class Broken:
     def __repr__(self):
         raise BrokenError('eieee')
 
+
 htmltext = escape = htmlescape = TemplateIO = None
 
-class HTMLTest (UTest):
 
+class HTMLTest(UTest):
     def check_href(self):
         assert str(href('/foo/bar', 'bar')) == '<a href="/foo/bar">bar</a>'
 
     def check_url_with_query(self):
         assert str(url_with_query('/f/b', a='1')) == '/f/b?a=1'
-        assert str(url_with_query(
-            '/f/b', a='1', b='3 4')) == '/f/b?a=1&amp;b=3%204'
+        assert (
+            str(url_with_query('/f/b', a='1', b='3 4'))
+            == '/f/b?a=1&amp;b=3%204'
+        )
 
     def check_nl2br(self):
         assert str(nl2br('a\nb\nc')) == 'a<br />\nb<br />\nc'
@@ -55,8 +60,7 @@ class HTMLTest (UTest):
         assert url_quote(None, fallback='abc') == 'abc'
 
 
-class HTMLTextTest (UTest):
-
+class HTMLTextTest(UTest):
     def check_init(self):
         assert str(htmltext('foo')) == 'foo'
         assert str(htmltext(markupchars)) == markupchars
@@ -67,7 +71,8 @@ class HTMLTextTest (UTest):
         try:
             htmltext(Broken())
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
 
     def check_escape(self):
         assert htmlescape(markupchars) == quotedchars
@@ -92,7 +97,6 @@ class HTMLTextTest (UTest):
             assert 0
         except TypeError:
             pass
-
 
     def check_cmp(self):
         s = htmltext("foo")
@@ -127,11 +131,13 @@ class HTMLTextTest (UTest):
         try:
             s + 1
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
         try:
             1 + s
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
         assert repr(htmltext('a') + htmltext('b')) == "<htmltext 'ab'>"
 
@@ -143,15 +149,18 @@ class HTMLTextTest (UTest):
         try:
             s * 'a'
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
         try:
             'a' * s
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
         try:
             s * s
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
     def check_format(self):
         u_fmt = htmltext('%s')
@@ -164,15 +173,17 @@ class HTMLTextTest (UTest):
         assert u_fmt % htmltext(unicodechars) == unicodechars
         assert htmltext('%r') % Wrapper(markupchars) == quotedchars
         assert htmltext('%r') % unicodechars == repr(unicodechars)
-        assert htmltext('%s%s') % ('foo', htmltext(markupchars)) \
-            == ("foo" + markupchars)
+        assert htmltext('%s%s') % ('foo', htmltext(markupchars)) == (
+            "foo" + markupchars
+        )
         assert htmltext('%d') % 10 == "10"
         assert htmltext('%.1f') % 10 == "10.0"
 
         try:
             htmltext('%r') % Broken()
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
 
         assert htmltext('%d') % 12300000000000000000 == "12300000000000000000"
 
@@ -186,11 +197,13 @@ class HTMLTextTest (UTest):
         try:
             htmltext('%(a)s') % 1
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
         try:
             htmltext('%(a)s') % {}
             assert 0
-        except KeyError: pass
+        except KeyError:
+            pass
         assert htmltext('') % {} == ''
         assert htmltext('%%') % {} == '%'
 
@@ -209,23 +222,30 @@ class HTMLTextTest (UTest):
 
     def check_join(self):
         assert htmltext(' ').join(['foo', 'bar']) == "foo bar"
-        assert htmltext(' ').join(['foo', markupchars]) == \
-            "foo " + quotedchars
-        assert htmlescape(markupchars).join(['foo', 'bar']) == \
-            "foo" + quotedchars + "bar"
-        assert htmltext(' ').join([htmltext(markupchars), 'bar']) == \
-            markupchars + " bar"
+        assert (
+            htmltext(' ').join(['foo', markupchars]) == "foo " + quotedchars
+        )
+        assert (
+            htmlescape(markupchars).join(['foo', 'bar'])
+            == "foo" + quotedchars + "bar"
+        )
+        assert (
+            htmltext(' ').join([htmltext(markupchars), 'bar'])
+            == markupchars + " bar"
+        )
         assert isinstance(htmltext('').join([]), htmltext)
         assert htmltext(' ').join([unicodechars]) == unicodechars
         assert htmltext(' ').join(['']) == ''
         try:
             htmltext('').join(1)
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
         try:
             htmltext('').join([1])
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
     def check_startswith(self):
         assert htmltext('foo').startswith('fo')
@@ -234,7 +254,8 @@ class HTMLTextTest (UTest):
         try:
             htmltext('').startswith(1)
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
     def check_endswith(self):
         assert htmltext('foo').endswith('oo')
@@ -243,7 +264,8 @@ class HTMLTextTest (UTest):
         try:
             htmltext('').endswith(1)
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
     def check_replace(self):
         assert htmlescape('&').replace('&', 'foo') == "foo"
@@ -253,7 +275,8 @@ class HTMLTextTest (UTest):
         try:
             htmltext('').replace(1, 'a')
             assert 0
-        except TypeError: pass
+        except TypeError:
+            pass
 
     def check_lower(self):
         assert htmltext('aB').lower() == "ab"
@@ -267,8 +290,8 @@ class HTMLTextTest (UTest):
         assert htmltext('aB').capitalize() == "Ab"
         assert isinstance(htmltext('a').capitalize(), htmltext)
 
-class TemplateTest (UTest):
 
+class TemplateTest(UTest):
     def check_init(self):
         TemplateIO()
         TemplateIO(html=True)
@@ -286,9 +309,11 @@ class TemplateTest (UTest):
         t += '\\u1234'
         assert t.getvalue() == 'abcd123\\u1234'
         try:
-            t += Broken(); t.getvalue()
+            t += Broken()
+            t.getvalue()
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
 
     def check_text_call(self):
         t = TemplateIO()
@@ -302,9 +327,11 @@ class TemplateTest (UTest):
         t('\\u1234')
         assert t.getvalue() == 'abcd123\\u1234'
         try:
-            t(Broken()); t.getvalue()
+            t(Broken())
+            t.getvalue()
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
 
     def check_html_iadd(self):
         t = TemplateIO(html=1)
@@ -316,9 +343,11 @@ class TemplateTest (UTest):
         t += 123
         assert t.getvalue() == 'abcd123'
         try:
-            t += Broken(); t.getvalue()
+            t += Broken()
+            t.getvalue()
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
         t = TemplateIO(html=1)
         t += markupchars
         assert t.getvalue() == quotedchars
@@ -333,9 +362,11 @@ class TemplateTest (UTest):
         t(123)
         assert t.getvalue() == 'abcd123'
         try:
-            t(Broken()); t.getvalue()
+            t(Broken())
+            t.getvalue()
             assert 0
-        except BrokenError: pass
+        except BrokenError:
+            pass
         t = TemplateIO(html=1)
         t(markupchars)
         assert t.getvalue() == quotedchars
@@ -351,11 +382,11 @@ class TemplateTest (UTest):
         assert str(t) == "abcd"
 
 
-
 try:
     from quixote.html import _c_htmltext
 except ImportError:
     _c_htmltext = None
+
 
 def setup_py():
     global htmltext, escape, htmlescape, TemplateIO
@@ -383,6 +414,7 @@ def test_all():
         HTMLTest()
         HTMLTextTest()
         TemplateTest()
+
 
 if __name__ == "__main__":
     test_all()

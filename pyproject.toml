@@ -1,3 +1,4 @@
-[build-system]
-requires = ["setuptools", "wheel"]
-
+[tool.black]
+skip-string-normalization = true
+line-length = 78
+include = '\.ptl$'

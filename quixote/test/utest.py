@@ -1,6 +1,7 @@
 # Minimal class to make old Sancho tests work with py.test.
 import types
 
+
 class UTest:
     def __init__(self):
         print('Running %s:' % self.__class__.__name__)

@@ -23,6 +23,7 @@ class Publisher(_Publisher):
 
     def __init__(self, root_namespace, config=None):
         from quixote.config import Config
+
         if isinstance(root_namespace, str):
             root_namespace = _get_module(root_namespace)
         self.namespace_stack = [root_namespace]
@@ -35,8 +36,7 @@ class Publisher(_Publisher):
         self.log(msg)
 
     def get_namespace_stack(self):
-        """get_namespace_stack() ->  [ module | instance | class ]
-        """
+        """get_namespace_stack() ->  [ module | instance | class ]"""
         return self.namespace_stack
 
 
@@ -52,8 +52,9 @@ class RootDirectory(Directory):
         request = get_request()
 
         # Traverse package to a (hopefully-) callable object
-        object = _traverse_url(self.root_namespace, path, request,
-                               self.namespace_stack)
+        object = _traverse_url(
+            self.root_namespace, path, request, self.namespace_stack
+        )
 
         # None means no output -- traverse_url() just issued a redirect.
         if object is None:
@@ -72,7 +73,8 @@ class RootDirectory(Directory):
         # Uh-oh: 'object' is neither a string nor a callable.
         else:
             raise RuntimeError(
-                "object is neither callable nor a string: %s" % repr(object))
+                "object is neither callable nor a string: %s" % repr(object)
+            )
 
         return output
 
@@ -85,6 +87,7 @@ def _get_module(name):
 
 
 _slash_pat = re.compile("//*")
+
 
 def _traverse_url(root_namespace, path_components, request, namespace_stack):
     """(root_namespace : any, path_components : [string],
@@ -120,7 +123,7 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
     # user to the right URL; when the client follows the redirect,
     # we'll wind up here again with path == '/'.
     if not path:
-        return redirect(request.environ['SCRIPT_NAME'] + '/' , permanent=1)
+        return redirect(request.environ['SCRIPT_NAME'] + '/', permanent=1)
 
     # Traverse starting at the root
     object = root_namespace
@@ -153,25 +156,27 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
                     "object is neither callable nor string "
                     "(missing trailing slash?)",
                     private_msg=repr(object),
-                    path=path)
+                    path=path,
+                )
         else:
             raise errors.TraversalError(
                 "object is neither callable nor string",
                 private_msg=repr(object),
-                path=path)
+                path=path,
+            )
 
     return object
 
 
 def _get_component(container, component, request, namespace_stack):
-    """Get one component of a path from a namespace.
-    """
+    """Get one component of a path from a namespace."""
     # First security check: if the container doesn't even have an
     # _q_exports list, fail now: all Quixote-traversable namespaces
     # (modules, packages, instances) must have an export list!
     if not hasattr(container, '_q_exports'):
         raise errors.TraversalError(
-                    private_msg="%r has no _q_exports list" % container)
+            private_msg="%r has no _q_exports list" % container
+        )
 
     # Second security check: call _q_access function if it's present.
     if hasattr(container, '_q_access'):
@@ -212,14 +217,16 @@ def _get_component(container, component, request, namespace_stack):
         if hasattr(container, "_q_lookup"):
             object = container._q_lookup(request, component)
         elif hasattr(container, "_q_getname"):
-            warnings.warn("_q_getname() on %s used; should "
-                          "be replaced by _q_lookup()" % type(container))
+            warnings.warn(
+                "_q_getname() on %s used; should "
+                "be replaced by _q_lookup()" % type(container)
+            )
             object = container._q_getname(request, component)
         if object is None:
             raise errors.TraversalError(
-                private_msg="object %r has no attribute %r" % (
-                                                    container,
-                                                    component))
+                private_msg="object %r has no attribute %r"
+                % (container, component)
+            )
 
     # From here on, you can assume that the internal_name is not None
     elif hasattr(container, internal_name):
@@ -231,14 +238,16 @@ def _get_component(container, component, request, namespace_stack):
             object = container._q_lookup(request, "")
         else:
             raise errors.AccessError(
-                private_msg=("_q_index not found in %r" % container))
+                private_msg=("_q_index not found in %r" % container)
+            )
 
     elif hasattr(container, "_q_resolve"):
         object = container._q_resolve(internal_name)
         if object is None:
-            raise RuntimeError("component listed in _q_exports, "
-                                 "but not returned by _q_resolve(%r)"
-                                 % internal_name)
+            raise RuntimeError(
+                "component listed in _q_exports, "
+                "but not returned by _q_resolve(%r)" % internal_name
+            )
         else:
             # Set the object, so _q_resolve won't need to be called again.
             setattr(container, internal_name, object)
@@ -255,9 +264,11 @@ def _get_component(container, component, request, namespace_stack):
         # a non-existent attribute is in _q_exports,
         # and the container is not a module.  Give up.
         raise errors.TraversalError(
-                private_msg=("%r in _q_exports list, "
-                             "but not found in %r" % (component,
-                                                      container)))
+            private_msg=(
+                "%r in _q_exports list, "
+                "but not found in %r" % (component, container)
+            )
+        )
 
     namespace_stack.append(object)
     return object

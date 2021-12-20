@@ -22,26 +22,39 @@ from quixote.publish import Publisher
 from quixote.session import Session, SessionManager
 from quixote.util import dump_request
 
+
 def format_page(title, content):
-    request = htmltext(
-        '<div style="font-size: smaller;background:#eee">'
-        '<h1>Request:</h1>%s</div>') % dump_request()
-    return htmltext(
-        '<html><head><title>%(title)s</title>'
-        '<style type="text/css">\n'
-        'body { border: thick solid green; padding: 2em; }\n'
-        'h1 { font-size: larger; }\n'
-        'th { background: #aaa; text-align:left; font-size: smaller; }\n'
-        'td { background: #ccc; font-size: smaller; }\n'
-        '</style>'
-        '</head><body>%(content)s%(request)s</body></html>') % locals()
+    request = (
+        htmltext(
+            '<div style="font-size: smaller;background:#eee">'
+            '<h1>Request:</h1>%s</div>'
+        )
+        % dump_request()
+    )
+    return (
+        htmltext(
+            '<html><head><title>%(title)s</title>'
+            '<style type="text/css">\n'
+            'body { border: thick solid green; padding: 2em; }\n'
+            'h1 { font-size: larger; }\n'
+            'th { background: #aaa; text-align:left; font-size: smaller; }\n'
+            'td { background: #ccc; font-size: smaller; }\n'
+            '</style>'
+            '</head><body>%(content)s%(request)s</body></html>'
+        )
+        % locals()
+    )
+
 
 def format_request():
     return format_page('Request', dump_request())
 
+
 def format_link_list(targets):
-    return htmltext('<ul>%s</ul>') % htmltext('').join([
-        htmltext('<li>%s</li>') % href(target, target) for target in targets])
+    return htmltext('<ul>%s</ul>') % htmltext('').join(
+        [htmltext('<li>%s</li>') % href(target, target) for target in targets]
+    )
+
 
 class RootDirectory(Directory):
 
@@ -52,30 +65,35 @@ class RootDirectory(Directory):
         if not get_user():
             content += htmltext('<p>%s</p>' % href('login', 'login'))
         else:
-            content += htmltext(
-                '<p>Hello, %s.</p>') % get_user()
+            content += htmltext('<p>Hello, %s.</p>') % get_user()
             content += htmltext('<p>%s</p>' % href('logout', 'logout'))
         sessions = sorted([(s.id, s) for s in get_session_manager()])
         if sessions:
-            content += htmltext('<table><tr>'
-                                '<th></th>'
-                                '<th>Session</th>'
-                                '<th>User</th>'
-                                '<th>Number of Requests</th>'
-                                '</tr>')
+            content += htmltext(
+                '<table><tr>'
+                '<th></th>'
+                '<th>Session</th>'
+                '<th>User</th>'
+                '<th>Number of Requests</th>'
+                '</tr>'
+            )
             this_session = get_session()
             for index, (id, session) in enumerate(sessions):
                 if session is this_session:
                     formatted_id = htmltext(
-                        '<span style="font-weight:bold">%s</span>' % id)
+                        '<span style="font-weight:bold">%s</span>' % id
+                    )
                 else:
                     formatted_id = id
                 content += htmltext(
-                    '<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td>' % (
-                    index,
-                    formatted_id,
-                    session.user or htmltext("<em>None</em>"),
-                    session.num_requests))
+                    '<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td>'
+                    % (
+                        index,
+                        formatted_id,
+                        session.user or htmltext("<em>None</em>"),
+                        session.num_requests,
+                    )
+                )
             content += htmltext('</table>')
         return format_page("Quixote Session Management Demo", content)
 
@@ -83,9 +101,11 @@ class RootDirectory(Directory):
         content = htmltext('')
         if get_field("name"):
             session = get_session()
-            session.set_user(get_field("name")) # This is the important part.
-            content += htmltext(
-                '<p>Welcome, %s!  Thank you for logging in.</p>') % get_user()
+            session.set_user(get_field("name"))  # This is the important part.
+            content += (
+                htmltext('<p>Welcome, %s!  Thank you for logging in.</p>')
+                % get_user()
+            )
             content += href("..", "go back")
         else:
             content += htmltext(
@@ -93,7 +113,8 @@ class RootDirectory(Directory):
                 '<form method="POST" action="login">'
                 '<input name="name" />'
                 '<input type="submit" />'
-                '</form>')
+                '</form>'
+            )
         return format_page("Quixote Session Demo: Login", content)
 
     def logout(self):
@@ -102,12 +123,11 @@ class RootDirectory(Directory):
         else:
             content = htmltext('<p>That would be redundant.</p>')
         content += href("..", "start over")
-        get_session_manager().expire_session() # This is the important part.
+        get_session_manager().expire_session()  # This is the important part.
         return format_page("Quixote Session Demo: Logout", content)
 
 
 class DemoSession(Session):
-
     def __init__(self, id):
         Session.__init__(self, id)
         self.num_requests = 0
@@ -153,9 +173,12 @@ class DemoSession(Session):
 
 
 def create_publisher():
-    return Publisher(RootDirectory(),
-                     session_manager=SessionManager(session_class=DemoSession),
-                     display_exceptions='plain')
+    return Publisher(
+        RootDirectory(),
+        session_manager=SessionManager(session_class=DemoSession),
+        display_exceptions='plain',
+    )
+
 
 try:
     # If durus is installed, define a create_durus_publisher() that
@@ -165,7 +188,8 @@ try:
     from durus.persistent_dict import PersistentDict
     from durus.file_storage import FileStorage
     from durus.connection import Connection
-    connection = None # set in create_durus_publisher()
+
+    connection = None  # set in create_durus_publisher()
 
     class PersistentSession(DemoSession, Persistent):
         pass
@@ -173,9 +197,12 @@ try:
     class PersistentSessionManager(SessionManager, Persistent):
         def __init__(self):
             sessions = PersistentDict()
-            SessionManager.__init__(self,
-                                    session_class=PersistentSession,
-                                    session_mapping=sessions)
+            SessionManager.__init__(
+                self,
+                session_class=PersistentSession,
+                session_mapping=sessions,
+            )
+
         def forget_changes(self, session):
             print('abort changes', get_session())
             connection.abort()
@@ -195,8 +222,12 @@ try:
             session_manager = PersistentSessionManager()
             connection.get_root()['session_manager'] = session_manager
             connection.commit()
-        return Publisher(RootDirectory(),
-                         session_manager=session_manager,
-                         display_exceptions='plain')
+        return Publisher(
+            RootDirectory(),
+            session_manager=session_manager,
+            display_exceptions='plain',
+        )
+
+
 except ImportError:
-    pass # durus not installed.
+    pass  # durus not installed.

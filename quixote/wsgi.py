@@ -14,18 +14,21 @@ from .http_request import HTTPRequest
 
 ###### QWIP: WSGI COMPATIBILITY WRAPPER FOR QUIXOTE #####################
 
+
 class QWIP:
     """I make a Quixote Publisher object look like a WSGI application."""
+
     request_class = HTTPRequest
 
     def __init__(self, publisher):
         self.publisher = publisher
-    
+
     def __call__(self, env, start_response):
         """I am called for each request."""
-        if env.get('wsgi.multithread') and not \
-            getattr(self.publisher, 'is_thread_safe', False):
-            reason =  "%r is not thread safe" % self.publisher
+        if env.get('wsgi.multithread') and not getattr(
+            self.publisher, 'is_thread_safe', False
+        ):
+            reason = "%r is not thread safe" % self.publisher
             raise AssertionError(reason)
         if 'REQUEST_URI' not in env:
             env['REQUEST_URI'] = env['SCRIPT_NAME'] + env['PATH_INFO']
