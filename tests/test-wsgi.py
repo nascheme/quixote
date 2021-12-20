@@ -10,7 +10,7 @@ class TestWSGI:
 
         x = sys.stdout  # Quixote mangles sys.stdout; save.
         try:
-            publisher = create_publisher()
+            publisher = create_publisher()  # noqa: F841
             wsgi_app = quixote.get_wsgi_app()
         finally:
             sys.stdout = x  # restore.

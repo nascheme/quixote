@@ -11,7 +11,6 @@ try:
     import ssl
 except ImportError:
     ssl = None
-import quixote
 
 EMAIL_ENCODING = 'utf-8'
 

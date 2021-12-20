@@ -103,7 +103,7 @@ def xmlrpc(request, func):
         result = func(method, params)
     except _xmlrpc.Fault as exc:
         result = exc
-    except:
+    except BaseException:
         # report exception back to client
         result = _xmlrpc.dumps(
             _xmlrpc.Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
@@ -284,9 +284,7 @@ class StaticDirectory(Directory):
                     obj = self._q_lookup(name)
                 except errors.TraversalError:
                     continue
-                if not isinstance(obj, StaticDirectory) and hasattr(
-                    obj, '__call__'
-                ):
+                if not isinstance(obj, StaticDirectory) and callable(obj):
                     return obj()
         if self.list_directory:
             title = 'Index of %s' % quixote.get_path()
@@ -463,7 +461,7 @@ class StaticBundle(Directory):
             if filename == '..':
                 raise errors.TraversalError('invalid static file path')
             try:
-                mtime = int(path[0])
+                mtime = int(path[0])  # noqa: F841
             except ValueError:
                 raise errors.TraversalError('invalid mtime for static file')
             cache_time = self.CACHE_TIME

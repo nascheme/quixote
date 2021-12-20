@@ -4,7 +4,6 @@
 
 import sys
 from setuptools import setup, Extension
-from quixote.ptl.qx_distutils import qx_build_py
 from quixote import __version__
 
 LONG_DESC = """\

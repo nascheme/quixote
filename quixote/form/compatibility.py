@@ -3,7 +3,7 @@ class (useful for transitioning existing forms).
 '''
 
 from quixote import get_request, get_path, redirect
-from quixote.form import (
+from quixote.form import (  # noqa: F401
     Form as _Form,
     Widget,
     StringWidget,
@@ -91,7 +91,6 @@ class Form(_Form):
 
     def process(self):
         values = {}
-        request = get_request()
         for name, widget in self._names.items():
             values[name] = widget.parse()
         return values
@@ -107,14 +106,13 @@ class Form(_Form):
         probably should override 'process' and 'action' instead of
         overriding this method.
         """
-        request = get_request()
         if not self.is_submitted():
             return self.render(self.action_url)
         submit = self.get_submit()
         if submit == "cancel":
             return redirect(self.cancel_url)
         values = self.process()
-        if submit == True:
+        if submit == True:  # noqa: E712
             # The form was submitted by an unregistered submit button, assume
             # that the submission was required to update the layout of the form.
             self.clear_errors()

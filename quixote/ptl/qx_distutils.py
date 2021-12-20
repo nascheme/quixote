@@ -2,7 +2,7 @@
 PTL files.
 """
 
-import os, string
+import os
 from glob import glob
 from distutils.command.build_py import build_py
 

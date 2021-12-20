@@ -7,7 +7,6 @@ by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
-import sys
 import re
 import io
 import ast

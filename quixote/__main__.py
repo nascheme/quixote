@@ -1,5 +1,4 @@
 import sys
-import os
 
 USAGE = "Usage: quixote run [options]"
 

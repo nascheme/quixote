@@ -6,7 +6,7 @@ A small and flexible Python web application framework.
 __version__ = '3.6a1'
 
 # These are frequently needed by Quixote applications.
-from quixote.publish import (
+from quixote.publish import (  # noqa: F401
     get_publisher,
     get_request,
     get_response,
@@ -38,4 +38,4 @@ def enable_ptl():
     that, if you use ZODB, you must import ZODB before calling this
     function.
     """
-    import quixote.ptl.install
+    import quixote.ptl.install  # noqa: F401

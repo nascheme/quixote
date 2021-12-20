@@ -245,7 +245,7 @@ __init__ module:
     compile_package(__path__)
 
 '''
-from quixote.ptl.ptl_compile import compile_package
+from quixote.ptl.ptl_compile import compile_package  # noqa: F401
 
 
 def _check_template(func):

@@ -311,7 +311,7 @@ class SelectWidget(Widget):
 
     def set_value(self, value):
         self.value = None
-        for object, description, key in self.options:
+        for object, _description, _key in self.options:
             if value == object:
                 self.value = value
                 break
@@ -401,7 +401,7 @@ class SelectWidget(Widget):
         self.options = options
 
     def parse_single_selection(self, parsed_key):
-        for value, description, key in self.options:
+        for value, _description, key in self.options:
             if key == parsed_key:
                 return value
         else:
@@ -772,7 +772,7 @@ class ListWidget(Widget):
             for element in self.value:
                 self.add_element(element)
 
-        for index in range(added_elements):
+        for _index in range(added_elements):
             self.add_element()
 
     def add_element(self, value=None):

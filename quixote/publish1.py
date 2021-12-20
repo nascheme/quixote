@@ -52,28 +52,28 @@ class RootDirectory(Directory):
         request = get_request()
 
         # Traverse package to a (hopefully-) callable object
-        object = _traverse_url(
+        obj = _traverse_url(
             self.root_namespace, path, request, self.namespace_stack
         )
 
         # None means no output -- traverse_url() just issued a redirect.
-        if object is None:
+        if obj is None:
             return None
 
         # Anything else must be either a string...
-        if isstring(object):
-            output = object
+        if isstring(obj):
+            output = obj
 
         # ...or a callable.
-        elif hasattr(object, '__call__'):
-            output = object(request)
+        elif callable(obj):
+            output = obj(request)
             if output is None:
-                raise RuntimeError('callable %r returned None' % object)
+                raise RuntimeError('callable %r returned None' % obj)
 
-        # Uh-oh: 'object' is neither a string nor a callable.
+        # Uh-oh: 'obj' is neither a string nor a callable.
         else:
             raise RuntimeError(
-                "object is neither callable nor a string: %s" % repr(object)
+                "object is neither callable nor a string: %s" % repr(obj)
             )
 
         return output
@@ -126,17 +126,17 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
         return redirect(request.environ['SCRIPT_NAME'] + '/', permanent=1)
 
     # Traverse starting at the root
-    object = root_namespace
-    namespace_stack.append(object)
+    obj = root_namespace
+    namespace_stack.append(obj)
 
     # Loop over the components of the path
     for component in path_components:
         if component == "":
             # "/q/foo/" == "/q/foo/_q_index"
             component = "_q_index"
-        object = _get_component(object, component, request, namespace_stack)
+        obj = _get_component(obj, component, request, namespace_stack)
 
-    if not (isstring(object) or hasattr(object, '__call__')):
+    if not (isstring(obj) or callable(obj)):
         # We went through all the components of the path and ended up at
         # something which isn't callable, like a module or an instance
         # without a __call__ method.
@@ -155,17 +155,17 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
                 raise errors.TraversalError(
                     "object is neither callable nor string "
                     "(missing trailing slash?)",
-                    private_msg=repr(object),
+                    private_msg=repr(obj),
                     path=path,
                 )
         else:
             raise errors.TraversalError(
                 "object is neither callable nor string",
-                private_msg=repr(object),
+                private_msg=repr(obj),
                 path=path,
             )
 
-    return object
+    return obj
 
 
 def _get_component(container, component, request, namespace_stack):
@@ -213,16 +213,16 @@ def _get_component(container, component, request, namespace_stack):
 
     if internal_name is None:
         # Component is not in exports list.
-        object = None
+        obj = None
         if hasattr(container, "_q_lookup"):
-            object = container._q_lookup(request, component)
+            obj = container._q_lookup(request, component)
         elif hasattr(container, "_q_getname"):
             warnings.warn(
                 "_q_getname() on %s used; should "
                 "be replaced by _q_lookup()" % type(container)
             )
-            object = container._q_getname(request, component)
-        if object is None:
+            obj = container._q_getname(request, component)
+        if obj is None:
             raise errors.TraversalError(
                 private_msg="object %r has no attribute %r"
                 % (container, component)
@@ -231,34 +231,34 @@ def _get_component(container, component, request, namespace_stack):
     # From here on, you can assume that the internal_name is not None
     elif hasattr(container, internal_name):
         # attribute is in _q_exports and exists
-        object = getattr(container, internal_name)
+        obj = getattr(container, internal_name)
 
     elif internal_name == '_q_index':
         if hasattr(container, "_q_lookup"):
-            object = container._q_lookup(request, "")
+            obj = container._q_lookup(request, "")
         else:
             raise errors.AccessError(
                 private_msg=("_q_index not found in %r" % container)
             )
 
     elif hasattr(container, "_q_resolve"):
-        object = container._q_resolve(internal_name)
-        if object is None:
+        obj = container._q_resolve(internal_name)
+        if obj is None:
             raise RuntimeError(
                 "component listed in _q_exports, "
                 "but not returned by _q_resolve(%r)" % internal_name
             )
         else:
             # Set the object, so _q_resolve won't need to be called again.
-            setattr(container, internal_name, object)
+            setattr(container, internal_name, obj)
 
-    elif type(container) is types.ModuleType:
+    elif isinstance(container, types.ModuleType):
         # try importing it as a sub-module.  If we get an ImportError
         # here we don't catch it.  It means that something that
         # doesn't exist was exported or an exception was raised from
         # deeper in the code.
         mod_name = container.__name__ + '.' + internal_name
-        object = _get_module(mod_name)
+        obj = _get_module(mod_name)
 
     else:
         # a non-existent attribute is in _q_exports,
@@ -270,8 +270,8 @@ def _get_component(container, component, request, namespace_stack):
             )
         )
 
-    namespace_stack.append(object)
-    return object
+    namespace_stack.append(obj)
+    return obj
 
 
 def isstring(x):

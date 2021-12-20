@@ -1,4 +1,3 @@
-import sys
 from quixote.html import _py_htmltext
 from quixote.html import href, url_with_query, url_quote, nl2br
 from quixote.test.utest import UTest

@@ -187,8 +187,7 @@ def compile_file(
                 )
             else:
                 cfile = importlib.util.cache_from_source(fullname)
-            cache_dir = os.path.dirname(cfile)
-        head, tail = name[:-4], name[-4:]
+        tail = name[-4:]
         if tail == PTL_EXT:
             if not force:
                 try:

@@ -87,7 +87,7 @@ class Publisher:
             raise RuntimeError("only one instance of Publisher allowed")
         _publisher = self
 
-        if not hasattr(getattr(root_directory, '_q_traverse'), '__call__'):
+        if not callable(root_directory._q_traverse):
             raise TypeError(
                 'Expected something with a _q_traverse method, got %r'
                 % root_directory
@@ -272,7 +272,7 @@ class Publisher:
         except PublishError as exc:
             # Exit the publishing loop and return a result right away.
             output = self.finish_interrupted_request(exc)
-        except:
+        except BaseException:
             # Some other exception, generate error messages to the logs, etc.
             output = self.finish_failed_request()
         output = self.filter_output(request, output)

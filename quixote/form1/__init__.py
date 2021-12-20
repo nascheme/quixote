@@ -6,8 +6,13 @@ of widget objects.  Custom widgets can be created by inheriting
 and/or composing the standard widget classes.
 """
 
-from quixote.form1.form import Form, register_widget_class, FormTokenWidget
-from quixote.form1.widget import (
+from quixote.form1.form import (  # noqa: F401
+    Form,
+    register_widget_class,
+    FormTokenWidget,
+)
+
+from quixote.form1.widget import (  # noqa: F401
     Widget,
     StringWidget,
     FileWidget,

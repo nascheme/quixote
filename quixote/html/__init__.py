@@ -49,7 +49,7 @@ try:
         TemplateIO,
     )
 except ImportError:
-    from quixote.html._py_htmltext import (
+    from quixote.html._py_htmltext import (  # noqa: F401
         htmltext,
         htmlescape,
         stringify,

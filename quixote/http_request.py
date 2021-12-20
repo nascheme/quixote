@@ -5,7 +5,6 @@ requests, such as the Upload class.
 """
 
 import re
-import string
 import os
 import tempfile
 import urllib.request, urllib.parse, urllib.error
@@ -259,7 +258,7 @@ class HTTPRequest:
         charset = params.get('charset')
         mimeinput = MIMEInput(self.stdin, boundary, length)
         try:
-            for line in mimeinput.readpart():
+            for _line in mimeinput.readpart():
                 pass  # discard lines up to first boundary
             while mimeinput.moreparts():
                 self._process_multipart_body(mimeinput, charset)

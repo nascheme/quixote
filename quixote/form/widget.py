@@ -354,7 +354,7 @@ class SelectWidget(Widget):
 
     def set_value(self, value):
         self.value = None
-        for object, description, key in self.options:
+        for object, _description, _key in self.options:
             if value == object:
                 self.value = value
                 break
@@ -443,7 +443,7 @@ class SelectWidget(Widget):
         self.options = options
 
     def _parse_single_selection(self, parsed_key, default=None):
-        for value, description, key in self.options:
+        for value, _description, key in self.options:
             if key == parsed_key:
                 return value
         else:
@@ -855,10 +855,11 @@ class WidgetList(CompositeWidget):
         name,
         value=None,
         element_type=StringWidget,
-        element_kwargs={},
+        element_kwargs=None,
         add_element_label="Add row",
         **kwargs,
     ):
+        element_kwargs = element_kwargs or {}
         assert (
             value is None or type(value) is list
         ), "value '%s' not a list: got %r" % (name, value)
@@ -899,7 +900,7 @@ class WidgetList(CompositeWidget):
 
         # Add at least one additional element widget
         num_added = int(added_elements_widget.parse() or 1)
-        for i in range(num_added):
+        for _i in range(num_added):
             add_element()
 
         # Add submit to add more element widgets
@@ -956,8 +957,8 @@ class WidgetDict(CompositeWidget):
         value=None,
         element_key_type=StringWidget,
         element_value_type=StringWidget,
-        element_key_kwargs={},
-        element_value_kwargs={},
+        element_key_kwargs={},  # noqa: B006
+        element_value_kwargs={},  # noqa: B006
         add_element_label='Add row',
         **kwargs,
     ):
@@ -1025,7 +1026,7 @@ class WidgetDict(CompositeWidget):
 
         # Add at least one additional element widget
         num_added = int(added_elements_widget.parse() or 1)
-        for i in range(num_added):
+        for _i in range(num_added):
             add_element()
 
         # Add submit to add more element widgets

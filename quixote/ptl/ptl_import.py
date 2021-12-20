@@ -34,7 +34,7 @@ class PTLPathFinder(PathFinder):
     def invalidate_caches(cls):
         for finder in list(cls.path_importer_cache.values()):
             if hasattr(finder, 'invalidate_caches'):
-                f = finder.invalidate_caches()
+                finder.invalidate_caches()
 
 
 def install():

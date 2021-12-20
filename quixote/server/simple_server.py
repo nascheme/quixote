@@ -36,7 +36,7 @@ class SockInheritHTTPServer(HTTPServer):
             try:
                 self.server_bind()
                 self.server_activate()
-            except:
+            except BaseException:
                 self.server_close()
                 raise
 
