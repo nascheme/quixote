@@ -102,7 +102,7 @@ class Directory(object, metaclass=DirectoryClass):
             # Fix missing trailing slash.
             path = quixote.get_path()
             print("Adding slash to: %r " % path)
-            return quixote.redirect(path + "/", permanent=True)
+            return quixote.redirect(path + "/")
         else:
             raise TraversalError(
                 private_msg=('directory %r is not ' 'callable' % self)
