@@ -39,10 +39,7 @@ ERROR_LOG = None
 
 # Controls what's done when uncaught exceptions occur.  If set to
 # 'plain', the traceback will be returned to the browser in addition
-# to being logged, If set to 'html' and the cgitb module is installed,
-# a more elaborate display will be returned to the browser, showing
-# the local variables and a few lines of context for each level of the
-# traceback.  If set to None, a generic error display, containing no
+# to being logged.  If set to None, a generic error display, containing no
 # information about the traceback, will be used.
 DISPLAY_EXCEPTIONS = None
 

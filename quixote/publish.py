@@ -4,7 +4,6 @@
 import sys, traceback, io
 import time
 import urllib.parse
-import cgitb
 
 from quixote.errors import (
     PublishError,
@@ -12,7 +11,6 @@ from quixote.errors import (
     format_publish_error,
     INTERNAL_ERROR_MESSAGE,
 )
-from quixote import util
 from quixote.config import Config
 from quixote.http_response import HTTPResponse
 from quixote.http_request import HTTPRequest
@@ -170,12 +168,6 @@ class Publisher:
             # secure (and cryptic) page.
             request.response.set_header("Content-Type", "text/html")
             user_error_msg = self._generate_internal_error(request)
-        elif self.config.display_exceptions == 'html':
-            # Generate a spiffy HTML display using cgitb
-            request.response.set_header("Content-Type", "text/html")
-            user_error_msg = self._generate_cgitb_error(
-                request, original_response, exc_type, exc_value, tb
-            )
         else:
             # Generate a plaintext page containing the traceback
             request.response.set_header("Content-Type", "text/plain")
@@ -203,28 +195,6 @@ class Publisher:
         error_file.write('\n')
         error_file.write(request.dump())
         error_file.write('\n')
-
-        return error_file.getvalue()
-
-    def _generate_cgitb_error(
-        self, request, original_response, exc_type, exc_value, tb
-    ):
-        # let cgitb.Hook have the type it wants...
-        error_file = io.StringIO()
-        hook = cgitb.Hook(file=error_file)
-        hook(exc_type, exc_value, tb)
-
-        byte_error_file = io.BytesIO()
-        byte_error_file.write(b'<h2>Original Request</h2>')
-        # dump_request returns an HTMLText object
-        s = str(util.dump_request(request))
-        byte_error_file.write(s.encode('latin-1', 'strict'))
-        byte_error_file.write(b'<h2>Original Response</h2><pre>')
-        original_response.write(byte_error_file)
-        byte_error_file.write(b'</pre>')
-        # Now we push the bytes to the "real" error file...
-        s = byte_error_file.getvalue().decode('latin-1')
-        error_file.write(s)
 
         return error_file.getvalue()
 
