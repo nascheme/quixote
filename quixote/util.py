@@ -45,7 +45,6 @@ elif hasattr(os, 'urandom'):
         """Return bytes of random data as a text string."""
         return _encode_base64(os.urandom(n))
 
-
 else:
     # give up, we used to try to provide a less secure version
     def randbytes(n=16):
@@ -185,6 +184,10 @@ class StaticFile:
         if not self.follow_symlinks and os.path.islink(self.path):
             raise errors.TraversalError(
                 private_msg="Path %r is a symlink" % self.path
+            )
+        if not os.path.isfile(self.path):
+            raise errors.TraversalError(
+                private_msg="Path %r is not a file" % self.path
             )
         request = quixote.get_request()
         response = quixote.get_response()
