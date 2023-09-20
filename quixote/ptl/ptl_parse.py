@@ -1,19 +1,23 @@
 """Parse a PTL template, return AST node.
 
-First template function names are mangled, noting the template type.
+First h-strings (F-strings that are to become htmltext) are marked.
 Next, the file is parsed into a parse tree.  This tree is converted into
 a modified AST.  It is during this state that the semantics are modified
 by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
-import re
+import sys
 import io
 import ast
 import tokenize
 
-# special marker for h-strings, cannot appear in source code literals
-HSTRING_MARKER = 'HSTRING\xa0\x00'
+# A special marker for h-strings, added as a prefix by token
+# translator. It is not allowed to appear in source code literals.
+# This is not so elegant but seems the simplist way to pass along the
+# information from the tokenizer to the AST that a string should be
+# htmltext.
+HSTRING_MARKER = '\x02HSTRING\x03'
 
 TEMPLATE_TYPES = {
     'ptl_html': 'html',
@@ -21,90 +25,80 @@ TEMPLATE_TYPES = {
 }
 
 
-def translate_defs(tokens):
-    # Rename the function name for html/plain templates.  The special names
-    # will be recognized by the AST transformer.
-    NAME = tokenize.NAME
-    OP = tokenize.OP
-    i = 0
-    while i < len(tokens):
-        tok = tokens[i]
-        if tok.type == NAME and tok.string == 'def':
-            if tokens[i + 2][:2] == (OP, '[') and tokens[i + 4][:2] == (
-                OP,
-                ']',
-            ):
-                name_tok = list(tokens[i + 1])
-                prefix = '_q_%s_template_' % tokens[i + 3].string
-                name_tok[1] = prefix + name_tok[1]
-                del tokens[i + 2 : i + 5]
-                tokens[i + 1] = tokenize.TokenInfo(*name_tok)
-        i += 1
+def _is_h_str_tok(tok):
+    """Return True if the token is a h-string (f-string as htmltext)."""
+    prefix = tok.string[:2]
+    return prefix in {'F"', "F'"}
 
 
 def translate_hstrings(tokens):
-    # Detect h-string literals.  They should up in the token stream
-    # as two tokens, e.g. h"foo":
-    #   NAME    'h'
-    #   STRING  '"foo"'
-    #
-    # We translate them to:
-    #
-    #   STRING f'"<HSTRING_PREFIX>foo"'
-    #
-    # The AST transformer will detect the prefix and wrap them in
-    # calls of htmltext().
-    STRING = tokenize.STRING
-    NAME = tokenize.NAME
+    # Find h-string literals and annotate them so that the AST transform
+    # can turn them into htmltext values.
+    if sys.hexversion > 0x30C0000:
+        FSTRING_START = tokenize.FSTRING_START
+        FSTRING_MIDDLE = tokenize.FSTRING_MIDDLE
+        FSTRING_END = tokenize.FSTRING_END
+    else:
+        FSTRING_START = None
+        FSTRING_MIDDLE = None
+        FSTRING_END = None
     i = 0
     while i < len(tokens):
         tok = tokens[i]
-        if tok.type == STRING:
+        if (
+            tok.type == FSTRING_START
+            and _is_h_str_tok(tokens[i])
+            and tokens[i + 1].type == FSTRING_END
+        ):
+            # Found a sequence of FSTRING_START FSTRING_END. In Python 3.12+,
+            # an empty f-string has no FSTRING_MIDDLE token. Since the code
+            # below requires a middle value, insert a token with an empty
+            # value.
+            new_tok = tokenize.TokenInfo(
+                FSTRING_MIDDLE, '', tok.end, tok.end, tok.line
+            )
+            tokens.insert(i + 1, new_tok)
+            assert tokens[i].type == FSTRING_START
+            assert tokens[i + 1].type == FSTRING_MIDDLE
+            assert tokens[i + 2].type == FSTRING_END
+        elif tok.type == FSTRING_MIDDLE and _is_h_str_tok(tokens[i - 1]):
+            # Handle Python 3.12+ F-strings.
+            if _has_str_marker(tok):
+                raise SyntaxError(
+                    'invalid str literal, cannot contain h-string marker'
+                )
+            # prefix string value with marker
+            tok_str = HSTRING_MARKER + tok.string
+            new_tok = tokenize.TokenInfo(
+                tok.type, tok_str, tok.start, tok.end, tok.line
+            )
+            # replace FSTRING_MIDDLE token with new token with prefixed value
+            tokens[i] = new_tok
+        elif tok.type == tokenize.STRING and _is_h_str_tok(tok):
+            # For Python < 3.12, h-strings show up as a STRING token.  The
+            # value of the token must start with F" or F'
             if i == 0:
                 i += 1
                 continue
-            need_dedent = False
-            prefix = tok.string[:2]
-            if prefix in {'F"', "F'"}:
-                # found a F-prefixed string
-                have_h_string = True
-                str_tok = list(tok)
-                s = tok[1][1:]  # string value with 'F' stripped
-            elif tokens[i - 1].type == NAME and tokens[i - 1].string == 'h':
-                # found a h-prefixed string
-                have_h_string = True
-                str_tok = list(tokens[i])
-                s = str_tok[1]
-                # h prefix is separate token, remove it
-                del tokens[i - 1]
-                i -= 1
-                need_dedent = True
-            else:
-                have_h_string = False
-            if have_h_string:
-                s = ast.literal_eval(s)
-                if HSTRING_MARKER in s:
-                    raise SyntaxError(
-                        'invalid str literal, cannot contain '
-                        'h-string marker, got %r' % s
-                    )
-                # prefix string with marker.  Putting the marker inside the
-                # string is not so elegant but it is an easy way to pass
-                # the annotation along to the AST transformer.  The check
-                # above ensures that no real string contains the marker.
-                s = HSTRING_MARKER + s
-                s = repr(s)
-                if '{' in s:
-                    # h-strings do f-string like evaluation, if the string
-                    # doesn't contain any f-string braces, just use a normal
-                    # string as that generates more efficient bytecode
-                    s = 'f' + s
-                str_tok[1] = s
-                if need_dedent:
-                    # deindent one character, we stripped (NAME 'h') token
-                    srow, scol = str_tok[2]
-                    str_tok[2] = (srow, scol - 1)
-                tokens[i] = tokenize.TokenInfo(*str_tok)
+            # found a F-prefixed string
+            str_tok = list(tok)
+            s = tok[1][1:]  # string value with 'F' stripped
+            s = ast.literal_eval(s)
+            if _has_str_marker(tok):
+                raise SyntaxError(
+                    'invalid str literal, cannot contain '
+                    'h-string marker, got %r' % s
+                )
+            # prefix the string value with the marker
+            s = HSTRING_MARKER + s
+            s = repr(s)
+            if '{' in s:
+                # h-strings do f-string like evaluation, if the string
+                # doesn't contain any f-string braces, just use a normal
+                # string as that generates more efficient bytecode
+                s = 'f' + s
+            str_tok[1] = s
+            tokens[i] = tokenize.TokenInfo(*str_tok)
         i += 1
 
 
@@ -114,11 +108,6 @@ def translate_source(buf, filename='<string>'):
     must do token translation here.  Luckily it does not affect line
     numbers.
 
-    def foo [plain] (...): -> def _q_plain_template__foo(...):
-
-    def foo [html] (...): -> def _q_html_template__foo(...):
-
-    h'foo' -> f'<HSTRING_PREFIX>foo'
     F'foo' -> f'<HSTRING_PREFIX>foo'
     """
     assert isinstance(buf, bytes)
@@ -129,17 +118,47 @@ def translate_source(buf, filename='<string>'):
         exc_type = type(exc)
         raise exc_type(str(exc), (filename, exc.lineno, exc.offset, exc.text))
     translate_hstrings(tokens)
-    translate_defs(tokens)
     ut = tokenize.Untokenizer()
     src = ut.untokenize(tokens)
     return ut.encoding, src
 
 
-def _is_str_node(n):
-    # Python 3.8 replaces Str with Constant
-    return isinstance(n, ast.Str) or (
-        isinstance(n, ast.Constant) and isinstance(n.value, str)
-    )
+if sys.hexversion > 0x30C0000:
+
+    def _is_str_node(n):
+        return isinstance(n, ast.Constant) and isinstance(n.value, str)
+
+    def _has_str_marker(n):
+        return _is_str_node(n) and HSTRING_MARKER in n.value
+
+    def _h_str_replace(n):
+        return ast.Constant(n.value.replace(HSTRING_MARKER, ''))
+
+    def _ast_const(value):
+        return ast.Constant(value)
+
+    def _ast_num(value):
+        return ast.Constant(value)
+
+else:
+
+    def _is_str_node(n):
+        # Python 3.8 replaces Str with Constant
+        return isinstance(n, ast.Str) or (
+            isinstance(n, ast.Constant) and isinstance(n.value, str)
+        )
+
+    def _has_str_marker(n):
+        return _is_str_node(n) and HSTRING_MARKER in n.s
+
+    def _h_str_replace(n):
+        return ast.Str(n.s.replace(HSTRING_MARKER, ''))
+
+    def _ast_const(value):
+        return ast.NameConstant(value)
+
+    def _ast_num(value):
+        return ast.Num(value)
 
 
 class TemplateTransformer(ast.NodeTransformer):
@@ -191,17 +210,11 @@ class TemplateTransformer(ast.NodeTransformer):
     def visit_FunctionDef(self, node):
         name = node.name
         template_type = None
-        # look for @html or @plain decorator
+        # look for @ptl_html or @ptl_plain decorator
         for dec in node.decorator_list:
             if isinstance(dec, ast.Name):
                 if dec.id in TEMPLATE_TYPES:
                     template_type = TEMPLATE_TYPES[dec.id]
-        if template_type is None:
-            # look for old-style [html] or [plain] annotation
-            m = re.match('_q_(html|plain)_template_(.*)', name)
-            if m:
-                template_type = m.group(1)
-                name = m.group(2)
         if template_type is None:
             self.__template_type.append(None)
             node = self.generic_visit(node)
@@ -212,7 +225,7 @@ class TemplateTransformer(ast.NodeTransformer):
 
             # _q_output = _q_TemplateIO(template_type == 'html')
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
-            arg = ast.NameConstant(template_type == 'html')
+            arg = _ast_const(template_type == 'html')
             instance = ast.Call(
                 func=klass,
                 args=[arg],
@@ -271,11 +284,11 @@ class TemplateTransformer(ast.NodeTransformer):
     def visit_Constant(self, node, html=False):
         if not _is_str_node(node):
             return node
-        if html or HSTRING_MARKER in node.s:
+        if html or _has_str_marker(node):
             # found h-string marker, remove it.  Note that marker can appear
             # within the string if there is a string continued over two lines
             # using backslash.
-            s = ast.Str(node.s.replace(HSTRING_MARKER, ''))
+            s = _h_str_replace(node)
             ast.copy_location(s, node)
             # wrap in call to _q_htmltext
             n = ast.Name(id='_q_htmltext', ctx=ast.Load())
@@ -295,7 +308,7 @@ class TemplateTransformer(ast.NodeTransformer):
         # In CPython, it is done with the BUILD_STRING opcode.  For
         # h-strings, we call quixote.html._q_join() instead.
         for v in node.values:
-            if _is_str_node(v) and HSTRING_MARKER in v.s:
+            if _has_str_marker(v):
                 break  # need to use _q_join()
         else:
             # none of the join arguments are htmltext, just use normal
@@ -327,7 +340,7 @@ class TemplateTransformer(ast.NodeTransformer):
         if not html:
             return node
         n = ast.Name(id='_q_format', ctx=ast.Load())
-        conversion = ast.copy_location(ast.Num(node.conversion), node)
+        conversion = ast.copy_location(_ast_num(node.conversion), node)
         args = [node.value]
         if node.format_spec is not None:
             args += [conversion, node.format_spec]
@@ -384,7 +397,7 @@ def main():
             buf = fp.read()
         tree = parse(buf, fn)
         if args.ast:
-            pprint(tree)
+            print(pprint(tree))
         if args.dis:
             co = compile(tree, fn, 'exec')
             dis.dis(co)

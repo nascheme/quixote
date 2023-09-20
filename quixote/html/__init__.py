@@ -9,7 +9,7 @@ on character sets, entities, attribute and values.
 htmltext and htmlescape
 -----------------------
 
-This type and function are meant to be used with [html] PTL template type.
+This type and function are meant to be used with HTML template type.
 The htmltext type designates data that does not need to be escaped and the
 htmlescape() function calls str() on the argment, escapes the resulting
 string and returns a htmltext instance.  htmlescape() does nothing to
