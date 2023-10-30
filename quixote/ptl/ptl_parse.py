@@ -7,9 +7,10 @@ by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
-import re
-import io
 import ast
+import io
+import re
+import sys
 import tokenize
 
 # special marker for h-strings, cannot appear in source code literals
@@ -135,11 +136,13 @@ def translate_source(buf, filename='<string>'):
     return ut.encoding, src
 
 
-def _is_str_node(n):
-    # Python 3.8 replaces Str with Constant
-    return isinstance(n, ast.Str) or (
-        isinstance(n, ast.Constant) and isinstance(n.value, str)
-    )
+# Python 3.8 replaces Str with Constant
+if sys.version_info > (3, 8):
+    def _is_str_node(n):
+        return isinstance(n, ast.Constant) and isinstance(n.value, str)
+else:
+    def _is_str_node(n):
+        return isinstance(n, ast.Str)
 
 
 class TemplateTransformer(ast.NodeTransformer):
@@ -211,8 +214,12 @@ class TemplateTransformer(ast.NodeTransformer):
             node = self.generic_visit(node)
 
             # _q_output = _q_TemplateIO(template_type == 'html')
+            use_constant = sys.version_info > (3, 8)
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
-            arg = ast.NameConstant(template_type == 'html')
+            if use_constant:
+                arg = ast.Constant(template_type == 'html')
+            else:
+                arg = ast.NameConstant(template_type == 'html')
             instance = ast.Call(
                 func=klass,
                 args=[arg],
@@ -228,7 +235,10 @@ class TemplateTransformer(ast.NodeTransformer):
             if docstring:
                 # Python 3.7 alpha adds a docstring attribute to FunctionDef
                 # bpo-29463: Add docstring field to some AST nodes. (#46)
-                docstring = ast.Expr(ast.Str(docstring))
+                if use_constant:
+                    docstring = ast.Expr(ast.Constant(docstring))
+                else:
+                    docstring = ast.Expr(ast.Str(docstring))
                 ast.copy_location(assign, docstring)
                 ast.fix_missing_locations(docstring)
                 node.body.insert(0, self.visit_Expr(docstring))
@@ -271,11 +281,16 @@ class TemplateTransformer(ast.NodeTransformer):
     def visit_Constant(self, node, html=False):
         if not _is_str_node(node):
             return node
-        if html or HSTRING_MARKER in node.s:
+        use_constant = sys.version_info > (3, 8)
+        if html or (use_constant and HSTRING_MARKER in node.value
+                    or not use_constant and HSTRING_MARKER in node.s):
             # found h-string marker, remove it.  Note that marker can appear
             # within the string if there is a string continued over two lines
             # using backslash.
-            s = ast.Str(node.s.replace(HSTRING_MARKER, ''))
+            if use_constant:
+                s = ast.Constant(node.value.replace(HSTRING_MARKER, ''))
+            else:
+                s = ast.Str(node.s.replace(HSTRING_MARKER, ''))
             ast.copy_location(s, node)
             # wrap in call to _q_htmltext
             n = ast.Name(id='_q_htmltext', ctx=ast.Load())
@@ -327,7 +342,10 @@ class TemplateTransformer(ast.NodeTransformer):
         if not html:
             return node
         n = ast.Name(id='_q_format', ctx=ast.Load())
-        conversion = ast.copy_location(ast.Num(node.conversion), node)
+        if sys.version_info > (3, 8):
+            conversion = ast.copy_location(ast.Constant(node.conversion), node)
+        else:
+            conversion = ast.copy_location(ast.Num(node.conversion), node)
         args = [node.value]
         if node.format_spec is not None:
             args += [conversion, node.format_spec]
