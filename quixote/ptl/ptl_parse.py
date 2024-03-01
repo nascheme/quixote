@@ -31,23 +31,30 @@ def _is_h_str_tok(tok):
     return prefix in {'F"', "F'"}
 
 
-def translate_hstrings(tokens):
-    # Find h-string literals and annotate them so that the AST transform
-    # can turn them into htmltext values.
-    if sys.hexversion > 0x30C0000:
-        FSTRING_START = tokenize.FSTRING_START
-        FSTRING_MIDDLE = tokenize.FSTRING_MIDDLE
-        FSTRING_END = tokenize.FSTRING_END
-    else:
-        FSTRING_START = None
-        FSTRING_MIDDLE = None
-        FSTRING_END = None
+def _translate_hstrings_lexical(tokens):
+    """Find h-string literals and annotate them so that the AST transform
+    can turn them into htmltext values.
+    """
+    # This version handles Python >= 3.12, post PEP 701.
+
+    FSTRING_START = tokenize.FSTRING_START
+    FSTRING_MIDDLE = tokenize.FSTRING_MIDDLE
+    FSTRING_END = tokenize.FSTRING_END
+
+    # A stack to track if we are currently inside of a h-string.  Since
+    # f-strings can be nested, this needs to be a stack and not just a
+    # boolean.
+    in_h_string = [False]
     i = 0
     while i < len(tokens):
         tok = tokens[i]
+        if tok.type == FSTRING_START:
+            in_h_string.append(_is_h_str_tok(tokens[i]))
+        elif tok.type == FSTRING_END:
+            in_h_string.pop()
         if (
             tok.type == FSTRING_START
-            and _is_h_str_tok(tokens[i])
+            and in_h_string[-1]
             and tokens[i + 1].type == FSTRING_END
         ):
             # Found a sequence of FSTRING_START FSTRING_END. In Python 3.12+,
@@ -61,7 +68,7 @@ def translate_hstrings(tokens):
             assert tokens[i].type == FSTRING_START
             assert tokens[i + 1].type == FSTRING_MIDDLE
             assert tokens[i + 2].type == FSTRING_END
-        elif tok.type == FSTRING_MIDDLE and _is_h_str_tok(tokens[i - 1]):
+        elif tok.type == FSTRING_MIDDLE and in_h_string[-1]:
             # Handle Python 3.12+ F-strings.
             if _has_str_marker(tok):
                 raise SyntaxError(
@@ -74,7 +81,18 @@ def translate_hstrings(tokens):
             )
             # replace FSTRING_MIDDLE token with new token with prefixed value
             tokens[i] = new_tok
-        elif tok.type == tokenize.STRING and _is_h_str_tok(tok):
+        i += 1
+
+
+def _translate_hstrings_tokenized(tokens):
+    """Find h-string literals and annotate them so that the AST transform
+    can turn them into htmltext values.
+    """
+    # This version handles Python < 3.12, pre PEP 701.
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok.type == tokenize.STRING and _is_h_str_tok(tok):
             # For Python < 3.12, h-strings show up as a STRING token.  The
             # value of the token must start with F" or F'
             if i == 0:
@@ -100,6 +118,12 @@ def translate_hstrings(tokens):
             str_tok[1] = s
             tokens[i] = tokenize.TokenInfo(*str_tok)
         i += 1
+
+
+if sys.hexversion > 0x30C0000:
+    translate_hstrings = _translate_hstrings_lexical
+else:
+    translate_hstrings = _translate_hstrings_tokenized
 
 
 def translate_source(buf, filename='<string>'):
