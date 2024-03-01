@@ -9,6 +9,10 @@ def run_ptl(*source):
     Compile the given lines of source code using the ptl compiler
     and run the resulting compiled code.
     """
+    source = [
+        'from quixote.html import htmltext',
+        'from quixote.ptl import ptl_plain, ptl_html',
+    ] + list(source)
     # When the ptl compiler compiles a module, it places _q_TemplateIO
     # and _q_htmltext into the globals of the module.  Here, we don't
     # have a module, but we provide these same globals for eval.
@@ -25,8 +29,6 @@ def run_ptl(*source):
 
 def test_html():
     run_ptl(
-        'from quixote.html import htmltext',
-        'from quixote.ptl import ptl_html',
         '@ptl_html',
         'def f(a):',
         '    F"&"',
@@ -40,8 +42,6 @@ def test_html():
 
 def test_plain():
     run_ptl(
-        'from quixote.html import htmltext',
-        'from quixote.ptl import ptl_plain',
         '@ptl_plain',
         'def f(a):',
         '    "&"',
@@ -56,14 +56,30 @@ def test_plain():
 
 def test_fstring():
     run_ptl(
-        'from quixote.html import htmltext',
-        'from quixote.ptl import ptl_html',
         '@ptl_html',
         'def f(a):',
         '    F"x{a}"',
         'assert type(f(1)) == htmltext',
         'assert f("&") == "x&amp;"',
         'assert f(htmltext("&")) == "x&"',
+    )
+
+
+def test_fstring_suffix():
+    run_ptl(
+        '@ptl_html',
+        'def f(a):',
+        '    F"{a}<br />"',
+        'assert f("foo") == "foo<br />"',
+    )
+
+
+def test_fstring_nested():
+    run_ptl(
+        '@ptl_html',
+        'def f():',
+        '    F"{F\'<br />\'}"',
+        'assert f() == "<br />"',
     )
 
 
