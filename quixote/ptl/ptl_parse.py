@@ -55,19 +55,21 @@ def _translate_hstrings_lexical(tokens):
         if (
             tok.type == FSTRING_START
             and in_h_string[-1]
-            and tokens[i + 1].type == FSTRING_END
+            and tokens[i + 1].type != FSTRING_MIDDLE
         ):
-            # Found a sequence of FSTRING_START FSTRING_END. In Python 3.12+,
-            # an empty f-string has no FSTRING_MIDDLE token. Since the code
-            # below requires a middle value, insert a token with an empty
-            # value.
+            # Ensure there is always a FSTRING_MIDDLE token following the
+            # FSTRING_START token.  In Python >= 3.12+, an empty f-string
+            # has no FSTRING_MIDDLE token.  Also, in the case of nested
+            # f-strings, there might be no middle token. Since the code below
+            # requires a middle value in order to mark the string as an
+            # h-string, insert a middle token with an empty value and the
+            # h-string marker.
             new_tok = tokenize.TokenInfo(
                 FSTRING_MIDDLE, '', tok.end, tok.end, tok.line
             )
             tokens.insert(i + 1, new_tok)
             assert tokens[i].type == FSTRING_START
             assert tokens[i + 1].type == FSTRING_MIDDLE
-            assert tokens[i + 2].type == FSTRING_END
         elif tok.type == FSTRING_MIDDLE and in_h_string[-1]:
             # Handle Python 3.12+ F-strings.
             if _has_str_marker(tok):
@@ -344,6 +346,11 @@ class TemplateTransformer(ast.NodeTransformer):
             if isinstance(v, ast.FormattedValue):
                 v = self.visit_FormattedValue(v, html=True)
             elif _is_str_node(v):
+                if v.value == HSTRING_MARKER:
+                    # The translate_hstrings() function can insert empty
+                    # strings into the values list.  Discard them here as
+                    # a small performance optimization.
+                    continue
                 v = self.visit_Constant(v, html=True)
             else:
                 v = self.generic_visit(v)
