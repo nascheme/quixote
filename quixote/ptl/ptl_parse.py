@@ -252,13 +252,7 @@ class TemplateTransformer(ast.NodeTransformer):
             # _q_output = _q_TemplateIO(template_type == 'html')
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
             arg = _ast_const(template_type == 'html')
-            instance = ast.Call(
-                func=klass,
-                args=[arg],
-                keywords=[],
-                starargs=None,
-                kwargs=None,
-            )
+            instance = ast.Call(func=klass, args=[arg], keywords=[])
             assign_name = ast.Name(id='_q_output', ctx=ast.Store())
             assign = ast.Assign(targets=[assign_name], value=instance)
             ast.copy_location(assign, node)
@@ -277,9 +271,7 @@ class TemplateTransformer(ast.NodeTransformer):
             # return _q_output.getvalue()
             n = ast.Name(id='_q_output', ctx=ast.Load())
             n = ast.Attribute(value=n, attr='getvalue', ctx=ast.Load())
-            n = ast.Call(
-                func=n, args=[], keywords=[], starargs=None, kwargs=None
-            )
+            n = ast.Call(func=n, args=[], keywords=[])
             ret = ast.Return(value=n)
             ast.copy_location(ret, node.body[-1])
             ast.fix_missing_locations(ret)
@@ -295,13 +287,7 @@ class TemplateTransformer(ast.NodeTransformer):
             # stack, call _q_output(obj).
             name = ast.Name(id='_q_output', ctx=ast.Load())
             ast.copy_location(name, node)
-            call = ast.Call(
-                func=name,
-                args=[node.value],
-                keywords=[],
-                starargs=None,
-                kwargs=None,
-            )
+            call = ast.Call(func=name, args=[node.value], keywords=[])
             ast.copy_location(call, node)
             expr = ast.Expr(call)
             return ast.copy_location(expr, node)
@@ -319,9 +305,7 @@ class TemplateTransformer(ast.NodeTransformer):
             # wrap in call to _q_htmltext
             n = ast.Name(id='_q_htmltext', ctx=ast.Load())
             ast.copy_location(n, node)
-            n = ast.Call(
-                func=n, args=[s], keywords=[], starargs=None, kwargs=None
-            )
+            n = ast.Call(func=n, args=[s], keywords=[])
             return ast.copy_location(n, node)
         return node
 
@@ -356,9 +340,7 @@ class TemplateTransformer(ast.NodeTransformer):
                 v = self.generic_visit(v)
             values.append(v)
         n = ast.Name(id='_q_join', ctx=ast.Load())
-        n = ast.Call(
-            func=n, args=values, keywords=[], starargs=None, kwargs=None
-        )
+        n = ast.Call(func=n, args=values, keywords=[])
         ast.copy_location(n, node)
         ast.fix_missing_locations(n)
         return n
@@ -377,9 +359,7 @@ class TemplateTransformer(ast.NodeTransformer):
             args += [conversion, node.format_spec]
         elif node.conversion != -1:
             args += [conversion]
-        n = ast.Call(
-            func=n, args=args, keywords=[], starargs=None, kwargs=None
-        )
+        n = ast.Call(func=n, args=args, keywords=[])
         ast.copy_location(n, node)
         ast.fix_missing_locations(n)
         return n
