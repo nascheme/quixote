@@ -647,10 +647,9 @@ template_io_str(TemplateIO_Object *self)
 static PyObject *
 template_call(TemplateIO_Object *self, PyObject *args, PyObject *kw)
 {
+    char *kwlist[] = {"o", NULL};
     PyObject *obj, *s;
-    if (!_PyArg_NoKeywords("TemplateIO", kw))
-        return NULL;
-    if (!PyArg_UnpackTuple(args, "TemplateIO", 1, 1, &obj))
+    if (PyArg_ParseTupleAndKeywords(args, kw, "O", kwlist, &obj) == 0)
         return NULL;
     if (obj == Py_None) {
             Py_INCREF(obj);
