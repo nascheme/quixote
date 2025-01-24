@@ -3,8 +3,7 @@
 A small and flexible Python web application framework.
 """
 
-# Should match setup.py VERSION
-__version__ = '3.6'
+from quixote._version import __version__  # noqa: F401
 
 # These are frequently needed by Quixote applications.
 from quixote.publish import (  # noqa: F401

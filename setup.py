@@ -5,8 +5,8 @@
 import sys
 from setuptools import setup, Extension
 
-# Should match quixote.__version__.
-VERSION = '3.6'
+__version__ = ''
+exec(open("quixote/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\
 Quixote is a framework for developing Web applications in Python.
@@ -23,7 +23,7 @@ htmltext = Extension(
 
 kw = {
     'name': "Quixote",
-    'version': VERSION,
+    'version': __version__,
     'description': "A small and flexible Python Web application framework",
     'long_description': LONG_DESC,
     'author': "The Quixote developers",
