@@ -27,8 +27,8 @@ kw = {
     'description': "A small and flexible Python Web application framework",
     'long_description': LONG_DESC,
     'author': "The Quixote developers",
-    'author_email': "webmaster@quixote.ca",
-    'url': "http://www.quixote.ca/",
+    'author_email': "nas-quixote@arctrix.com",
+    'url': "https://github.com/nascheme/quixote",
     'license': "DFSG approved (see LICENSE.txt)",
     'package_dir': {'quixote': 'quixote'},
     'packages': [
@@ -40,7 +40,7 @@ kw = {
         'quixote.server',
     ],
     'ext_modules': [],
-    'python_requires': '>=3.6',
+    'python_requires': '>=3.8',
     #'cmdclass': {'build_py': qx_build_py},
 }
 
@@ -61,10 +61,6 @@ kw['classifiers'] = [
     'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     'Programming Language :: Python :: 3 :: Only',
 ]
-kw['download_url'] = (
-    'http://quixote.ca/releases/' 'Quixote-%s.tar.gz' % kw['version']
-)
-kw['url'] = 'http://www.quixote.ca/'
 kw['platforms'] = 'Most'
 
 setup(**kw)
