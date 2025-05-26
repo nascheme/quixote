@@ -2,14 +2,14 @@ import os
 from quixote import get_response
 from quixote.ptl import ptl_html
 from quixote.directory import Directory, Resolving
-from quixote.util import StaticDirectory
+from quixote.util import StaticDirectory, StaticBundle
 from quixote.demo.integers import IntegerUI
 from quixote.http_response import Stream
 
 
 class ExtraDirectory(Resolving, Directory):
 
-    _q_exports = ["", "form", "src", "chunked"]
+    _q_exports = ["", "form", "src", "chunked", "bundle", "bundle_data"]
 
     @ptl_html
     def _q_index(self):
@@ -29,6 +29,8 @@ class ExtraDirectory(Resolving, Directory):
                 A Quixote form in action.
             <li><a href="src/">src/</a>:
                 A static directory published through Quixote.
+            <li><a href="bundle">bundle</a>:
+                Demo of the quixote.util.StaticBundle class.
             <li><a href="chunked">chunked</a>:
                 A page on indeterminate length using chunked transfer
                 encoding.
@@ -65,3 +67,22 @@ class ExtraDirectory(Resolving, Directory):
     src = StaticDirectory(
         os.path.dirname(quixote.__file__), list_directory=True
     )
+
+    bundle_data = StaticBundle(os.path.dirname(quixote.__file__))
+
+    @ptl_html
+    def bundle(self):
+        code_path = self.bundle_data.make_path('errors.py', 'session.py')
+        errors_path = self.bundle_data.make_path('errors.py')
+        F"""
+        <html>
+        <body>
+        Demo of the StaticBundle() class.
+        <ul style="max-width: 40em">
+          <li>Source code for only <a href="bundle_data/errors.py">errors.py</a>.  Note this does
+          not include a "cache busting" token since <tt>make_path()</tt> was not used.
+          <li>Source code for <a href="bundle_data{errors_path}">errors.py</a> with token.
+          <li>Concatenated code for <a href="bundle_data{code_path}">errors.py and session.py</a>.
+        </body>
+        </html>
+        """
