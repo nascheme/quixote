@@ -38,4 +38,15 @@ def enable_ptl():
     that, if you use ZODB, you must import ZODB before calling this
     function.
     """
-    import quixote.ptl.install  # noqa: F401
+    from quixote.ptl.ptl_import import install
+
+    install()
+
+
+def enable_ptl_imports():
+    """Enable import hooks for PTL modules.  This allows modules with the .ptl
+    extension or with the "ptl: enable" comment to be imported as PTL.
+    """
+    from quixote.ptl.ptl_import import install_for_py
+
+    install_for_py()

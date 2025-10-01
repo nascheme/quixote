@@ -242,6 +242,15 @@ this::
     def f():
         return numbers(10)
 
+There is also an option to import PTL templates stored with the .py file
+extension, by using a variation of the import hook.  The following code will
+allow PTL to imported from either .py or .ptl files.  If the .py extension is
+used, the following comment must appear near the start of the file, in order
+to mark it as PTL: ``# ptl: enable``.
+
+    from quixote import enable_ptl_imports
+    enable_ptl_imports()
+
 You may want to keep this little function in your ``PYTHONSTARTUP``
 file::
 
