@@ -2,3 +2,12 @@
 skip-string-normalization = true
 line-length = 78
 include = '\.ptl$'
+
+[tool.ruff]
+line-length = 78
+
+[tool.ruff.lint]
+ignore = ["E401"]
+
+[tool.ruff.lint.per-file-ignores]
+"*.ptl" = ["F541", "B021"]

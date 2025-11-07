@@ -1,0 +1,22 @@
+repos:
+-   repo: local
+    hooks:
+    - id: black
+      name: black
+      entry: black
+      language: system
+      files: '\.(py|ptl)$'
+      args: [--check, --fast]
+      require_serial: true
+    - id: ruff
+      name: ruff
+      description: "Run 'ruff' for extremely fast Python linting"
+      language: system
+      entry: python3
+      args: [-m, ruff, check]
+      files: '\.(py|ptl)$'
+      require_serial: true
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.2.3
+    hooks:
+    - id: check-merge-conflict
