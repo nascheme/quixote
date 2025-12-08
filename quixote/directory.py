@@ -1,7 +1,18 @@
 """Logic for traversing directory objects and generating output.
 """
+
 import quixote
 from quixote.errors import TraversalError
+
+
+# Emit warning on automatic redirects when a trailing slash on the URL would
+# have avoided the redirect.  The redirect requires another round-trip between
+# the browser and the server.  So while writing URLs in the application code
+# it's better to include the slash when needed, rather than rely on the
+# automatic redirect.  For URLs entered by humans, it's common for them to
+# omit the slash.  This gets turned on when DISPLAY_EXCEPTIONS true in order
+# to avoid log file noise in production setups.
+WARN_TRAILING_SLASH = False
 
 
 class DirectoryClass(type):
@@ -101,7 +112,8 @@ class Directory(object, metaclass=DirectoryClass):
         if "" in self._q_exports and not quixote.get_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
-            print("Adding slash to: %r " % path)
+            if WARN_TRAILING_SLASH:
+                print("Adding slash to: %r " % path)
             return quixote.redirect(path + "/")
         else:
             raise TraversalError(

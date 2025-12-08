@@ -15,6 +15,7 @@ from quixote.config import Config
 from quixote.http_response import HTTPResponse
 from quixote.http_request import HTTPRequest
 from quixote.logger import DefaultLogger
+import quixote.directory as _directory
 
 
 class Publisher:
@@ -80,6 +81,10 @@ class Publisher:
             from quixote.session import NullSessionManager
 
             self.session_manager = NullSessionManager()
+
+        if self.config.display_exceptions:
+            # Assume we are in "dev" mode and enable this warning.
+            _directory.WARN_TRAILING_SLASH = True
 
         if _publisher is not None:
             raise RuntimeError("only one instance of Publisher allowed")
