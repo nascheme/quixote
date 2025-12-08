@@ -2,6 +2,8 @@
 
 Tools for sending mail from Quixote applications.
 """
+
+import datetime
 import email.utils
 from email.header import Header
 from smtplib import SMTP
@@ -247,6 +249,7 @@ def sendmail(
     headers = [
         "From: %s" % from_addr.format(),
         "Subject: %s" % _encode_header(subject),
+        "Date: %s" % email.utils.format_datetime(datetime.datetime.now()),
     ]
     _add_recip_headers(headers, "To", to_addrs)
     if cc_addrs:
