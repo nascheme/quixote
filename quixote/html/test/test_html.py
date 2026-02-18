@@ -2,6 +2,13 @@ from quixote.html import _py_htmltext
 from quixote.html import href, url_with_query, url_quote, nl2br
 from quixote.test.utest import UTest
 
+try:
+    from string.templatelib import Interpolation, Template
+
+    _HAVE_T_STRING = True
+except ImportError:
+    _HAVE_T_STRING = False
+
 markupchars = '<>&"'
 quotedchars = '&lt;&gt;&amp;&quot;'
 unicodechars = '\u1234'
@@ -36,7 +43,7 @@ class Broken:
         raise BrokenError('eieee')
 
 
-htmltext = escape = htmlescape = TemplateIO = None
+htmltext = escape = htmlescape = TemplateIO = htmlformat = None
 
 
 class HTMLTest(UTest):
@@ -79,7 +86,7 @@ class HTMLTextTest(UTest):
         assert escape(markupchars) == quotedchars
         assert escape(unicodechars) == unicodechars
         assert escape(high_code) == high_code
-        assert type(escape(markupchars)) == type(markupchars)
+        assert type(escape(markupchars)) is type(markupchars)
         assert isinstance(escape(markupchars), str)
         assert htmlescape(htmlescape(markupchars)) == quotedchars
 
@@ -381,6 +388,102 @@ class TemplateTest(UTest):
         assert str(t) == "abcd"
 
 
+if _HAVE_T_STRING:
+
+    def _interp(value, format_spec=""):
+        """Helper to create an Interpolation with no conversion."""
+        return Interpolation(value, "value", None, format_spec)
+
+    class HTMLFormatTest(UTest):
+        def check_basic_literal(self):
+            # t-string with no interpolations
+            t = Template("hello")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "hello"
+
+        def check_literal_with_markup(self):
+            # literal parts are trusted (not escaped)
+            t = Template("<b>bold</b>")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "<b>bold</b>"
+
+        def check_string_interpolation_escaped(self):
+            # str values must be escaped
+            t = Template("hello ", _interp(markupchars), " world")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "hello " + quotedchars + " world"
+
+        def check_htmltext_interpolation_not_escaped(self):
+            # htmltext values pass through without escaping
+            safe = htmltext("<b>bold</b>")
+            t = Template("hello ", _interp(safe), " world")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "hello <b>bold</b> world"
+
+        def check_int_interpolation(self):
+            t = Template("count: ", _interp(42), "")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "count: 42"
+
+        def check_float_interpolation(self):
+            t = Template("val: ", _interp(3.14), "")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "val: 3.14"
+
+        def check_format_spec(self):
+            t = Template("val: ", _interp(3.14159, ".2f"), "")
+            result = htmlformat(t)
+            assert str(result) == "val: 3.14"
+
+        def check_object_interpolation_escaped(self):
+            # non-htmltext objects get str() then escaped
+            t = Template("", _interp(Wrapper(markupchars)), "")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == quotedchars
+
+        def check_conversion_raises(self):
+            # conversion is not supported
+            interp = Interpolation("foo", "value", "s", "")
+            t = Template("", interp, "")
+            try:
+                htmlformat(t)
+                assert 0
+            except ValueError:
+                pass
+
+        def check_non_template_raises(self):
+            try:
+                htmlformat("not a template")
+                assert 0
+            except TypeError:
+                pass
+
+        def check_empty_template(self):
+            t = Template("")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == ""
+
+        def check_multiple_interpolations(self):
+            t = Template(
+                "<p>",
+                _interp("a&b"),
+                " and ",
+                _interp(htmltext("<em>safe</em>")),
+                "</p>",
+            )
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "<p>a&amp;b and <em>safe</em></p>"
+
+
 try:
     from quixote.html import _c_htmltext
 except ImportError:
@@ -388,19 +491,23 @@ except ImportError:
 
 
 def setup_py():
-    global htmltext, escape, htmlescape, TemplateIO
+    global htmltext, escape, htmlescape, TemplateIO, htmlformat
     htmltext = _py_htmltext.htmltext
     escape = _py_htmltext._escape_string
     htmlescape = _py_htmltext.htmlescape
     TemplateIO = _py_htmltext.TemplateIO
+    if _HAVE_T_STRING:
+        htmlformat = _py_htmltext.htmlformat
 
 
 def setup_c():
-    global htmltext, escape, htmlescape, TemplateIO
+    global htmltext, escape, htmlescape, TemplateIO, htmlformat
     htmltext = _c_htmltext.htmltext
     escape = _c_htmltext._escape_string
     htmlescape = _c_htmltext.htmlescape
     TemplateIO = _c_htmltext.TemplateIO
+    if _HAVE_T_STRING:
+        htmlformat = _c_htmltext.htmlformat
 
 
 def test_all():
@@ -408,11 +515,15 @@ def test_all():
     HTMLTest()
     HTMLTextTest()
     TemplateTest()
+    if _HAVE_T_STRING:
+        HTMLFormatTest()
     if _c_htmltext:
         setup_c()
         HTMLTest()
         HTMLTextTest()
         TemplateTest()
+        if _HAVE_T_STRING:
+            HTMLFormatTest()
 
 
 if __name__ == "__main__":

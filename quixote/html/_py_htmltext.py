@@ -2,6 +2,15 @@
 TemplateIO.
 """
 
+from typing import Any
+
+try:
+    from string.templatelib import Interpolation, Template
+
+    _HAVE_T_STRING = True
+except ImportError:
+    _HAVE_T_STRING = False
+
 
 def _escape_string(s):
     if isinstance(s, bytes):
@@ -220,3 +229,30 @@ class TemplateIO(object):
             return htmltext('').join(map(htmlescape, self.data))
         else:
             return ''.join(map(str, self.data))
+
+
+if _HAVE_T_STRING:
+
+    def htmlformat(template: Template) -> htmltext:
+        """Format htmltext using a t-string as input."""
+        if not isinstance(template, Template):
+            raise TypeError(f'require t-string, got {template!r}')
+        if (
+            not template.values
+            and not template.interpolations
+            and len(template.strings) == 1
+        ):
+            return htmltext(template.strings[0])
+        parts: list[Any] = []
+        for item in template:
+            match item:
+                case str() as s:
+                    parts.append(s)
+                case Interpolation(value, _, conversion, format_spec):
+                    if conversion is not None:
+                        raise ValueError(
+                            'conversion not supported for htmlformat'
+                        )
+                    value = format(_wraparg(value), format_spec)
+                    parts.append(value)
+        return htmltext("".join(parts))

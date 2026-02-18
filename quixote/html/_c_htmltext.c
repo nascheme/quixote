@@ -899,6 +899,168 @@ static PyTypeObject TemplateIO_Type = {
 
 /* --------------------------------------------------------------------- */
 
+#if PY_VERSION_HEX >= 0x030E0000
+static PyObject *
+html_format(PyObject *self, PyObject *template)
+{
+	static PyObject *Template_type = NULL;
+	static PyObject *Interpolation_type = NULL;
+	PyObject *iter = NULL;
+	PyObject *item = NULL;
+	PyObject *parts = NULL;
+	PyObject *result = NULL;
+
+	if (Template_type == NULL) {
+		PyObject *templatelib;
+		templatelib = PyImport_ImportModule("string.templatelib");
+		if (templatelib == NULL)
+			return NULL;
+		Template_type = PyObject_GetAttrString(templatelib, "Template");
+		Interpolation_type = PyObject_GetAttrString(templatelib,
+							    "Interpolation");
+		Py_DECREF(templatelib);
+		if (Template_type == NULL || Interpolation_type == NULL) {
+			Py_CLEAR(Template_type);
+			Py_CLEAR(Interpolation_type);
+			return NULL;
+		}
+	}
+
+	/* Check that template is a Template instance */
+	if (!PyObject_IsInstance(template, Template_type)) {
+		PyErr_Format(PyExc_TypeError,
+			     "require t-string, got %R", template);
+		goto error;
+	}
+
+	/* Fast path: if the template has no interpolations and no values,
+	 * and has a single string, just wrap it directly as htmltext.
+	 * This is the common case for htmlformat(t'foo'). */
+	{
+		PyObject *values = PyObject_GetAttrString(template, "values");
+		if (values == NULL)
+			goto error;
+		Py_ssize_t nvalues = PySequence_Size(values);
+		Py_DECREF(values);
+		if (nvalues == 0) {
+			PyObject *interps = PyObject_GetAttrString(template,
+							"interpolations");
+			if (interps == NULL)
+				goto error;
+			Py_ssize_t ninterps = PySequence_Size(interps);
+			Py_DECREF(interps);
+			if (ninterps == 0) {
+				PyObject *strings = PyObject_GetAttrString(
+							template, "strings");
+				if (strings == NULL)
+					goto error;
+				Py_ssize_t nstrings = PySequence_Size(strings);
+				if (nstrings == 1) {
+					PyObject *s = PySequence_GetItem(
+								strings, 0);
+					Py_DECREF(strings);
+					if (s == NULL)
+						goto error;
+					return htmltext_from_string(s);
+				}
+				Py_DECREF(strings);
+			}
+		}
+	}
+
+	parts = PyList_New(0);
+	if (parts == NULL)
+		goto error;
+
+	iter = PyObject_GetIter(template);
+	if (iter == NULL)
+		goto error;
+
+	while ((item = PyIter_Next(iter)) != NULL) {
+		if (PyUnicode_Check(item)) {
+			/* Literal string part: append as-is */
+			if (PyList_Append(parts, item) < 0) {
+				Py_DECREF(item);
+				goto error;
+			}
+		}
+		else if (PyObject_IsInstance(item, Interpolation_type)) {
+			PyObject *value = NULL;
+			PyObject *conversion = NULL;
+			PyObject *format_spec = NULL;
+			PyObject *wrapped = NULL;
+			PyObject *formatted = NULL;
+
+			value = PyObject_GetAttrString(item, "value");
+			if (value == NULL) {
+				Py_DECREF(item);
+				goto error;
+			}
+
+			conversion = PyObject_GetAttrString(item, "conversion");
+			if (conversion == NULL) {
+				Py_DECREF(value);
+				Py_DECREF(item);
+				goto error;
+			}
+			if (conversion != Py_None) {
+				PyErr_SetString(PyExc_ValueError,
+					"conversion not supported for htmlformat");
+				Py_DECREF(conversion);
+				Py_DECREF(value);
+				Py_DECREF(item);
+				goto error;
+			}
+			Py_DECREF(conversion);
+
+			format_spec = PyObject_GetAttrString(item, "format_spec");
+			if (format_spec == NULL) {
+				Py_DECREF(value);
+				Py_DECREF(item);
+				goto error;
+			}
+
+			wrapped = quote_wrapper_new(value);
+			Py_DECREF(value);
+			if (wrapped == NULL) {
+				Py_DECREF(format_spec);
+				Py_DECREF(item);
+				goto error;
+			}
+
+			formatted = PyObject_Format(wrapped, format_spec);
+			Py_DECREF(wrapped);
+			Py_DECREF(format_spec);
+			if (formatted == NULL) {
+				Py_DECREF(item);
+				goto error;
+			}
+
+			if (PyList_Append(parts, formatted) < 0) {
+				Py_DECREF(formatted);
+				Py_DECREF(item);
+				goto error;
+			}
+			Py_DECREF(formatted);
+		}
+		Py_DECREF(item);
+	}
+	if (PyErr_Occurred())
+		goto error;
+
+	/* Join parts and wrap result with htmltext */
+	result = PyUnicode_Join(PyUnicode_FromStringAndSize("", 0), parts);
+	Py_DECREF(parts);
+	Py_DECREF(iter);
+	return htmltext_from_string(result);
+
+error:
+	Py_XDECREF(parts);
+	Py_XDECREF(iter);
+	return NULL;
+}
+#endif /* PY_VERSION_HEX >= 0x030E0000 */
+
 static PyObject *
 html_escape(PyObject *self, PyObject *o)
 {
@@ -935,6 +1097,9 @@ static PyMethodDef htmltext_module_methods[] = {
 	{"htmlescape",		(PyCFunction)html_escape, METH_O},
 	{"_escape_string",	(PyCFunction)py_escape_string, METH_O},
 	{"stringify",	        (PyCFunction)py_stringify, METH_O},
+#if PY_VERSION_HEX >= 0x030E0000
+	{"htmlformat",		(PyCFunction)html_format, METH_O},
+#endif
 	{NULL,			NULL}
 };
 

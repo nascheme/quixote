@@ -43,15 +43,17 @@ import urllib.request, urllib.parse, urllib.error
 try:
     # faster C implementation
     from quixote.html._c_htmltext import (
-        htmltext,
         htmlescape,
+        htmlformat,
+        htmltext,
         stringify,
         TemplateIO,
     )
 except ImportError:
     from quixote.html._py_htmltext import (  # noqa: F401
-        htmltext,
         htmlescape,
+        htmlformat,
+        htmltext,
         stringify,
         TemplateIO,
     )
@@ -66,7 +68,7 @@ def htmltag(tag, xml_end=False, css_class=None, **attrs):
     r = ["<%s" % tag]
     if css_class is not None:
         attrs['class'] = css_class
-    for (attr, val) in attrs.items():
+    for attr, val in attrs.items():
         if val is ValuelessAttr:
             val = attr
         if val is not None:
@@ -190,3 +192,7 @@ def js_escape(s):
     # assume the sequence occurs inside a string, use backslash escape
     s = stringify(s)
     return htmltext(_ETAGO_PAT.sub(r'<\/', s))
+
+
+def htmltemplate() -> TemplateIO:
+    return TemplateIO(html=True)
