@@ -1,0 +1,177 @@
+HTML Templating with T-Strings
+===============================
+
+Introduction
+------------
+
+Python 3.14 introduced t-strings (PEP 750), a new string prefix that
+creates ``Template`` objects instead of performing immediate string
+interpolation.  Quixote provides the ``htmlformat()`` function which
+takes a t-string and returns an ``htmltext`` instance with automatic
+HTML escaping of interpolated values.
+
+This approach provides the same safety benefits as PTL's HTML templates
+(see ``doc/PTL.txt``) but uses standard Python syntax -- no import hook
+or ``.ptl`` file extension is needed.
+
+
+Basic Usage
+-----------
+
+The ``htmlformat()`` function is typically imported with the short alias
+``H``::
+
+    from quixote.html import htmlformat as H
+
+It accepts a t-string (prefixed with ``t``) and returns ``htmltext``.
+The literal parts of the t-string are treated as trusted HTML markup,
+while interpolated values are automatically escaped::
+
+    >>> from quixote.html import htmlformat as H
+    >>> title = 'Dissertation on <HEAD>'
+    >>> H(t'<h1>{title}</h1>')
+    <htmltext '<h1>Dissertation on &lt;HEAD&gt;</h1>'>
+
+The ``htmlformat()`` function only accepts t-strings.  Passing a
+regular string will raise a ``TypeError``.
+
+
+Writing Template Functions
+--------------------------
+
+For functions that build up HTML from multiple parts, use
+``htmltemplate()`` to create an accumulator.  This returns a
+``TemplateIO`` object in HTML mode.  Append to it with ``+=`` and
+call ``.getvalue()`` to retrieve the final ``htmltext`` result::
+
+    from quixote.html import htmlformat as H
+    from quixote.html import htmltemplate
+
+    def meta_tags(title, description):
+        ht = htmltemplate()
+        ht += H(t'<title>{title}</title>')
+        ht += H(t'<meta name="description" content="{description}">\n')
+        return ht.getvalue()
+
+This is equivalent to the following PTL template::
+
+    @ptl_html
+    def meta_tags(title, description):
+        F'<title>{title}</title>'
+        F'<meta name="description" content="{description}">\n'
+
+In both cases, the ``title`` and ``description`` values are
+automatically HTML-escaped::
+
+    >>> meta_tags('Catalog', 'A catalog of our cool products')
+    <htmltext '<title>Catalog</title>
+      <meta name="description" content="A catalog of our cool products">\n'>
+    >>> meta_tags('Dissertation on <HEAD>',
+    ...           'Discusses the "LINK" and "META" tags')
+    <htmltext '<title>Dissertation on &lt;HEAD&gt;</title>
+      <meta name="description"
+       content="Discusses the &quot;LINK&quot; and &quot;META&quot; tags">\n'>
+
+Control flow works naturally since the code is regular Python::
+
+    from quixote.html import htmlformat as H
+    from quixote.html import htmltemplate
+
+    def user_list(users):
+        ht = htmltemplate()
+        ht += H(t'<ul>\n')
+        for user in users:
+            ht += H(t'  <li>{user.name}</li>\n')
+        ht += H(t'</ul>\n')
+        return ht.getvalue()
+
+For simple cases that produce a single piece of HTML, you can use
+``htmlformat()`` directly without ``htmltemplate()``::
+
+    def format_title(title):
+        return H(t'<h1>{title}</h1>')
+
+
+Including Raw HTML
+------------------
+
+If you need to include HTML markup from an external source (e.g. a
+file or database), wrap it with ``htmltext()`` before interpolating::
+
+    from quixote.html import htmlformat as H
+    from quixote.html import htmltext
+
+    def render_page(body_html):
+        safe_body = htmltext(body_html)
+        return H(t'<html><body>{safe_body}</body></html>')
+
+Values that are already ``htmltext`` instances will not be
+double-escaped.
+
+As with PTL, use ``htmltext()`` sparingly -- every call is an assertion
+that the data is safe and does not contain malicious HTML.
+
+
+Converting PTL Files to Python
+------------------------------
+
+Two scripts are provided for converting existing ``.ptl`` files to
+standard Python using t-strings:
+
+1. ``tools/fstring_to_tstring.py`` -- Converts uppercase ``F"..."``
+   literals (PTL's HTML f-string syntax) to ``H(t"...")`` calls.
+
+2. ``tools/ptl_to_py.py`` -- Converts ``@ptl_html`` and ``@ptl_plain``
+   decorated functions to regular Python, making the implicit
+   accumulator explicit.
+
+The recommended conversion procedure is:
+
+1. Run ``fstring_to_tstring.py`` first to convert F-string literals::
+
+       python tools/fstring_to_tstring.py -w yourmodule.ptl
+
+2. Run ``ptl_to_py.py`` to convert the decorated functions::
+
+       python tools/ptl_to_py.py -w yourmodule.ptl
+
+3. Rename ``.ptl`` files to ``.py`` (if not already done by your
+   workflow).
+
+4. Use `ruff <https://docs.astral.sh/ruff/>`_ to clean up formatting
+   and imports::
+
+       ruff check --fix yourmodule.py
+       ruff format yourmodule.py
+
+Both scripts support a ``-v`` flag to preview changes on stdout without
+modifying files.  Without ``-w``, the converted source is printed to
+stdout for review.  When ``-w`` is used, the original file is saved
+with a ``~`` suffix as a backup.
+
+Example
+~~~~~~~
+
+Given a PTL file ``header.ptl``::
+
+    from quixote.ptl import ptl_html
+
+    @ptl_html
+    def page_header(title, css_url):
+        F'<head>\n'
+        F'  <title>{title}</title>\n'
+        F'  <link rel="stylesheet" href="{css_url}">\n'
+        F'</head>\n'
+
+After running both conversion scripts, the result is::
+
+    from quixote.html import htmlformat as H
+    from quixote.html import htmltemplate
+
+    def page_header(title, css_url):
+        ht = htmltemplate()
+        ht += H(t'<head>\n')
+        ht += H(t'  <title>{title}</title>\n')
+        ht += H(t'  <link rel="stylesheet" href="{css_url}">\n')
+        ht += H(t'</head>\n')
+        return ht.getvalue()
