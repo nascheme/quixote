@@ -117,23 +117,7 @@ def build_modifications(func: ast.FunctionDef) -> list[Modification]:
             mods.append(Modification(line=dec.lineno, kind='delete'))
             break
 
-    # Determine body indentation from first body statement
-    body_indent = func.body[0].col_offset
-    indent = ' ' * body_indent
-
-    # 2. Insert preamble after the def line
-    if is_html:
-        preamble = f'{indent}ht = htmltemplate()'
-    else:
-        preamble = f'{indent}ht = TemplateIO()'
-    # The def line is func.lineno; may span multiple lines for complex sigs
-    # Insert after the line containing the colon - approximate as func.body[0].lineno - 1
-    insert_line = func.body[0].lineno - 1
-    mods.append(
-        Modification(line=insert_line, kind='insert_after', text=preamble)
-    )
-
-    # 3. Prefix each expression statement with ht +=
+    # 2. Prefix each expression statement with ht +=
     expr_nodes = collect_expr_nodes(func.body)
     for expr in expr_nodes:
         val = expr.value
@@ -146,13 +130,33 @@ def build_modifications(func: ast.FunctionDef) -> list[Modification]:
             )
         )
 
-    # 4. Append return ht.getvalue() if no explicit return at end
-    if not body_has_explicit_return(func.body):
-        last_line = last_line_of_body(func.body)
-        ret_text = f'{indent}return ht.getvalue()'
+    # Only insert ht preamble and return if ht is actually used
+    if expr_nodes:
+        # Determine body indentation from first body statement
+        body_indent = func.body[0].col_offset
+        indent = ' ' * body_indent
+
+        # 3. Insert preamble after the def line
+        if is_html:
+            preamble = f'{indent}ht = htmltemplate()'
+        else:
+            preamble = f'{indent}ht = TemplateIO()'
+        # The def line is func.lineno; may span multiple lines for complex sigs
+        # Insert after the line containing the colon - approximate as func.body[0].lineno - 1
+        insert_line = func.body[0].lineno - 1
         mods.append(
-            Modification(line=last_line, kind='insert_after', text=ret_text)
+            Modification(line=insert_line, kind='insert_after', text=preamble)
         )
+
+        # 4. Append return ht.getvalue() if no explicit return at end
+        if not body_has_explicit_return(func.body):
+            last_line = last_line_of_body(func.body)
+            ret_text = f'{indent}return ht.getvalue()'
+            mods.append(
+                Modification(
+                    line=last_line, kind='insert_after', text=ret_text
+                )
+            )
 
     return mods
 
