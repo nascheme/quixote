@@ -441,6 +441,13 @@ if _HAVE_T_STRING:
             result = htmlformat(t)
             assert str(result) == "val: 3.14"
 
+        def check_format_spec_string(self):
+            # format spec on a string value (must escape AND apply spec)
+            t = Template("x", _interp("a&b", "s"), "x")
+            result = htmlformat(t)
+            assert isinstance(result, htmltext)
+            assert str(result) == "xa&amp;bx"
+
         def check_object_interpolation_escaped(self):
             # non-htmltext objects get str() then escaped
             t = Template("", _interp(Wrapper(markupchars)), "")

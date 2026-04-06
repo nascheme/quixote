@@ -189,6 +189,10 @@ quote_wrapper_new(PyObject *o)
             Py_INCREF(o);
             return o;
         }
+	if (PyUnicode_Check(o)) {
+		/* pre-escape strings so format specs work */
+		return escape(o);
+	}
 	if (PyFloat_Check(o) ||
 	    PyLong_Check(o)) {
 		/* no need for wrapper */
