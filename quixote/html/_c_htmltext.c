@@ -1049,7 +1049,16 @@ html_format(PyObject *self, PyObject *template)
 		goto error;
 
 	/* Join parts and wrap result with htmltext */
-	result = PyUnicode_Join(PyUnicode_FromStringAndSize("", 0), parts);
+	if (PyList_GET_SIZE(parts) == 1) {
+		result = Py_NewRef(PyList_GET_ITEM(parts, 0));
+	}
+	else {
+		PyObject *empty = PyUnicode_FromStringAndSize("", 0);
+		if (empty == NULL)
+			goto error;
+		result = PyUnicode_Join(empty, parts);
+		Py_DECREF(empty);
+	}
 	Py_DECREF(parts);
 	Py_DECREF(iter);
 	return htmltext_from_string(result);
