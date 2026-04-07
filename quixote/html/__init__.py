@@ -38,27 +38,34 @@ reference.
 """
 
 import re
+import sys
 import urllib.request, urllib.parse, urllib.error
+
+_HAVE_T_STRING = sys.hexversion >= 0x030E0000
 
 try:
     # faster C implementation
     from quixote.html._c_htmltext import (
         htmlescape,
-        htmlformat,
-        htmltext,
-        stringify,
-        TemplateIO,
-    )
-except ImportError:
-    from quixote.html._py_htmltext import (  # noqa: F401
-        htmlescape,
-        htmlformat,
         htmltext,
         stringify,
         TemplateIO,
     )
 
-from quixote.html._py_htmltext import _wraparg
+    if _HAVE_T_STRING:
+        from quixote.html._c_htmltext import htmlformat
+except ImportError:
+    from quixote.html._py_htmltext import (  # noqa: F401
+        htmlescape,
+        htmltext,
+        stringify,
+        TemplateIO,
+    )
+
+    if _HAVE_T_STRING:
+        from quixote.html._py_htmltext import htmlformat  # noqa: F401
+
+from quixote.html._py_htmltext import _wraparg  # noqa: E402
 
 ValuelessAttr = object()  # magic singleton object
 
@@ -175,7 +182,7 @@ def use_qpy():
 def cleanup_qpy():
     global _saved, htmltext, stringify, htmlescape, TemplateIO
 
-    (htmltext, stringify, htmlescape, TemplateIO) = _saved
+    htmltext, stringify, htmlescape, TemplateIO = _saved
     _saved = None
 
 

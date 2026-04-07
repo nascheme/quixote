@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 from quixote.ptl.ptl_compile import compile_template
 from io import StringIO
 from quixote.html import TemplateIO, htmltext, _q_join, _q_format
@@ -75,6 +76,8 @@ def test_fstring_suffix():
 
 
 def test_fstring_nested():
+    if sys.hexversion < 0x030F0000:
+        return
     run_ptl(
         '@ptl_html',
         'def f():',
