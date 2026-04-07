@@ -1,3 +1,31 @@
+[project]
+name = "Quixote"
+version = "3.7"
+description = "A small and flexible Python Web application framework"
+readme = "README.txt"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    {name = "The Quixote developers", email = "nas-quixote@arctrix.com"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "License :: DFSG approved",
+    "Intended Audience :: Developers",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Homepage = "https://github.com/nascheme/quixote"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [tool.black]
 skip-string-normalization = true
 line-length = 78
@@ -11,3 +39,9 @@ ignore = ["E401"]
 
 [tool.ruff.lint.per-file-ignores]
 "*.ptl" = ["F541", "B021"]
+
+[dependency-groups]
+dev = [
+    "black>=24.8.0",
+    "ruff>=0.15.9",
+]

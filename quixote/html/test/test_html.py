@@ -1,6 +1,6 @@
+import pytest
 from quixote.html import _py_htmltext
 from quixote.html import href, url_with_query, url_quote, nl2br
-from quixote.test.utest import UTest
 
 try:
     from string.templatelib import Interpolation, Template
@@ -8,6 +8,11 @@ try:
     _HAVE_T_STRING = True
 except ImportError:
     _HAVE_T_STRING = False
+
+try:
+    from quixote.html import _c_htmltext
+except ImportError:
+    _c_htmltext = None
 
 markupchars = '<>&"'
 quotedchars = '&lt;&gt;&amp;&quot;'
@@ -43,44 +48,101 @@ class Broken:
         raise BrokenError('eieee')
 
 
-htmltext = escape = htmlescape = TemplateIO = htmlformat = None
+def _get_impl_ids():
+    ids = ['python']
+    if _c_htmltext:
+        ids.append('c')
+    return ids
 
 
-class HTMLTest(UTest):
-    def check_href(self):
+def _get_impls():
+    impls = [_py_htmltext]
+    if _c_htmltext:
+        impls.append(_c_htmltext)
+    return impls
+
+
+@pytest.fixture(params=_get_impls(), ids=_get_impl_ids())
+def impl(request):
+    """Fixture that yields each htmltext implementation (Python, and C if available)."""
+    return request.param
+
+
+@pytest.fixture
+def htmltext(impl):
+    return impl.htmltext
+
+
+@pytest.fixture
+def escape(impl):
+    return impl._escape_string
+
+
+@pytest.fixture
+def htmlescape(impl):
+    return impl.htmlescape
+
+
+@pytest.fixture
+def TemplateIO(impl):
+    return impl.TemplateIO
+
+
+@pytest.fixture
+def htmlformat(impl):
+    if not _HAVE_T_STRING:
+        pytest.skip("t-strings not available")
+    return impl.htmlformat
+
+
+# --- HTML utility tests (not implementation-dependent) ---
+
+
+class TestHref:
+    def test_href(self):
         assert str(href('/foo/bar', 'bar')) == '<a href="/foo/bar">bar</a>'
 
-    def check_url_with_query(self):
+
+class TestUrlWithQuery:
+    def test_basic(self):
         assert str(url_with_query('/f/b', a='1')) == '/f/b?a=1'
         assert (
             str(url_with_query('/f/b', a='1', b='3 4'))
             == '/f/b?a=1&amp;b=3%204'
         )
 
-    def check_nl2br(self):
+
+class TestNl2br:
+    def test_nl2br(self):
         assert str(nl2br('a\nb\nc')) == 'a<br />\nb<br />\nc'
 
-    def check_url_quote(self):
+
+class TestUrlQuote:
+    def test_url_quote(self):
         assert url_quote('abc') == 'abc'
         assert url_quote('a b c') == 'a%20b%20c'
         assert url_quote(None, fallback='abc') == 'abc'
 
 
-class HTMLTextTest(UTest):
-    def check_init(self):
+# --- htmltext tests (parametrized over implementations) ---
+
+
+class TestHTMLTextInit:
+    def test_basic(self, htmltext):
         assert str(htmltext('foo')) == 'foo'
         assert str(htmltext(markupchars)) == markupchars
         assert str(htmltext(unicodechars)) == unicodechars
         assert str(htmltext(str(markupchars))) == markupchars
         assert str(htmltext(None)) == 'None'
         assert str(htmltext(1)) == '1'
-        try:
-            htmltext(Broken())
-            assert 0
-        except BrokenError:
-            pass
 
-    def check_escape(self):
+    def test_broken(self, htmltext):
+        with pytest.raises(BrokenError):
+            htmltext(Broken())
+
+
+class TestHTMLTextEscape:
+    def test_escape(self, htmltext, escape, htmlescape):
         assert htmlescape(markupchars) == quotedchars
         assert isinstance(htmlescape(markupchars), htmltext)
         assert escape(markupchars) == quotedchars
@@ -90,21 +152,17 @@ class HTMLTextTest(UTest):
         assert isinstance(escape(markupchars), str)
         assert htmlescape(htmlescape(markupchars)) == quotedchars
 
-        # Now try to pass bytes...
-        try:
+    def test_escape_bytes_raises(self, escape):
+        with pytest.raises(TypeError):
             escape(markupbytes)
-            assert 0
-        except TypeError:
-            pass
 
-        # ...and now not a string at all
-        try:
+    def test_escape_int_raises(self, escape):
+        with pytest.raises(TypeError):
             escape(1)
-            assert 0
-        except TypeError:
-            pass
 
-    def check_cmp(self):
+
+class TestHTMLTextCmp:
+    def test_cmp(self, htmltext):
         s = htmltext("foo")
         assert s == 'foo'
         assert s != 'bar'
@@ -114,17 +172,23 @@ class HTMLTextTest(UTest):
         assert htmltext('1') != 1
         assert 1 != s
 
-    def check_len(self):
+
+class TestHTMLTextLen:
+    def test_len(self, htmltext, htmlescape):
         assert len(htmltext('foo')) == 3
         assert len(htmltext(markupchars)) == len(markupchars)
         assert len(htmlescape(markupchars)) == len(quotedchars)
 
-    def check_hash(self):
+
+class TestHTMLTextHash:
+    def test_hash(self, htmltext, htmlescape):
         assert hash(htmltext('foo')) == hash('foo')
         assert hash(htmltext(markupchars)) == hash(markupchars)
         assert hash(htmlescape(markupchars)) == hash(quotedchars)
 
-    def check_concat(self):
+
+class TestHTMLTextConcat:
+    def test_concat(self, htmltext):
         s = htmltext("foo")
         assert s + 'bar' == "foobar"
         assert 'bar' + s == "barfoo"
@@ -134,46 +198,41 @@ class HTMLTextTest(UTest):
         assert markupchars + s == quotedchars + "foo"
         assert isinstance(markupchars + s, htmltext)
         assert markupchars + htmltext('') == quotedchars
-        try:
-            s + 1
-            assert 0
-        except TypeError:
-            pass
-        try:
-            1 + s
-            assert 0
-        except TypeError:
-            pass
 
+    def test_concat_int_raises(self, htmltext):
+        s = htmltext("foo")
+        with pytest.raises(TypeError):
+            s + 1
+        with pytest.raises(TypeError):
+            1 + s
+
+    def test_concat_repr(self, htmltext):
         assert repr(htmltext('a') + htmltext('b')) == "<htmltext 'ab'>"
 
-    def check_repeat(self):
+
+class TestHTMLTextRepeat:
+    def test_repeat(self, htmltext, htmlescape):
         s = htmltext('a')
         assert s * 3 == "aaa"
         assert isinstance(s * 3, htmltext)
         assert htmlescape(markupchars) * 3 == quotedchars * 3
-        try:
-            s * 'a'
-            assert 0
-        except TypeError:
-            pass
-        try:
-            'a' * s
-            assert 0
-        except TypeError:
-            pass
-        try:
-            s * s
-            assert 0
-        except TypeError:
-            pass
 
-    def check_format(self):
+    def test_repeat_type_errors(self, htmltext):
+        s = htmltext('a')
+        with pytest.raises(TypeError):
+            s * 'a'
+        with pytest.raises(TypeError):
+            'a' * s
+        with pytest.raises(TypeError):
+            s * s
+
+
+class TestHTMLTextFormat:
+    def test_format(self, htmltext, htmlescape):
         u_fmt = htmltext('%s')
         assert u_fmt % 'fooble' == "fooble"
         assert isinstance(u_fmt % 'wibblefoo', htmltext)
         assert u_fmt % markupchars == quotedchars
-
         assert u_fmt % None == "None"
         assert u_fmt % unicodechars == unicodechars
         assert u_fmt % htmltext(unicodechars) == unicodechars
@@ -184,49 +243,49 @@ class HTMLTextTest(UTest):
         )
         assert htmltext('%d') % 10 == "10"
         assert htmltext('%.1f') % 10 == "10.0"
-
-        try:
-            htmltext('%r') % Broken()
-            assert 0
-        except BrokenError:
-            pass
-
         assert htmltext('%d') % 12300000000000000000 == "12300000000000000000"
 
-    def check_dict_format(self):
+    def test_format_broken_raises(self, htmltext):
+        with pytest.raises(BrokenError):
+            htmltext('%r') % Broken()
+
+
+class TestHTMLTextDictFormat:
+    def test_dict_format(self, htmltext):
         args = {'a': 'foo&', 'b': htmltext('bar&')}
         result = "foo&amp; 'foo&amp;' bar&"
         assert htmltext('%(a)s %(a)r %(b)s') % args == result
         assert htmltext('%(a)s') % {'a': 'foo&'} == "foo&amp;"
         assert isinstance(htmltext('%(a)s') % {'a': 'a'}, htmltext)
         assert htmltext('%s') % {'a': 'foo&'} == "{'a': 'foo&amp;'}"
-        try:
-            htmltext('%(a)s') % 1
-            assert 0
-        except TypeError:
-            pass
-        try:
-            htmltext('%(a)s') % {}
-            assert 0
-        except KeyError:
-            pass
         assert htmltext('') % {} == ''
         assert htmltext('%%') % {} == '%'
 
-    def check_format_method(self):
+    def test_dict_format_type_error(self, htmltext):
+        with pytest.raises(TypeError):
+            htmltext('%(a)s') % 1
+
+    def test_dict_format_key_error(self, htmltext):
+        with pytest.raises(KeyError):
+            htmltext('%(a)s') % {}
+
+
+class TestHTMLTextFormatMethod:
+    def test_format_method(self, htmltext):
         assert htmltext('{}').format('foo') == 'foo'
         assert htmltext('{}').format('foo', **{}) == 'foo'
-        try:
-            htmltext('{}').format()
-            assert 0
-        except IndexError:
-            pass
         assert htmltext('{a}').format(a='foo') == 'foo'
         args = {'a': 'foo&', 'b': htmltext('bar&')}
         result = "foo&amp; bar&"
         assert htmltext('{a} {b}').format(**args) == result
 
-    def check_join(self):
+    def test_format_method_index_error(self, htmltext):
+        with pytest.raises(IndexError):
+            htmltext('{}').format()
+
+
+class TestHTMLTextJoin:
+    def test_join(self, htmltext, htmlescape):
         assert htmltext(' ').join(['foo', 'bar']) == "foo bar"
         assert (
             htmltext(' ').join(['foo', markupchars]) == "foo " + quotedchars
@@ -242,68 +301,74 @@ class HTMLTextTest(UTest):
         assert isinstance(htmltext('').join([]), htmltext)
         assert htmltext(' ').join([unicodechars]) == unicodechars
         assert htmltext(' ').join(['']) == ''
-        try:
-            htmltext('').join(1)
-            assert 0
-        except TypeError:
-            pass
-        try:
-            htmltext('').join([1])
-            assert 0
-        except TypeError:
-            pass
 
-    def check_startswith(self):
+    def test_join_type_errors(self, htmltext):
+        with pytest.raises(TypeError):
+            htmltext('').join(1)
+        with pytest.raises(TypeError):
+            htmltext('').join([1])
+
+
+class TestHTMLTextStartsWith:
+    def test_startswith(self, htmltext, htmlescape):
         assert htmltext('foo').startswith('fo')
         assert htmlescape(markupchars).startswith(markupchars[:3])
         assert htmltext(markupchars).startswith(htmltext(markupchars[:3]))
-        try:
-            htmltext('').startswith(1)
-            assert 0
-        except TypeError:
-            pass
 
-    def check_endswith(self):
+    def test_startswith_type_error(self, htmltext):
+        with pytest.raises(TypeError):
+            htmltext('').startswith(1)
+
+
+class TestHTMLTextEndsWith:
+    def test_endswith(self, htmltext, htmlescape):
         assert htmltext('foo').endswith('oo')
         assert htmlescape(markupchars).endswith(markupchars[-3:])
         assert htmltext(markupchars).endswith(htmltext(markupchars[-3:]))
-        try:
-            htmltext('').endswith(1)
-            assert 0
-        except TypeError:
-            pass
 
-    def check_replace(self):
+    def test_endswith_type_error(self, htmltext):
+        with pytest.raises(TypeError):
+            htmltext('').endswith(1)
+
+
+class TestHTMLTextReplace:
+    def test_replace(self, htmltext, htmlescape):
         assert htmlescape('&').replace('&', 'foo') == "foo"
         assert htmltext('&').replace(htmltext('&'), 'foo') == "foo"
         assert htmltext('foo').replace('foo', htmltext('&')) == "&"
         assert isinstance(htmltext('a').replace('a', 'b'), htmltext)
-        try:
-            htmltext('').replace(1, 'a')
-            assert 0
-        except TypeError:
-            pass
 
-    def check_lower(self):
+    def test_replace_type_error(self, htmltext):
+        with pytest.raises(TypeError):
+            htmltext('').replace(1, 'a')
+
+
+class TestHTMLTextCase:
+    def test_lower(self, htmltext):
         assert htmltext('aB').lower() == "ab"
         assert isinstance(htmltext('a').lower(), htmltext)
 
-    def check_upper(self):
+    def test_upper(self, htmltext):
         assert htmltext('aB').upper() == "AB"
         assert isinstance(htmltext('a').upper(), htmltext)
 
-    def check_capitalize(self):
+    def test_capitalize(self, htmltext):
         assert htmltext('aB').capitalize() == "Ab"
         assert isinstance(htmltext('a').capitalize(), htmltext)
 
 
-class TemplateTest(UTest):
-    def check_init(self):
+# --- TemplateIO tests ---
+
+
+class TestTemplateIOInit:
+    def test_init(self, TemplateIO):
         TemplateIO()
         TemplateIO(html=True)
         TemplateIO(html=False)
 
-    def check_text_iadd(self):
+
+class TestTemplateIOTextIadd:
+    def test_text_iadd(self, TemplateIO):
         t = TemplateIO()
         assert t.getvalue() == ''
         t += "abcd"
@@ -314,14 +379,16 @@ class TemplateTest(UTest):
         assert t.getvalue() == 'abcd123'
         t += '\\u1234'
         assert t.getvalue() == 'abcd123\\u1234'
-        try:
+
+    def test_text_iadd_broken(self, TemplateIO):
+        t = TemplateIO()
+        with pytest.raises(BrokenError):
             t += Broken()
             t.getvalue()
-            assert 0
-        except BrokenError:
-            pass
 
-    def check_text_call(self):
+
+class TestTemplateIOTextCall:
+    def test_text_call(self, TemplateIO):
         t = TemplateIO()
         assert t.getvalue() == ''
         t("abcd")
@@ -332,14 +399,16 @@ class TemplateTest(UTest):
         assert t.getvalue() == 'abcd123'
         t('\\u1234')
         assert t.getvalue() == 'abcd123\\u1234'
-        try:
+
+    def test_text_call_broken(self, TemplateIO):
+        t = TemplateIO()
+        with pytest.raises(BrokenError):
             t(Broken())
             t.getvalue()
-            assert 0
-        except BrokenError:
-            pass
 
-    def check_html_iadd(self):
+
+class TestTemplateIOHtmlIadd:
+    def test_html_iadd(self, TemplateIO):
         t = TemplateIO(html=1)
         assert t.getvalue() == ''
         t += "abcd"
@@ -348,17 +417,21 @@ class TemplateTest(UTest):
         assert t.getvalue() == 'abcd'
         t += 123
         assert t.getvalue() == 'abcd123'
-        try:
+
+    def test_html_iadd_broken(self, TemplateIO):
+        t = TemplateIO(html=1)
+        with pytest.raises(BrokenError):
             t += Broken()
             t.getvalue()
-            assert 0
-        except BrokenError:
-            pass
+
+    def test_html_iadd_markup(self, TemplateIO):
         t = TemplateIO(html=1)
         t += markupchars
         assert t.getvalue() == quotedchars
 
-    def check_html_call(self):
+
+class TestTemplateIOHtmlCall:
+    def test_html_call(self, TemplateIO):
         t = TemplateIO(html=1)
         assert t.getvalue() == ''
         t("abcd")
@@ -367,25 +440,34 @@ class TemplateTest(UTest):
         assert t.getvalue() == 'abcd'
         t(123)
         assert t.getvalue() == 'abcd123'
-        try:
+
+    def test_html_call_broken(self, TemplateIO):
+        t = TemplateIO(html=1)
+        with pytest.raises(BrokenError):
             t(Broken())
             t.getvalue()
-            assert 0
-        except BrokenError:
-            pass
+
+    def test_html_call_markup(self, TemplateIO):
         t = TemplateIO(html=1)
         t(markupchars)
         assert t.getvalue() == quotedchars
 
-    def check_repr(self):
+
+class TestTemplateIORepr:
+    def test_repr(self, TemplateIO):
         t = TemplateIO()
         t += "abcd"
         assert "TemplateIO" in repr(t)
 
-    def check_str(self):
+
+class TestTemplateIOStr:
+    def test_str(self, TemplateIO):
         t = TemplateIO()
         t += "abcd"
         assert str(t) == "abcd"
+
+
+# --- htmlformat (t-string) tests ---
 
 
 if _HAVE_T_STRING:
@@ -394,91 +476,80 @@ if _HAVE_T_STRING:
         """Helper to create an Interpolation with no conversion."""
         return Interpolation(value, "value", None, format_spec)
 
-    class HTMLFormatTest(UTest):
-        def check_basic_literal(self):
-            # t-string with no interpolations
+    class TestHTMLFormat:
+        def test_basic_literal(self, htmltext, htmlformat):
             t = Template("hello")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "hello"
 
-        def check_literal_with_markup(self):
-            # literal parts are trusted (not escaped)
+        def test_literal_with_markup(self, htmltext, htmlformat):
             t = Template("<b>bold</b>")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "<b>bold</b>"
 
-        def check_string_interpolation_escaped(self):
-            # str values must be escaped
+        def test_string_interpolation_escaped(self, htmltext, htmlformat):
             t = Template("hello ", _interp(markupchars), " world")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "hello " + quotedchars + " world"
 
-        def check_htmltext_interpolation_not_escaped(self):
-            # htmltext values pass through without escaping
+        def test_htmltext_interpolation_not_escaped(
+            self, htmltext, htmlformat
+        ):
             safe = htmltext("<b>bold</b>")
             t = Template("hello ", _interp(safe), " world")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "hello <b>bold</b> world"
 
-        def check_int_interpolation(self):
+        def test_int_interpolation(self, htmltext, htmlformat):
             t = Template("count: ", _interp(42), "")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "count: 42"
 
-        def check_float_interpolation(self):
+        def test_float_interpolation(self, htmltext, htmlformat):
             t = Template("val: ", _interp(3.14), "")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "val: 3.14"
 
-        def check_format_spec(self):
+        def test_format_spec(self, htmlformat):
             t = Template("val: ", _interp(3.14159, ".2f"), "")
             result = htmlformat(t)
             assert str(result) == "val: 3.14"
 
-        def check_format_spec_string(self):
-            # format spec on a string value (must escape AND apply spec)
+        def test_format_spec_string(self, htmltext, htmlformat):
             t = Template("x", _interp("a&b", "s"), "x")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "xa&amp;bx"
 
-        def check_object_interpolation_escaped(self):
-            # non-htmltext objects get str() then escaped
+        def test_object_interpolation_escaped(self, htmltext, htmlformat):
             t = Template("", _interp(Wrapper(markupchars)), "")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == quotedchars
 
-        def check_conversion_raises(self):
-            # conversion is not supported
+        def test_conversion_raises(self, htmlformat):
             interp = Interpolation("foo", "value", "s", "")
             t = Template("", interp, "")
-            try:
+            with pytest.raises(ValueError):
                 htmlformat(t)
-                assert 0
-            except ValueError:
-                pass
 
-        def check_non_template_raises(self):
-            try:
+        def test_non_template_raises(self, htmlformat):
+            with pytest.raises(TypeError):
                 htmlformat("not a template")
-                assert 0
-            except TypeError:
-                pass
 
-        def check_empty_template(self):
+        def test_empty_template(self, htmltext, htmlformat):
             t = Template("")
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == ""
 
-        def check_multiple_interpolations(self):
+        def test_multiple_interpolations(self, htmltext, htmlformat):
             t = Template(
                 "<p>",
                 _interp("a&b"),
@@ -489,49 +560,3 @@ if _HAVE_T_STRING:
             result = htmlformat(t)
             assert isinstance(result, htmltext)
             assert str(result) == "<p>a&amp;b and <em>safe</em></p>"
-
-
-try:
-    from quixote.html import _c_htmltext
-except ImportError:
-    _c_htmltext = None
-
-
-def setup_py():
-    global htmltext, escape, htmlescape, TemplateIO, htmlformat
-    htmltext = _py_htmltext.htmltext
-    escape = _py_htmltext._escape_string
-    htmlescape = _py_htmltext.htmlescape
-    TemplateIO = _py_htmltext.TemplateIO
-    if _HAVE_T_STRING:
-        htmlformat = _py_htmltext.htmlformat
-
-
-def setup_c():
-    global htmltext, escape, htmlescape, TemplateIO, htmlformat
-    htmltext = _c_htmltext.htmltext
-    escape = _c_htmltext._escape_string
-    htmlescape = _c_htmltext.htmlescape
-    TemplateIO = _c_htmltext.TemplateIO
-    if _HAVE_T_STRING:
-        htmlformat = _c_htmltext.htmlformat
-
-
-def test_all():
-    setup_py()
-    HTMLTest()
-    HTMLTextTest()
-    TemplateTest()
-    if _HAVE_T_STRING:
-        HTMLFormatTest()
-    if _c_htmltext:
-        setup_c()
-        HTMLTest()
-        HTMLTextTest()
-        TemplateTest()
-        if _HAVE_T_STRING:
-            HTMLFormatTest()
-
-
-if __name__ == "__main__":
-    test_all()
