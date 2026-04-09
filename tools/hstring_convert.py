@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # vim: set ai tw=74 sts=4 sw=4 et:
-#
-# Convert .ptl files to new h-string format.
-# Use -w argument to write files in-place.
-#
-# This tool seems to work well but there are probably some weird syntax that
-# will confuse it.  You will need to examine and test your code after doing
-# the conversion.
+"""
+Convert .ptl files to new h-string format.
+Use -w argument to write files in-place.
+
+This tool seems to work well but there are probably some weird syntax that
+will confuse it.  You will need to examine and test your code after doing
+the conversion.
+"""
 
 import sys
 import os

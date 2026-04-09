@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # vim: set ai tw=74 sts=4 sw=4 et:
-#
-# Convert uppercase F-strings in .ptl files to H(t"...") calls.
-# Use -w argument to write files in-place.
-#
-# Uppercase F"..." is Quixote's PTL htmltext literal syntax.
-# This converts them to H(t"...") where H is imported as
-# `from quixote.html import htmlformat as H`.
-#
-# The t-string (PEP 750) preserves the original interpolation
-# syntax and H() converts the Template to htmltext.
+"""
+Convert uppercase F-strings in .ptl files to H(t"...") calls.
+Use -w argument to write files in-place.
+
+Uppercase F"..." is Quixote's PTL htmltext literal syntax.
+This converts them to H(t"...") where H is imported as
+`from quixote.html import htmlformat as H`.
+
+The t-string (PEP 750) preserves the original interpolation
+syntax and H() converts the Template to htmltext.
+"""
 
 import sys
 import os
