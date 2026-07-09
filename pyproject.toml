@@ -44,6 +44,12 @@ ignore = ["E401"]
 [tool.ruff.lint.per-file-ignores]
 "*.ptl" = ["F541", "B021"]
 
+[tool.ruff.lint.pycodestyle]
+max-line-length = 78
+
+[tool.ruff.format]
+quote-style = "preserve"
+
 [build-system]
 requires = ["setuptools>=70", "wheel"]
 build-backend = "setuptools.build_meta"
