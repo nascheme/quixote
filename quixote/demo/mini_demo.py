@@ -9,8 +9,8 @@ The server listens on localhost:8080 by default.  Debug and error output
 will be sent to the terminal.
 """
 
-from quixote.publish import Publisher
 from quixote.directory import Directory, export
+from quixote.publish import Publisher
 
 
 class RootDirectory(Directory):

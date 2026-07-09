@@ -1,5 +1,8 @@
-import quixote, qx_testserver
 from wsgiref.simple_server import make_server
+
+import qx_testserver
+
+import quixote
 
 qx_testserver.create_publisher()
 wsgi_app = quixote.get_wsgi_app()

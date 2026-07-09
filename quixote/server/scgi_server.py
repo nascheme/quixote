@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""A SCGI server that uses Quixote to publish dynamic content.
-"""
+"""A SCGI server that uses Quixote to publish dynamic content."""
 
 from scgi import scgi_server, session_server
 
@@ -15,9 +14,9 @@ class QuixoteHandler(scgi_server.SCGIHandler):
         # mod_scgi doesn't know SCRIPT_NAME :-(
         prefix = self.script_name
         path = env['SCRIPT_NAME']
-        assert (
-            path[: len(prefix)] == prefix
-        ), "path %r doesn't start with script_name %r" % (path, prefix)
+        assert path[: len(prefix)] == prefix, (
+            "path %r doesn't start with script_name %r" % (path, prefix)
+        )
         env['SCRIPT_NAME'] = prefix
         env['PATH_INFO'] = path[len(prefix) :] + env.get('PATH_INFO', '')
 
@@ -34,7 +33,7 @@ class QuixoteHandler(scgi_server.SCGIHandler):
                 output.flush()
             except IOError as err:
                 self.publisher.log(
-                    "IOError while sending response " "ignored: %s" % err
+                    "IOError while sending response ignored: %s" % err
                 )
         finally:
             try:
@@ -42,7 +41,7 @@ class QuixoteHandler(scgi_server.SCGIHandler):
                 output.close()
             except IOError as err:
                 self.publisher.log(
-                    "IOError while closing SCGI socket " "ignored: %s" % err
+                    "IOError while closing SCGI socket ignored: %s" % err
                 )
 
 
@@ -69,6 +68,7 @@ def run(
 
 def main():
     from optparse import OptionParser
+
     from quixote.util import import_object
 
     parser = OptionParser()

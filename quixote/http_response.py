@@ -11,6 +11,7 @@ except ImportError:
     pass
 import struct
 from email.utils import formatdate
+
 import quixote
 from quixote.html import stringify
 

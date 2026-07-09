@@ -3,8 +3,9 @@ TextWidget, CheckboxWidget, etc.
 """
 
 import struct
+
 from quixote import get_request
-from quixote.html import htmltext, htmlescape, htmltag, TemplateIO, stringify
+from quixote.html import TemplateIO, htmlescape, htmltag, htmltext, stringify
 from quixote.http_request import Upload
 
 
@@ -396,14 +397,13 @@ class SelectWidget(Widget):
         """
 
         """
-        Set the options list.  The list of options can be a list of objects, in
-        which case the descriptions default to map(htmlescape, objects)
-        applying htmlescape() to each description and
-        key.
-        If keys are provided they must be distinct.  If the sort keyword
-        argument is true, sort the options by case-insensitive lexicographic
-        order of descriptions, except that options with value None appear
-        before others.
+        Set the options list.  The list of options can be a list of
+        objects, in which case the descriptions default to map(htmlescape,
+        objects) applying htmlescape() to each description and key.
+        If keys are provided they must be distinct.  If the sort
+        keyword argument is true, sort the options by case-insensitive
+        lexicographic order of descriptions, except that options with
+        value None appear before others.
         """
         if options:
             first = options[0]
@@ -696,12 +696,13 @@ class NumberWidget(StringWidget):
 
     def __init__(self, name, value=None, **kwargs):
         assert self.__class__ is not NumberWidget, "abstract class"
-        assert (
-            value is None or type(value) is self.TYPE_OBJECT
-        ), "form value '%s' not a %s: got %r" % (
-            name,
-            self.TYPE_OBJECT,
-            value,
+        assert value is None or type(value) is self.TYPE_OBJECT, (
+            "form value '%s' not a %s: got %r"
+            % (
+                name,
+                self.TYPE_OBJECT,
+                value,
+            )
         )
         StringWidget.__init__(self, name, value, **kwargs)
 
@@ -772,7 +773,7 @@ class OptionSelectWidget(SingleSelectWidget):
 
     def render_content(self):
         return SingleSelectWidget.render_content(self) + htmltext(
-            '<noscript>' '<input type="submit" value="apply" />' '</noscript>'
+            '<noscript><input type="submit" value="apply" /></noscript>'
         )
 
 
@@ -860,26 +861,32 @@ class WidgetList(CompositeWidget):
         **kwargs,
     ):
         element_kwargs = element_kwargs or {}
-        assert (
-            value is None or type(value) is list
-        ), "value '%s' not a list: got %r" % (name, value)
-        assert issubclass(
-            element_type, Widget
-        ), "value '%s' element_type not a Widget: " "got %r" % (
-            name,
-            element_type,
+        assert value is None or type(value) is list, (
+            "value '%s' not a list: got %r" % (name, value)
         )
-        assert (
-            type(element_kwargs) is dict
-        ), "value '%s' element_kwargs not a dict: " "got %r" % (
-            name,
-            element_kwargs,
+        assert issubclass(element_type, Widget), (
+            "value '%s' element_type not a Widget: "
+            "got %r"
+            % (
+                name,
+                element_type,
+            )
         )
-        assert isinstance(
-            add_element_label, (str, htmltext)
-        ), "value '%s'add_element_label not a string: " "got %r" % (
-            name,
-            add_element_label,
+        assert type(element_kwargs) is dict, (
+            "value '%s' element_kwargs not a dict: "
+            "got %r"
+            % (
+                name,
+                element_kwargs,
+            )
+        )
+        assert isinstance(add_element_label, (str, htmltext)), (
+            "value '%s'add_element_label not a string: "
+            "got %r"
+            % (
+                name,
+                add_element_label,
+            )
         )
 
         CompositeWidget.__init__(self, name, value, **kwargs)
@@ -962,38 +969,48 @@ class WidgetDict(CompositeWidget):
         add_element_label='Add row',
         **kwargs,
     ):
-        assert (
-            value is None or type(value) is dict
-        ), 'value %r not a dict: got %r' % (name, value)
-        assert issubclass(
-            element_key_type, Widget
-        ), "value '%s' element_key_type not a Widget: " "got %r" % (
-            name,
-            element_key_type,
+        assert value is None or type(value) is dict, (
+            'value %r not a dict: got %r' % (name, value)
         )
-        assert issubclass(
-            element_value_type, Widget
-        ), "value '%s' element_value_type not a Widget: " "got %r" % (
-            name,
-            element_value_type,
+        assert issubclass(element_key_type, Widget), (
+            "value '%s' element_key_type not a Widget: "
+            "got %r"
+            % (
+                name,
+                element_key_type,
+            )
         )
-        assert (
-            type(element_key_kwargs) is dict
-        ), "value '%s' element_key_kwargs not a dict: " "got %r" % (
-            name,
-            element_key_kwargs,
+        assert issubclass(element_value_type, Widget), (
+            "value '%s' element_value_type not a Widget: "
+            "got %r"
+            % (
+                name,
+                element_value_type,
+            )
         )
-        assert (
-            type(element_value_kwargs) is dict
-        ), "value '%s' element_value_kwargs not a dict: " "got %r" % (
-            name,
-            element_value_kwargs,
+        assert type(element_key_kwargs) is dict, (
+            "value '%s' element_key_kwargs not a dict: "
+            "got %r"
+            % (
+                name,
+                element_key_kwargs,
+            )
         )
-        assert isinstance(
-            add_element_label, (str, htmltext)
-        ), 'value %r element_name not a string: ' 'got %r' % (
-            name,
-            add_element_label,
+        assert type(element_value_kwargs) is dict, (
+            "value '%s' element_value_kwargs not a dict: "
+            "got %r"
+            % (
+                name,
+                element_value_kwargs,
+            )
+        )
+        assert isinstance(add_element_label, (str, htmltext)), (
+            'value %r element_name not a string: '
+            'got %r'
+            % (
+                name,
+                add_element_label,
+            )
         )
 
         CompositeWidget.__init__(self, name, value, **kwargs)

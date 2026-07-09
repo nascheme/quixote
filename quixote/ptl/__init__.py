@@ -4,6 +4,7 @@ PTL: Python Template Language
 PTL is the templating language used by Quixote. See doc/PTL.html for
 documentation.
 '''
+
 from quixote.ptl.ptl_compile import compile_package  # noqa: F401
 
 

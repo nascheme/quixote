@@ -1,7 +1,7 @@
-"""Miscellaneous utility functions shared by servers.
-"""
+"""Miscellaneous utility functions shared by servers."""
 
 from optparse import OptionParser
+
 from quixote.util import import_object
 
 

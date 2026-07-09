@@ -2,7 +2,8 @@
 
 Exception classes used by Quixote
 """
-from quixote.html import htmltext, htmlescape
+
+from quixote.html import htmlescape, htmltext
 
 
 class PublishError(Exception):
@@ -179,10 +180,10 @@ p {
 
 
 def format_page(title, body):
-    """Used for Quixote generated HTML pages.  This function can be replaced to
-    ensure you application has a consistent look to web pages.  Be aware
-    that this function should do a minimal amount of processing since it
-    can be called when the server encounters an error.
+    """Used for Quixote generated HTML pages.  This function can be replaced
+    to ensure you application has a consistent look to web pages.  Be aware
+    that this function should do a minimal amount of processing since it can
+    be called when the server encounters an error.
     """
     return PAGE_TEMPLATE % dict(title=title, body=body)
 
@@ -206,7 +207,7 @@ def format_error_page(title, description, details):
 INTERNAL_ERROR_MESSAGE = format_error_page(
     title='Internal Server Error',
     description=(
-        'An internal error occured while handling your page ' 'request.'
+        'An internal error occured while handling your page request.'
     ),
     details=(
         'The error has been logged but you may wish to contact the '

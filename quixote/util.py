@@ -13,14 +13,16 @@ StaticFile and StaticDirectory were contributed by Hamish Lawson.
 See doc/static-files.txt for examples of their use.
 """
 
-import sys
-import os
-import io
 import base64
 import functools
 import hashlib
+import io
 import mimetypes
-import urllib.request, urllib.parse, urllib.error
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import xmlrpc.server as _xmlrpc
 from email.utils import formatdate
 
@@ -32,7 +34,7 @@ except ImportError:
 import quixote
 from quixote import errors
 from quixote.directory import Directory
-from quixote.html import htmltext, TemplateIO
+from quixote.html import TemplateIO, htmltext
 from quixote.http_response import Stream
 
 if secrets is not None:
@@ -118,7 +120,6 @@ def xmlrpc(request, func):
 
 
 class FileStream(Stream):
-
     CHUNK_SIZE = 20000
 
     def __init__(self, fp, size=None):
@@ -167,8 +168,8 @@ class StaticFile:
         the Expires header will not be set.
         """
 
-        # Check that the supplied path is absolute and (if a symbolic link) may
-        # be followed
+        # Check that the supplied path is absolute and (if a symbolic
+        # link) may be followed
         self.path = path
         if not os.path.isabs(path):
             raise ValueError("Path %r is not absolute" % path)
@@ -217,7 +218,8 @@ class StaticFile:
             response.set_status(304)
             return ''
 
-        # Set the Content-Type for the response and return the file's contents.
+        # Set the Content-Type for the response and return the file's
+        # contents.
         response.set_content_type(self.mime_type)
         if self.encoding:
             response.set_header("Content-Encoding", self.encoding)
@@ -229,7 +231,8 @@ class StaticFile:
 
 class StaticDirectory(Directory):
     """
-    Wrap a filesystem directory containing static files as a Quixote directory.
+    Wrap a filesystem directory containing static files as a Quixote
+    directory.
     """
 
     _q_exports = ['']
@@ -560,13 +563,13 @@ def dump_request(request=None):
     """Dump an HTTPRequest object as HTML."""
     row_fmt = htmltext('<tr><th>%s</th><td>%s</td></tr>')
     r = TemplateIO(html=True)
-    r += htmltext('<h3>form</h3>' '<table>')
+    r += htmltext('<h3>form</h3><table>')
     for k, v in request.form.items():
         r += row_fmt % (k, v)
-    r += htmltext('</table>' '<h3>cookies</h3>' '<table>')
+    r += htmltext('</table><h3>cookies</h3><table>')
     for k, v in request.cookies.items():
         r += row_fmt % (k, v)
-    r += htmltext('</table>' '<h3>environ</h3>' '<table>')
+    r += htmltext('</table><h3>environ</h3><table>')
     for k, v in request.environ.items():
         r += row_fmt % (k, v)
     r += htmltext('</table>')

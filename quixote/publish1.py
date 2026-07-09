@@ -5,14 +5,15 @@ the _q_lookup(), _q_resolve(), and _q_access() methods work as they did
 in Quixote 1.
 """
 
-import sys
 import re
+import sys
 import types
 import warnings
+
 from quixote import errors, get_request, redirect
-from quixote.publish import Publisher as _Publisher
 from quixote.directory import Directory
 from quixote.html import htmltext
+from quixote.publish import Publisher as _Publisher
 
 
 class Publisher(_Publisher):

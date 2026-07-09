@@ -5,14 +5,17 @@ same functionality with less complication.  However, this module might
 be useful as an example as to how to run a Quixote application under
 WSGI.
 """
+
 import sys
 from wsgiref.simple_server import (
-    WSGIServer,
     ServerHandler,
     WSGIRequestHandler,
+    WSGIServer,
 )
-from quixote.wsgi import QWIP
+
 from quixote.util import import_object
+from quixote.wsgi import QWIP
+
 
 # Need to override base class handle(), set multithread=False
 class RequestHandler(WSGIRequestHandler):

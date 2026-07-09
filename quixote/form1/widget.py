@@ -4,8 +4,9 @@ TextWidget, CheckboxWidget, etc.
 
 import struct
 from types import FloatType, IntType, ListType, StringType, TupleType
+
 from quixote import get_request
-from quixote.html import htmltext, htmlescape, htmltag
+from quixote.html import htmlescape, htmltag, htmltext
 from quixote.http_request import Upload
 
 
@@ -287,15 +288,15 @@ class SelectWidget(Widget):
         self.options = []
         # if options passed, cannot pass allowed_values or descriptions
         if allowed_values is not None:
-            assert (
-                options is None
-            ), 'cannot pass both allowed_values and options'
+            assert options is None, (
+                'cannot pass both allowed_values and options'
+            )
             assert allowed_values, 'cannot pass empty allowed_values list'
             self.set_allowed_values(allowed_values, descriptions, sort)
         elif options is not None:
-            assert (
-                descriptions is None
-            ), 'cannot pass both options and descriptions'
+            assert descriptions is None, (
+                'cannot pass both options and descriptions'
+            )
             assert options, 'cannot pass empty options list'
             self.set_options(options, sort)
         self.set_name(name)
@@ -353,14 +354,13 @@ class SelectWidget(Widget):
         """
 
         """
-        Set the options list.  The list of options can be a list of objects, in
-        which case the descriptions default to map(htmlescape, objects)
-        applying htmlescape() to each description and
-        key.
-        If keys are provided they must be distinct.  If the sort keyword
-        argument is true, sort the options by case-insensitive lexicographic
-        order of descriptions, except that options with value None appear
-        before others.
+        Set the options list.  The list of options can be a list of
+        objects, in which case the descriptions default to map(htmlescape,
+        objects) applying htmlescape() to each description and key.
+        If keys are provided they must be distinct.  If the sort
+        keyword argument is true, sort the options by case-insensitive
+        lexicographic order of descriptions, except that options with
+        value None appear before others.
         """
         if options:
             first = options[0]
@@ -639,12 +639,13 @@ class NumberWidget(StringWidget):
 
     def __init__(self, name, value=None, size=None, maxlength=None):
         assert self.__class__ is not NumberWidget, "abstract class"
-        assert (
-            value is None or type(value) is self.type_object
-        ), "form value '%s' not a %s: got %r" % (
-            name,
-            self.type_object,
-            value,
+        assert value is None or type(value) is self.type_object, (
+            "form value '%s' not a %s: got %r"
+            % (
+                name,
+                self.type_object,
+                value,
+            )
         )
         StringWidget.__init__(self, name, value, size, maxlength)
 
@@ -730,13 +731,13 @@ class ListWidget(Widget):
     def __init__(
         self, name, value=None, element_type=None, element_name="row", **args
     ):
-        assert (
-            value is None or type(value) is ListType
-        ), "form value '%s' not a list: got %r" % (name, value)
+        assert value is None or type(value) is ListType, (
+            "form value '%s' not a list: got %r" % (name, value)
+        )
         assert type(element_name) in (
             StringType,
             htmltext,
-        ), "form value '%s' element_name not a string: " "got %r" % (
+        ), "form value '%s' element_name not a string: got %r" % (
             name,
             element_name,
         )

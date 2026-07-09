@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An alternative Quixote demo.  This version is contained in a single module
+r"""An alternative Quixote demo.  This version is contained in a single module
 and does not use PTL.  The easiest way to run this demo is to use the
 simple HTTP server included with Quixote.  For example:
 
@@ -11,11 +11,13 @@ will be sent to the terminal.
 If you have installed durus, you can run the same demo, except with
 persistent sessions stored in a durus database, by running:
 
-    $ python3 -m quixote run --app quixote.demo.altdemo --factory create_durus_publisher
+    $ python3 -m quixote run \
+            --app quixote.demo.altdemo \
+            --factory create_durus_publisher
 
 """
 
-from quixote import get_user, get_session, get_session_manager, get_field
+from quixote import get_field, get_session, get_session_manager, get_user
 from quixote.directory import Directory
 from quixote.html import href, htmltext
 from quixote.publish import Publisher
@@ -57,7 +59,6 @@ def format_link_list(targets):
 
 
 class RootDirectory(Directory):
-
     _q_exports = ['', 'login', 'logout']
 
     def _q_index(self):
@@ -183,11 +184,13 @@ def create_publisher():
 try:
     # If durus is installed, define a create_durus_publisher() that
     # uses a durus database to store persistent sessions.
-    import os, tempfile
+    import os
+    import tempfile
+
+    from durus.connection import Connection
+    from durus.file_storage import FileStorage
     from durus.persistent import Persistent
     from durus.persistent_dict import PersistentDict
-    from durus.file_storage import FileStorage
-    from durus.connection import Connection
 
     connection = None  # set in create_durus_publisher()
 

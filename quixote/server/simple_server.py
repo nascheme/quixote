@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""A simple, single threaded, synchronous HTTP server.
-"""
-import sys
+"""A simple, single threaded, synchronous HTTP server."""
+
 import socket
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import BaseServer
-import urllib.request, urllib.parse, urllib.error
+
 import quixote
 from quixote import get_publisher
 from quixote.util import import_object
@@ -51,7 +54,6 @@ class SockInheritHTTPServer(HTTPServer):
 
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
-
     required_cgi_environment = {}
 
     protocol_version = 'HTTP/1.1'

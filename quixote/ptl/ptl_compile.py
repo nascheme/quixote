@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""Compile a PTL template.
-"""
+"""Compile a PTL template."""
 
-import sys
-import os
-import struct
 import importlib.util
+import os
 import py_compile
+import struct
+import sys
+
 from quixote.ptl.ptl_import import PTL_EXT, PTLFileLoader
 
 
@@ -398,7 +398,7 @@ def main():
     # if flist is provided then load it
     if args.flist:
         try:
-            with (sys.stdin if args.flist == '-' else open(args.flist)) as f:
+            with sys.stdin if args.flist == '-' else open(args.flist) as f:
                 for line in f:
                     compile_dests.append(line.strip())
         except OSError:

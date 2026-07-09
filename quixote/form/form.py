@@ -2,22 +2,22 @@
 way of building HTML forms that are composed of Widget objects.
 """
 
-from quixote import get_request, get_session, get_publisher
-from quixote.html import htmltag, htmltext, TemplateIO
+from quixote import get_publisher, get_request, get_session
 from quixote.form.widget import (
-    HiddenWidget,
-    StringWidget,
-    TextWidget,
     CheckboxWidget,
-    SingleSelectWidget,
-    RadiobuttonsWidget,
-    MultipleSelectWidget,
-    ResetWidget,
-    SubmitWidget,
     FloatWidget,
+    HiddenWidget,
     IntWidget,
+    MultipleSelectWidget,
     PasswordWidget,
+    RadiobuttonsWidget,
+    ResetWidget,
+    SingleSelectWidget,
+    StringWidget,
+    SubmitWidget,
+    TextWidget,
 )
+from quixote.html import TemplateIO, htmltag, htmltext
 
 
 class FormTokenWidget(HiddenWidget):
@@ -58,11 +58,7 @@ class Form(object):
     TOKEN_NAME = "_form_id"  # name of hidden token widget
 
     JAVASCRIPT_MARKUP = htmltext(
-        '<script type="text/javascript">\n'
-        '<!--\n'
-        '%s\n'
-        '// -->\n'
-        '</script>\n'
+        '<script type="text/javascript">\n<!--\n%s\n// -->\n</script>\n'
     )
 
     TOKEN_NOTICE = htmltext(
@@ -89,10 +85,9 @@ class Form(object):
         use_tokens=True,
         **attrs,
     ):
-
         if method not in ("post", "get"):
             raise ValueError(
-                "Form method must be 'post' or 'get', " "not %r" % method
+                "Form method must be 'post' or 'get', not %r" % method
             )
         self.method = method
         self.action = action or self._get_default_action()

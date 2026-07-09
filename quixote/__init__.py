@@ -7,21 +7,20 @@ from quixote._version import __version__  # noqa: F401
 
 # These are frequently needed by Quixote applications.
 from quixote.publish import (  # noqa: F401
+    cleanup,
+    get_cookie,
+    get_field,
+    get_param,
+    get_path,
     get_publisher,
     get_request,
     get_response,
-    get_path,
-    redirect,
     get_session,
     get_session_manager,
     get_user,
-    get_field,
-    get_cookie,
     get_wsgi_app,
-    cleanup,
-    get_param,
+    redirect,
 )
-
 
 # This is the default charset used by the HTTPRequest, HTTPResponse,
 # DefaultLogger, and sendmail components.

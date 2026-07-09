@@ -1,7 +1,8 @@
-import sys
 import os
-import time
 import socket
+import sys
+import time
+
 import quixote
 from quixote.sendmail import sendmail
 

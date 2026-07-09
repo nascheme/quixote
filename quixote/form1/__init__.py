@@ -8,29 +8,28 @@ and/or composing the standard widget classes.
 
 from quixote.form1.form import (  # noqa: F401
     Form,
-    register_widget_class,
     FormTokenWidget,
+    register_widget_class,
 )
-
 from quixote.form1.widget import (  # noqa: F401
-    Widget,
-    StringWidget,
-    FileWidget,
-    PasswordWidget,
-    TextWidget,
     CheckboxWidget,
-    RadiobuttonsWidget,
-    SingleSelectWidget,
-    SelectWidget,
-    OptionSelectWidget,
-    MultipleSelectWidget,
-    ListWidget,
-    SubmitButtonWidget,
-    HiddenWidget,
-    FloatWidget,
-    IntWidget,
     CollapsibleListWidget,
+    FileWidget,
+    FloatWidget,
     FormValueError,
+    HiddenWidget,
+    IntWidget,
+    ListWidget,
+    MultipleSelectWidget,
+    OptionSelectWidget,
+    PasswordWidget,
+    RadiobuttonsWidget,
+    SelectWidget,
+    SingleSelectWidget,
+    StringWidget,
+    SubmitButtonWidget,
+    TextWidget,
+    Widget,
 )
 
 # Register the standard widget classes

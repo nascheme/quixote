@@ -2,11 +2,11 @@ try:
     import qpy
 
     class qpy_TemplateIO(object):
-        # The only difference between this and quixote.html.TemplateIO is
-        # the .getvalue() method and the location of stringify.
-        # We redefine the class from scratch only because a subclass can't inherit
-        # .__iadd__ apparently: you get a TypeError that the class is not the
-        # parent type.
+        # The only difference between this and quixote.html.TemplateIO is the
+        # .getvalue() method and the location of stringify.
+        # We redefine the class from scratch only because a subclass can't
+        # inherit .__iadd__ apparently: you get a TypeError that the class is
+        # not the parent type.
 
         __slots__ = ['html', 'data']
 

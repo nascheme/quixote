@@ -1,6 +1,6 @@
 import pytest
-from quixote.html import _py_htmltext
-from quixote.html import href, url_with_query, url_quote, nl2br
+
+from quixote.html import _py_htmltext, href, nl2br, url_quote, url_with_query
 
 try:
     from string.templatelib import Interpolation, Template
@@ -64,7 +64,8 @@ def _get_impls():
 
 @pytest.fixture(params=_get_impls(), ids=_get_impl_ids())
 def impl(request):
-    """Fixture that yields each htmltext implementation (Python, and C if available)."""
+    """Fixture that yields each htmltext implementation (Python, and C if
+    available)."""
     return request.param
 
 

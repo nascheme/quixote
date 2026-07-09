@@ -9,11 +9,11 @@ will confuse it.  You will need to examine and test your code after doing
 the conversion.
 """
 
-import sys
-import os
-import tokenize
 import ast
+import os
 import re
+import sys
+import tokenize
 
 
 def translate_hstrings(tokens):

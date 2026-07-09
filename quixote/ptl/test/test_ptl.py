@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import sys
-from quixote.ptl.ptl_compile import compile_template
 from io import StringIO
-from quixote.html import TemplateIO, htmltext, _q_join, _q_format
+
+from quixote.html import TemplateIO, _q_format, _q_join, htmltext
+from quixote.ptl.ptl_compile import compile_template
 
 
 def run_ptl(*source):

@@ -9,8 +9,8 @@ from email.header import Header
 from smtplib import SMTP
 
 try:
-    from smtplib import SMTP_SSL
     import ssl
+    from smtplib import SMTP_SSL
 except ImportError:
     ssl = None
 

@@ -3,8 +3,9 @@ A simple test server for testing Quixote functionality.
 """
 
 import os
-from quixote.publish import Publisher
+
 from quixote.directory import Directory
+from quixote.publish import Publisher
 
 
 def create_publisher():

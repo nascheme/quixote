@@ -4,6 +4,7 @@ as if they were Python modules.
 
 import sys
 from importlib.machinery import FileFinder, PathFinder, SourceFileLoader
+
 from .ptl_parse import parse
 
 PTL_EXT = ".ptl"

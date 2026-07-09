@@ -39,27 +39,29 @@ reference.
 
 import re
 import sys
-import urllib.request, urllib.parse, urllib.error
+import urllib.error
+import urllib.parse
+import urllib.request
 
 _HAVE_T_STRING = sys.hexversion >= 0x030E0000
 
 try:
     # faster C implementation
     from quixote.html._c_htmltext import (
+        TemplateIO,
         htmlescape,
         htmltext,
         stringify,
-        TemplateIO,
     )
 
     if _HAVE_T_STRING:
         from quixote.html._c_htmltext import htmlformat
 except ImportError:
     from quixote.html._py_htmltext import (  # noqa: F401
+        TemplateIO,
         htmlescape,
         htmltext,
         stringify,
-        TemplateIO,
     )
 
     if _HAVE_T_STRING:
@@ -150,7 +152,7 @@ def _q_format(value, conversion=-1, format_spec=None):
         elif conversion == 'a':
             fmt = '{%s!a}'
         else:
-            assert 0, 'invalid conversion %r' % conversion
+            raise RuntimeError('invalid conversion %r' % conversion)
     arg = _wraparg(value)
     if format_spec:
         fmt = fmt % (':' + str(format_spec))
@@ -167,6 +169,7 @@ def use_qpy():
     Switch to using 'qpy' as an alternative.
     """
     import qpy
+
     from .qpy_templateio import qpy_TemplateIO
 
     global _saved, htmltext, stringify, htmlescape, TemplateIO

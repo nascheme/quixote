@@ -17,18 +17,17 @@ Quixote process shuts down, all session data is lost.  See
 doc/session-mgmt.txt for information on session persistence.
 """
 
-from time import time, localtime, strftime
+from time import localtime, strftime, time
 
 from quixote import (
-    get_publisher,
     get_cookie,
-    get_response,
-    get_request,
-    get_session,
     get_param,
+    get_publisher,
+    get_request,
+    get_response,
+    get_session,
 )
 from quixote.util import randbytes, safe_str_cmp
-
 
 CSRF_TOKEN_NAME = 'csrf_token'
 

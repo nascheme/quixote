@@ -1,7 +1,9 @@
 import sys
+
 import twill
-import quixote
 from qx_testserver import create_publisher
+
+import quixote
 
 
 class TestWSGI:

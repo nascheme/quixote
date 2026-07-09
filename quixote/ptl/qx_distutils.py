@@ -3,8 +3,8 @@ PTL files.
 """
 
 import os
-from glob import glob
 from distutils.command.build_py import build_py
+from glob import glob
 
 
 class qx_build_py(build_py):

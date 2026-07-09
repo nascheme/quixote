@@ -7,9 +7,9 @@ by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
-import sys
-import io
 import ast
+import io
+import sys
 import tokenize
 
 # A special marker for h-strings, added as a prefix by token

@@ -20,8 +20,8 @@ Note that this tool does not add the import of the decorator.  E.g.
 
 """
 
-import sys
 import os
+import sys
 import tokenize
 
 

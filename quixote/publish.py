@@ -1,21 +1,22 @@
-"""Logic for publishing modules and objects on the Web.
-"""
+"""Logic for publishing modules and objects on the Web."""
 
-import sys, traceback, io
+import io
+import sys
 import time
+import traceback
 import urllib.parse
 
-from quixote.errors import (
-    PublishError,
-    MethodNotAllowedError,
-    format_publish_error,
-    INTERNAL_ERROR_MESSAGE,
-)
-from quixote.config import Config
-from quixote.http_response import HTTPResponse
-from quixote.http_request import HTTPRequest
-from quixote.logger import DefaultLogger
 import quixote.directory as _directory
+from quixote.config import Config
+from quixote.errors import (
+    INTERNAL_ERROR_MESSAGE,
+    MethodNotAllowedError,
+    PublishError,
+    format_publish_error,
+)
+from quixote.http_request import HTTPRequest
+from quixote.http_response import HTTPResponse
+from quixote.logger import DefaultLogger
 
 
 class Publisher:
@@ -63,8 +64,7 @@ class Publisher:
         else:
             if kwargs:
                 raise ValueError(
-                    "cannot provide both 'config' object and"
-                    " config arguments"
+                    "cannot provide both 'config' object and config arguments"
                 )
             self.config = config
         if logger is None:

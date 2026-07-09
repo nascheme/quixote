@@ -143,8 +143,9 @@ def build_modifications(func: ast.FunctionDef) -> list[Modification]:
             preamble = f'{indent}ht = htmltemplate()'
         else:
             preamble = f'{indent}ht = TemplateIO()'
-        # The def line is func.lineno; may span multiple lines for complex sigs
-        # Insert after the line containing the colon - approximate as func.body[0].lineno - 1
+        # The def line is func.lineno; may span multiple lines for complex
+        # sigs. Insert after the line containing the colon - approximate as
+        # func.body[0].lineno - 1
         insert_line = func.body[0].lineno - 1
         mods.append(
             Modification(line=insert_line, kind='insert_after', text=preamble)
@@ -168,8 +169,8 @@ def apply_modifications(
 ) -> list[str]:
     """Apply modifications to source lines (0-indexed list).
     Modifications are applied bottom-up to preserve line offsets."""
-    # Sort by line descending, with 'prefix' before 'insert_after' at same line,
-    # and 'delete' last at same line
+    # Sort by line descending, with 'prefix' before 'insert_after' at same
+    # line, and 'delete' last at same line
     kind_order = {'insert_after': 0, 'prefix': 1, 'delete': 2}
     mods.sort(key=lambda m: (-m.line, kind_order.get(m.kind, 99)))
 
@@ -602,7 +603,7 @@ def main() -> None:
         action='append',
         default=[],
         metavar='NAME',
-        help='additional function/method name to treat as' ' None-returning',
+        help='additional function/method name to treat as None-returning',
     )
     parser.add_argument(
         '--list-names',

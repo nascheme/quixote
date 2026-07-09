@@ -2,24 +2,24 @@
 class (useful for transitioning existing forms).
 '''
 
-from quixote import get_request, get_path, redirect
-from quixote.form import (  # noqa: F401
-    Form as _Form,
-    Widget,
-    StringWidget,
-    FileWidget,
-    PasswordWidget,
-    TextWidget,
+from quixote import get_path, get_request, redirect
+from quixote.form import (
     CheckboxWidget,
+    FileWidget,
+    FloatWidget,
+    HiddenWidget,
+    IntWidget,
+    MultipleSelectWidget,
+    OptionSelectWidget,
+    PasswordWidget,
     RadiobuttonsWidget,
     SingleSelectWidget,
-    SelectWidget,
-    OptionSelectWidget,
-    MultipleSelectWidget,
+    StringWidget,
     SubmitWidget,
-    HiddenWidget,
-    FloatWidget,
-    IntWidget,
+    TextWidget,
+)
+from quixote.form import (  # noqa: F401
+    Form as _Form,
 )
 from quixote.html import url_quote
 
@@ -114,7 +114,8 @@ class Form(_Form):
         values = self.process()
         if submit == True:  # noqa: E712
             # The form was submitted by an unregistered submit button, assume
-            # that the submission was required to update the layout of the form.
+            # that the submission was required to update the layout of the
+            # form.
             self.clear_errors()
             return self.render(self.action_url)
 

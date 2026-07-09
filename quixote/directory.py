@@ -1,9 +1,7 @@
-"""Logic for traversing directory objects and generating output.
-"""
+"""Logic for traversing directory objects and generating output."""
 
 import quixote
 from quixote.errors import TraversalError
-
 
 # Emit warning on automatic redirects when a trailing slash on the URL would
 # have avoided the redirect.  The redirect requires another round-trip between
@@ -95,7 +93,7 @@ class Directory(object, metaclass=DirectoryClass):
         if obj is None:
             raise TraversalError(
                 private_msg=(
-                    'directory %r has no component ' '%r' % (self, component)
+                    'directory %r has no component %r' % (self, component)
                 )
             )
         if path:
@@ -117,7 +115,7 @@ class Directory(object, metaclass=DirectoryClass):
             return quixote.redirect(path + "/")
         else:
             raise TraversalError(
-                private_msg=('directory %r is not ' 'callable' % self)
+                private_msg=('directory %r is not callable' % self)
             )
 
 

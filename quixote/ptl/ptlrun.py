@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+
 from quixote.ptl.ptl_compile import compile_template
 
 if __name__ == '__main__':

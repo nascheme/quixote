@@ -12,12 +12,12 @@ The t-string (PEP 750) preserves the original interpolation
 syntax and H() converts the Template to htmltext.
 """
 
-import sys
+import io
 import os
+import re
+import sys
 import token
 import tokenize
-import io
-import re
 from dataclasses import dataclass
 
 

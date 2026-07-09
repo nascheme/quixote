@@ -6,8 +6,10 @@
 # Reads User-Agent strings on stdin, and writes Quixote's interpretation
 # of each on stdout.  This is *not* an automated test!
 
-import sys, os
+import os
+import sys
 from copy import copy
+
 from quixote.http_request import HTTPRequest
 
 if __name__ == '__main__':

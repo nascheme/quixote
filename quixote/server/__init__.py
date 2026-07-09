@@ -1,2 +1,1 @@
-"""This package is for Quixote to server glue.
-"""
+"""This package is for Quixote to server glue."""

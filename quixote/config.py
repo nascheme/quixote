@@ -21,7 +21,6 @@ care what happens in the future.
 # in the future (in particular, an upgrade to Quixote would clobber your
 # edits).
 
-
 # E-mail address to send application errors to; None to send no mail at
 # all.  This should probably be the email address of your web
 # administrator.

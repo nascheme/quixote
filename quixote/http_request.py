@@ -4,17 +4,18 @@ Provides the HTTPRequest class and related code for parsing HTTP
 requests, such as the Upload class.
 """
 
-import re
-import os
-import tempfile
-import urllib.request, urllib.parse, urllib.error
 import email
 import io
+import os
+import re
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import quixote
-from quixote.http_response import HTTPResponse
 from quixote.errors import RequestError
-
+from quixote.http_response import HTTPResponse
 
 # Various regexes for parsing specific bits of HTTP, all from RFC 2616.
 

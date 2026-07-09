@@ -3,9 +3,10 @@
 """
 
 from types import StringType
-from quixote import get_session, get_publisher, redirect
-from quixote.html import url_quote, htmltag, htmltext, nl2br, TemplateIO
+
+from quixote import get_publisher, get_session, redirect
 from quixote.form1.widget import FormValueError, HiddenWidget
+from quixote.html import TemplateIO, htmltag, htmltext, nl2br, url_quote
 
 
 class FormTokenWidget(HiddenWidget):
@@ -84,10 +85,9 @@ class Form:
     TOKEN_NAME = "_form_id"  # name of hidden token widget
 
     def __init__(self, method="post", enctype=None, use_tokens=1):
-
         if method not in ("post", "get"):
             raise ValueError(
-                "Form method must be 'post' or 'get', " "not %r" % method
+                "Form method must be 'post' or 'get', not %r" % method
             )
         self.method = method
 
@@ -174,8 +174,7 @@ class Form:
 
     def _render_sep(self, text, line=1):
         return htmltext(
-            '<tr><td colspan="3">%s<strong><big>%s'
-            '</big></strong></td></tr>'
+            '<tr><td colspan="3">%s<strong><big>%s</big></strong></td></tr>'
         ) % (line and htmltext('<hr>') or '', text)
 
     def _render_error(self, error):
@@ -201,7 +200,7 @@ class Form:
         r = TemplateIO(html=1)
         r += htmltext('<tr><th colspan="3" align="left">')
         r += title
-        r += htmltext('</th></tr>' '<tr><td>&nbsp;&nbsp;</td><td>')
+        r += htmltext('</th></tr><tr><td>&nbsp;&nbsp;</td><td>')
         r += widget.render(request)
         r += htmltext('</td><td>')
         r += self._render_error(self.error.get(widget.name))
