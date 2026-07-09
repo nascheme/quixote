@@ -27,6 +27,7 @@ dev = [
     "pytest",
     "black>=24.8.0",
     "ruff>=0.15.9",
+    "pyrefly>=1.1.1",
 ]
 
 [tool.black]
