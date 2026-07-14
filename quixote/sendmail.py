@@ -3,11 +3,17 @@
 Tools for sending mail from Quixote applications.
 """
 
+from __future__ import annotations
+
 import datetime
 import email.utils
+from collections.abc import Sequence
 from email.header import Header
 from smtplib import SMTP
-from typing import cast, overload
+from typing import TYPE_CHECKING, cast, overload
+
+if TYPE_CHECKING:
+    from quixote.config import Config
 
 try:
     import ssl
@@ -38,16 +44,19 @@ class RFC822Mailbox:
     quoted RFC 822 "mailbox".
     """
 
-    @overload
-    def __init__(self, addr_spec, /): ...
+    addr_spec: str
+    real_name: str | None
 
     @overload
-    def __init__(self, addr_spec, real_name, /): ...
+    def __init__(self, addr_spec: str, /) -> None: ...
 
     @overload
-    def __init__(self, mailbox, /): ...
+    def __init__(self, addr_spec: str, real_name: str | None, /) -> None: ...
 
-    def __init__(self, *args):
+    @overload
+    def __init__(self, mailbox: MailboxTuple, /) -> None: ...
+
+    def __init__(self, *args: object) -> None:
         """RFC822Mailbox(addr_spec : string, name : string)
            RFC822Mailbox(addr_spec : string)
            RFC822Mailbox((addr_spec : string, name : string))
@@ -75,13 +84,13 @@ class RFC822Mailbox:
         self.addr_spec = addr_spec
         self.real_name = real_name
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.addr_spec
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
-    def format(self):
+    def format(self) -> str:
         if self.real_name:
             return email.utils.formataddr((self.real_name, self.addr_spec))
         else:
@@ -92,14 +101,14 @@ MailboxInput = str | MailboxTuple | RFC822Mailbox
 
 
 @overload
-def _ensure_mailbox(s): ...
+def _ensure_mailbox(s: None) -> None: ...
 
 
 @overload
-def _ensure_mailbox(s): ...
+def _ensure_mailbox(s: MailboxInput) -> RFC822Mailbox: ...
 
 
-def _ensure_mailbox(s):
+def _ensure_mailbox(s: MailboxInput | None) -> RFC822Mailbox | None:
     """_ensure_mailbox(s : string |
                           (string,) |
                           (string, string) |
@@ -126,8 +135,8 @@ MAX_HEADER_RECIPIENTS = 10
 
 
 def _add_recip_headers(
-    headers, field_name, addrs
-):
+    headers: list[str], field_name: str, addrs: Sequence[RFC822Mailbox]
+) -> None:
     if not addrs:
         return
     formatted_addrs = [addr.format() for addr in addrs]
@@ -145,7 +154,7 @@ def _add_recip_headers(
         )
 
 
-def _encode_header(s):
+def _encode_header(s: str) -> str:
     try:
         s.encode('ascii')
     except UnicodeEncodeError:
@@ -155,23 +164,23 @@ def _encode_header(s):
 
 
 def sendmail(
-    subject,
-    msg_body,
-    to_addrs,
-    from_addr = None,
-    cc_addrs = None,
-    extra_headers = None,
-    smtp_sender = None,
-    smtp_recipients = None,
-    mail_server = None,
-    mail_debug_addr = None,
-    username = None,
-    password = None,
-    mail_port = None,
-    use_ssl = False,
-    use_tls = False,
-    config = None,
-):
+    subject: str,
+    msg_body: str,
+    to_addrs: list[MailboxInput],
+    from_addr: MailboxInput | None = None,
+    cc_addrs: list[MailboxInput] | None = None,
+    extra_headers: Sequence[str] | None = None,
+    smtp_sender: MailboxInput | None = None,
+    smtp_recipients: list[MailboxInput] | None = None,
+    mail_server: str | None = None,
+    mail_debug_addr: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+    mail_port: int | None = None,
+    use_ssl: bool = False,
+    use_tls: bool = False,
+    config: Config | None = None,
+) -> None:
     """
     Send an email message to a list of recipients via a local SMTP
     server.  In normal use, you supply a list of primary recipient
