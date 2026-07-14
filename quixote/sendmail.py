@@ -7,6 +7,7 @@ import datetime
 import email.utils
 from email.header import Header
 from smtplib import SMTP
+from typing import cast, overload
 
 try:
     import ssl
@@ -15,6 +16,8 @@ except ImportError:
     ssl = None
 
 EMAIL_ENCODING = 'utf-8'
+
+MailboxTuple = tuple[str] | tuple[str, str]
 
 
 class RFC822Mailbox:
@@ -35,6 +38,15 @@ class RFC822Mailbox:
     quoted RFC 822 "mailbox".
     """
 
+    @overload
+    def __init__(self, addr_spec, /): ...
+
+    @overload
+    def __init__(self, addr_spec, real_name, /): ...
+
+    @overload
+    def __init__(self, mailbox, /): ...
+
     def __init__(self, *args):
         """RFC822Mailbox(addr_spec : string, name : string)
            RFC822Mailbox(addr_spec : string)
@@ -48,10 +60,11 @@ class RFC822Mailbox:
             args = args[0]
 
         if len(args) == 1:
-            addr_spec = args[0]
+            addr_spec = cast(str, args[0])
             real_name = None
         elif len(args) == 2:
-            (addr_spec, real_name) = args
+            addr_spec = cast(str, args[0])
+            real_name = cast(str | None, args[1])
         else:
             raise TypeError(
                 "invalid number of arguments: "
@@ -73,6 +86,17 @@ class RFC822Mailbox:
             return email.utils.formataddr((self.real_name, self.addr_spec))
         else:
             return self.addr_spec
+
+
+MailboxInput = str | MailboxTuple | RFC822Mailbox
+
+
+@overload
+def _ensure_mailbox(s): ...
+
+
+@overload
+def _ensure_mailbox(s): ...
 
 
 def _ensure_mailbox(s):
@@ -101,18 +125,20 @@ def _ensure_mailbox(s):
 MAX_HEADER_RECIPIENTS = 10
 
 
-def _add_recip_headers(headers, field_name, addrs):
+def _add_recip_headers(
+    headers, field_name, addrs
+):
     if not addrs:
         return
-    addrs = [addr.format() for addr in addrs]
+    formatted_addrs = [addr.format() for addr in addrs]
 
-    if len(addrs) == 1:
-        headers.append("%s: %s" % (field_name, addrs[0]))
-    elif len(addrs) <= MAX_HEADER_RECIPIENTS:
-        headers.append("%s: %s," % (field_name, addrs[0]))
-        for addr in addrs[1:-1]:
+    if len(formatted_addrs) == 1:
+        headers.append("%s: %s" % (field_name, formatted_addrs[0]))
+    elif len(formatted_addrs) <= MAX_HEADER_RECIPIENTS:
+        headers.append("%s: %s," % (field_name, formatted_addrs[0]))
+        for addr in formatted_addrs[1:-1]:
             headers.append("    %s," % addr)
-        headers.append("    %s" % addrs[-1])
+        headers.append("    %s" % formatted_addrs[-1])
     else:
         headers.append(
             "%s: (long recipient list suppressed) : ;" % field_name
@@ -132,19 +158,19 @@ def sendmail(
     subject,
     msg_body,
     to_addrs,
-    from_addr=None,
-    cc_addrs=None,
-    extra_headers=None,
-    smtp_sender=None,
-    smtp_recipients=None,
-    mail_server=None,
-    mail_debug_addr=None,
-    username=None,
-    password=None,
-    mail_port=None,
-    use_ssl=False,
-    use_tls=False,
-    config=None,
+    from_addr = None,
+    cc_addrs = None,
+    extra_headers = None,
+    smtp_sender = None,
+    smtp_recipients = None,
+    mail_server = None,
+    mail_debug_addr = None,
+    username = None,
+    password = None,
+    mail_port = None,
+    use_ssl = False,
+    use_tls = False,
+    config = None,
 ):
     """
     Send an email message to a list of recipients via a local SMTP
@@ -213,13 +239,15 @@ def sendmail(
     Generally raises an exception on any SMTP errors; see smtplib (in
     the standard library documentation) for details.
     """
-    if not mail_server and config is None:
+    if config is None and not mail_server:
         from quixote import get_publisher
 
         config = get_publisher().config
 
-    from_addr = from_addr or config.mail_from
-    mail_server = mail_server or config.mail_server
+    if not from_addr and config is not None:
+        from_addr = config.mail_from
+    if not mail_server and config is not None:
+        mail_server = config.mail_server
     if config is not None:
         mail_debug_addr = mail_debug_addr or config.mail_debug_addr
         username = username or config.mail_username
@@ -234,26 +262,31 @@ def sendmail(
         raise TypeError("'cc_addrs' must be a list or None")
 
     # Make sure we have a "From" address
-    if from_addr is None:
+    from_mailbox = _ensure_mailbox(from_addr)
+    if from_mailbox is None:
         raise RuntimeError(
             "no from_addr supplied, and MAIL_FROM not set in config file"
         )
+    if mail_server is None:
+        raise RuntimeError(
+            "no mail_server supplied, and MAIL_SERVER not set in config file"
+        )
 
     # Ensure all of our addresses are really RFC822Mailbox objects.
-    from_addr = _ensure_mailbox(from_addr)
-    to_addrs = list(map(_ensure_mailbox, to_addrs))
-    if cc_addrs:
-        cc_addrs = list(map(_ensure_mailbox, cc_addrs))
+    to_mailboxes = [_ensure_mailbox(addr) for addr in to_addrs]
+    cc_mailboxes = (
+        [_ensure_mailbox(addr) for addr in cc_addrs] if cc_addrs else None
+    )
 
     # Start building the message headers.
     headers = [
-        "From: %s" % from_addr.format(),
+        "From: %s" % from_mailbox.format(),
         "Subject: %s" % _encode_header(subject),
         "Date: %s" % email.utils.format_datetime(datetime.datetime.now()),
     ]
-    _add_recip_headers(headers, "To", to_addrs)
-    if cc_addrs:
-        _add_recip_headers(headers, "Cc", cc_addrs)
+    _add_recip_headers(headers, "To", to_mailboxes)
+    if cc_mailboxes:
+        _add_recip_headers(headers, "Cc", cc_mailboxes)
 
     if extra_headers:
         headers.extend(extra_headers)
@@ -274,7 +307,7 @@ def sendmail(
         )
         if smtp_recipients:
             debug2 = "[original SMTP recipients: %s]\n" % ", ".join(
-                smtp_recipients
+                _ensure_mailbox(recip).addr_spec for recip in smtp_recipients
             )
         else:
             debug2 = ""
@@ -285,16 +318,18 @@ def sendmail(
         smtp_recipients = [mail_debug_addr]
 
     if smtp_sender is None:
-        smtp_sender = from_addr.addr_spec
+        smtp_sender_addr = from_mailbox.addr_spec
     else:
-        smtp_sender = _ensure_mailbox(smtp_sender).addr_spec
+        smtp_sender_addr = _ensure_mailbox(smtp_sender).addr_spec
 
     if smtp_recipients is None:
-        smtp_recipients = [addr.addr_spec for addr in to_addrs]
-        if cc_addrs:
-            smtp_recipients.extend([addr.addr_spec for addr in cc_addrs])
+        smtp_recipient_addrs = [addr.addr_spec for addr in to_mailboxes]
+        if cc_mailboxes:
+            smtp_recipient_addrs.extend(
+                [addr.addr_spec for addr in cc_mailboxes]
+            )
     else:
-        smtp_recipients = [
+        smtp_recipient_addrs = [
             _ensure_mailbox(recip).addr_spec for recip in smtp_recipients
         ]
 
@@ -327,6 +362,6 @@ def sendmail(
         smtp.starttls(context=context)
         smtp.ehlo()
     if username:
-        smtp.login(username, password)
-    smtp.sendmail(smtp_sender, smtp_recipients, message)
+        smtp.login(username, cast(str, password))
+    smtp.sendmail(smtp_sender_addr, smtp_recipient_addrs, message)
     smtp.quit()
