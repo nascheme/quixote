@@ -3,10 +3,13 @@
 Provides the HTTPResponse class.
 """
 
+from __future__ import annotations
+
 import struct
 import time
+from collections.abc import Iterable, Iterator
 from email.utils import formatdate
-from typing import Protocol, cast
+from typing import Protocol, TypeVar, cast
 
 try:
     import zlib
@@ -16,7 +19,7 @@ except ImportError:
 import quixote
 from quixote.html import stringify
 
-status_reasons = {
+status_reasons: dict[int, str] = {
     100: 'Continue',
     101: 'Switching Protocols',
     102: 'Processing',
@@ -75,7 +78,7 @@ _GZIP_HEADER = (
 )
 
 # content that is already compressed, don't bother trying
-_GZIP_EXCLUDE = {
+_GZIP_EXCLUDE: set[str] = {
     "application/pdf",
     "application/zip",
     "audio/mpeg",
@@ -90,17 +93,18 @@ _GZIP_EXCLUDE = {
 BodyChunk = str | bytes
 CookieAttrs = dict[str, object | None]
 Headers = list[tuple[str, str]]
+_T = TypeVar('_T')
 
 
 class BytesWriter(Protocol):
-    def write(self, data): ...
+    def write(self, data: bytes) -> object: ...
 
 
 class FlushableBytesWriter(BytesWriter, Protocol):
-    def flush(self): ...
+    def flush(self) -> object: ...
 
 
-def _LOWU32(i):
+def _LOWU32(i: int) -> int:
     return i & 0xFFFFFFFF
 
 
@@ -159,13 +163,25 @@ class HTTPResponse:
     DEFAULT_CONTENT_TYPE = 'text/html'
     DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
 
+    content_type: str
+    charset: str | None
+    status_code: int
+    reason_phrase: str
+    headers: dict[str, str]
+    body: bytes | Stream | None
+    cookies: dict[str, CookieAttrs]
+    cache: int | None
+    buffered: bool
+    javascript_code: dict[str, str] | None
+    _allow_chunked: bool
+
     def __init__(
         self,
-        status = 200,
-        body = None,
-        content_type = None,
-        charset = None,
-    ):
+        status: int = 200,
+        body: object | Stream | None = None,
+        content_type: str | None = None,
+        charset: str | None = None,
+    ) -> None:
         """
         Creates a new HTTP response.
         """
@@ -189,9 +205,9 @@ class HTTPResponse:
 
     def set_content_type(
         self,
-        content_type,
-        charset = None,
-    ):
+        content_type: str,
+        charset: str | None = None,
+    ) -> None:
         """(content_type : string, charset : string = None)
 
         Set the content type of the response to the MIME type specified by
@@ -205,13 +221,13 @@ class HTTPResponse:
             self.charset = charset
         self.content_type = content_type
 
-    def set_charset(self, charset):
+    def set_charset(self, charset: str | None) -> None:
         if not charset:
             self.charset = None
         else:
             self.charset = charset.lower()
 
-    def set_status(self, status, reason = None):
+    def set_status(self, status: int, reason: object | None = None) -> None:
         """set_status(status : int, reason : string = None)
 
         Sets the HTTP status code of the response.  'status' must be an
@@ -239,7 +255,7 @@ class HTTPResponse:
 
         self.reason_phrase = reason_phrase
 
-    def set_header(self, name, value):
+    def set_header(self, name: str, value: str) -> None:
         """set_header(name : string, value : string)
 
         Sets an HTTP return header "name" with value "value", clearing
@@ -249,9 +265,9 @@ class HTTPResponse:
 
     def get_header(
         self,
-        name,
-        default = None,
-    ):
+        name: str,
+        default: _T | None = None,
+    ) -> str | _T | None:
         """get_header(name : string, default=None) -> value : string
 
         Gets an HTTP return header "name".  If none exists then 'default' is
@@ -261,17 +277,17 @@ class HTTPResponse:
 
     def set_expires(
         self,
-        seconds = 0,
-        minutes = 0,
-        hours = 0,
-        days = 0,
-    ):
+        seconds: int | None = 0,
+        minutes: int = 0,
+        hours: int = 0,
+        days: int = 0,
+    ) -> None:
         if seconds is None:
             self.cache = None  # don't generate 'Expires' header
         else:
             self.cache = seconds + 60 * (minutes + 60 * (hours + 24 * days))
 
-    def _encode_chunk(self, chunk):
+    def _encode_chunk(self, chunk: BodyChunk) -> bytes:
         """(chunk : str) -> bytes"""
         if isinstance(chunk, str):
             if self.charset is None:
@@ -286,7 +302,7 @@ class HTTPResponse:
             pass
         return chunk
 
-    def _compress_body(self, body):
+    def _compress_body(self, body: bytes) -> bytes:
         """(body: bytes) -> bytes"""
         n = len(body)
         compressed_body = b''.join(self._generate_compressed([body]))
@@ -299,7 +315,7 @@ class HTTPResponse:
         else:
             return body
 
-    def _generate_compressed(self, body):
+    def _generate_compressed(self, body: Iterable[object]) -> Iterator[bytes]:
         co = zlib.compressobj(
             6, zlib.DEFLATED, -zlib.MAX_WBITS, zlib.DEF_MEM_LEVEL, 0
         )
@@ -317,7 +333,7 @@ class HTTPResponse:
         crc = struct.pack("<LL", _LOWU32(crc), _LOWU32(n))
         yield co.flush() + crc
 
-    def set_body(self, body, compress = False):
+    def set_body(self, body: object | Stream, compress: bool = False) -> None:
         """(body : any, compress : bool = False)
 
         Sets the response body equal to the argument 'body'.  If 'compress'
@@ -334,7 +350,7 @@ class HTTPResponse:
                 body = Stream(self._generate_compressed(body))
         self.body = body
 
-    def expire_cookie(self, name, **attrs):
+    def expire_cookie(self, name: str, **attrs: object | None) -> None:
         """
         Cause an HTTP cookie to be removed from the browser
 
@@ -346,7 +362,7 @@ class HTTPResponse:
         when creating the cookie.  The path can be specified as a keyword
         argument.
         """
-        cookie_attrs = {
+        cookie_attrs: CookieAttrs = {
             'max_age': 0,
             'expires': 'Thu, 01-Jan-1970 00:00:00 GMT',
         }
@@ -355,10 +371,10 @@ class HTTPResponse:
 
     def set_cookie(
         self,
-        name,
-        value,
-        **attrs,
-    ):
+        name: str,
+        value: object,
+        **attrs: object | None,
+    ) -> None:
         """Set an HTTP cookie on the browser.
 
         The response will include an HTTP header that sets a cookie on
@@ -380,7 +396,7 @@ class HTTPResponse:
         cookie.update(attrs)
         cookie['value'] = value
 
-    def add_javascript(self, code_id, code):
+    def add_javascript(self, code_id: str, code: str) -> None:
         """Add javascript code to be included in the response.
 
         code_id is used to ensure that the same piece of code is not
@@ -396,7 +412,7 @@ class HTTPResponse:
         elif code_id not in self.javascript_code:
             self.javascript_code[code_id] = code
 
-    def redirect(self, location, permanent = False):
+    def redirect(self, location: str, permanent: bool | int = False) -> str:
         """Cause a redirection without raising an error"""
         if not isinstance(location, str):
             raise TypeError("location must be a string (got %r)" % location)
@@ -412,16 +428,16 @@ class HTTPResponse:
         self.set_content_type('text/plain')
         return "Your browser should have redirected you to %s" % location
 
-    def get_status_code(self):
+    def get_status_code(self) -> int:
         return self.status_code
 
-    def get_reason_phrase(self):
+    def get_reason_phrase(self) -> str:
         return self.reason_phrase
 
-    def get_content_type(self):
+    def get_content_type(self) -> str:
         return self.content_type
 
-    def get_content_length(self):
+    def get_content_length(self) -> int | None:
         body = self.body
         if body is None:
             return None
@@ -430,17 +446,17 @@ class HTTPResponse:
         else:
             return len(body)
 
-    def enable_transfer_chunked(self):
+    def enable_transfer_chunked(self) -> None:
         """Allow response to be sent as "Transfer-Encoding: chunked" """
         self._allow_chunked = True
 
-    def _gen_cookie_headers(self):
+    def _gen_cookie_headers(self) -> Headers:
         """_gen_cookie_headers() -> [string]
 
         Build a list of "Set-Cookie" headers based on all cookies
         set with 'set_cookie()', and return that list.
         """
-        cookie_headers = []
+        cookie_headers: Headers = []
         for name, attrs in self.cookies.items():
             value = str(attrs['value'])
             if '"' in value:
@@ -462,7 +478,7 @@ class HTTPResponse:
             cookie_headers.append(("Set-Cookie", '; '.join(chunks)))
         return cookie_headers
 
-    def generate_headers(self):
+    def generate_headers(self) -> Headers:
         """generate_headers() -> [(name:string, value:string)]
 
         Generate a list of headers to be returned as part of the response.
@@ -529,7 +545,7 @@ class HTTPResponse:
             else:
                 self.headers['connection'] = 'close'
 
-        headers = []
+        headers: Headers = []
         for name, value in self.headers.items():
             headers.append((name.title(), value))
         if self.cookies:
@@ -537,7 +553,7 @@ class HTTPResponse:
             headers.extend(self._gen_cookie_headers())
         return headers
 
-    def _generate_encoded_body(self):
+    def _generate_encoded_body(self) -> Iterator[bytes]:
         """Return a sequence of body chunks, encoded using 'charset'."""
         body = self.body
         if body is None:
@@ -555,8 +571,8 @@ class HTTPResponse:
 
     def _generate_transfer_chunked(
         self,
-        stream,
-    ):
+        stream: Iterable[bytes],
+    ) -> Iterator[bytes]:
         """Convert a sequence of encoded body data into the format
         # expected by "Transfer-Encoding: chunked".
         """
@@ -572,7 +588,7 @@ class HTTPResponse:
                 )
         yield b'0\r\n\r\n'
 
-    def generate_body_chunks(self):
+    def generate_body_chunks(self) -> Iterator[bytes]:
         stream = self._generate_encoded_body()
         if self.headers.get('transfer-encoding') == 'chunked':
             return self._generate_transfer_chunked(stream)
@@ -581,10 +597,10 @@ class HTTPResponse:
 
     def write(
         self,
-        output,
-        include_status = True,
-        include_body = True,
-    ):
+        output: BytesWriter,
+        include_status: bool = True,
+        include_body: bool = True,
+    ) -> None:
         """(output:file, include_status:bool=True, include_body:bool=True)
 
         Write the HTTP response headers and, by default, body to 'output'.
@@ -638,17 +654,20 @@ class Stream:
         if it is not known.  Used to set the Content-Length header.
     """
 
+    iterable: Iterable[BodyChunk]
+    length: int | None
+
     def __init__(
         self,
-        iterable,
-        length = None,
-    ):
+        iterable: Iterable[BodyChunk],
+        length: int | None = None,
+    ) -> None:
         self.iterable = iterable
         self.length = length
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[BodyChunk]:
         return iter(self.iterable)
 
-    def close(self):
+    def close(self) -> None:
         """Called after the response has been streamed."""
         pass
