@@ -37,12 +37,14 @@ the copyright character.  XML processors should treat it as an invalid entity
 reference.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, cast
+from typing import Any, Final, cast
 
 _HAVE_T_STRING = sys.hexversion >= 0x030E0000
 
@@ -52,7 +54,8 @@ try:
         TemplateIO,
         htmlescape,
         htmltext,
-        stringify)
+        stringify,
+    )
 
     if _HAVE_T_STRING:
         from quixote.html._c_htmltext import htmlformat
@@ -61,22 +64,23 @@ except ImportError:
         TemplateIO,
         htmlescape,
         htmltext,
-        stringify)
+        stringify,
+    )
 
     if _HAVE_T_STRING:
         from quixote.html._py_htmltext import htmlformat  # noqa: F401
 
 from quixote.html._py_htmltext import _wraparg  # noqa: E402
 
-ValuelessAttr = object()  # magic singleton object
+ValuelessAttr: Final = object()  # magic singleton object
 
 
 def htmltag(
-    tag,
-    xml_end = False,
-    css_class = None,
-    **attrs,
-):
+    tag: str,
+    xml_end: bool | int = False,
+    css_class: str | None = None,
+    **attrs: object,
+) -> htmltext:
     """Create a HTML tag."""
     r = ["<%s" % tag]
     if css_class is not None:
@@ -94,11 +98,11 @@ def htmltag(
 
 
 def href(
-    url,
-    text,
-    title = None,
-    **attrs,
-):
+    url: object,
+    text: object,
+    title: object | None = None,
+    **attrs: object,
+) -> htmltext:
     return (
         htmltag(
             "a",
@@ -109,7 +113,7 @@ def href(
     )
 
 
-def url_with_query(path, **attrs):
+def url_with_query(path: object, **attrs: object) -> htmltext:
     result = htmltext(url_quote(path))
     if attrs:
         attrs = dict(sorted(attrs.items()))
@@ -122,7 +126,7 @@ def url_with_query(path, **attrs):
     return result
 
 
-def nl2br(value):
+def nl2br(value: object) -> htmltext:
     """nl2br(value : any) -> htmltext
 
     Insert <br /> tags before newline characters.
@@ -131,7 +135,7 @@ def nl2br(value):
     return htmltext(text.s.replace('\n', '<br />\n'))
 
 
-def url_quote(value, fallback = None):
+def url_quote(value: object | None, fallback: str | None = None) -> str:
     """url_quote(value : any [, fallback : string]) -> string
 
     Quotes 'value' for use in a URL; see urllib.quote().  If value is None,
@@ -147,16 +151,16 @@ def url_quote(value, fallback = None):
     return urllib.parse.quote(stringify(value))
 
 
-def _q_join(*args):
+def _q_join(*args: object) -> htmltext:
     # Used by f-strings to join the {..} parts
     return htmltext('').join(args)
 
 
 def _q_format(
-    value,
-    conversion = -1,
-    format_spec = None,
-):
+    value: object,
+    conversion: int = -1,
+    format_spec: object | None = None,
+) -> htmltext:
     # Used by f-strings to format the {..} parts
     if conversion == -1 and format_spec is None:
         return htmlescape(value)  # simple and fast case
@@ -180,10 +184,10 @@ def _q_format(
     return htmltext(fmt.format(arg))
 
 
-_saved = None
+_saved: tuple[Any, Any, Any, Any] | None = None
 
 
-def use_qpy():
+def use_qpy() -> None:
     """
     Switch to using 'qpy' as an alternative.
     """
@@ -201,7 +205,7 @@ def use_qpy():
         TemplateIO = qpy_TemplateIO
 
 
-def cleanup_qpy():
+def cleanup_qpy() -> None:
     global _saved, htmltext, stringify, htmlescape, TemplateIO
 
     if _saved is None:
@@ -213,7 +217,7 @@ def cleanup_qpy():
 _ETAGO_PAT = re.compile(r'</')
 
 
-def js_escape(s):
+def js_escape(s: object) -> htmltext:
     """Escape Javascript code to be embedded in HTML.
 
     When embedding Javascript code inside a <script> tag, the ETAGO

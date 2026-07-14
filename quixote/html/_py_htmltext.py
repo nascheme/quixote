@@ -2,7 +2,11 @@
 TemplateIO.
 """
 
-from typing import Any
+from __future__ import annotations
+
+from collections.abc import Iterable
+from types import NotImplementedType
+from typing import TYPE_CHECKING, Any, Never, Self
 
 try:
     from string.templatelib import Interpolation, Template
@@ -12,7 +16,7 @@ except ImportError:
     _HAVE_T_STRING = False
 
 
-def _escape_string(s):
+def _escape_string(s: object) -> str:
     if isinstance(s, bytes):
         raise TypeError('escape_string no longer accepts bytes')
     if not isinstance(s, str):
@@ -22,7 +26,15 @@ def _escape_string(s):
     s = s.replace(">", "&gt;")
     s = s.replace('"', "&quot;")
     return s
-stringify = str
+
+
+# backwards comptibility, unneeded in Python 3
+if TYPE_CHECKING:
+
+    def stringify(value: object = '') -> str:
+        return str(value)
+else:
+    stringify = str
 
 
 class htmltext(object):
@@ -34,52 +46,54 @@ class htmltext(object):
 
     __slots__ = ['s']
 
-    def __init__(self, s):
+    s: str
+
+    def __init__(self, s: object) -> None:
         self.s = str(s)
 
     # XXX make read-only
     # def __setattr__(self, name, value):
     #    raise AttributeError, 'immutable object'
 
-    def __getstate__(self):
+    def __getstate__(self) -> Never:
         raise ValueError('htmltext objects should not be pickled')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<htmltext %r>' % self.s
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.s
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.s)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, htmltext):
             return self.s == other.s
         return self.s == other
 
-    def __lt__(self, other):
+    def __lt__(self, other: str | htmltext) -> bool:
         if isinstance(other, htmltext):
             return self.s < other.s
         return self.s < other
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.s)
 
-    def __mod__(self, args):
+    def __mod__(self, args: object) -> htmltext:
         if isinstance(args, tuple):
             return htmltext(self.s % tuple(map(_wraparg, args)))
         else:
             return htmltext(self.s % _wraparg(args))
 
-    def format(self, *args, **kwargs):
+    def format(self, *args: object, **kwargs: object) -> htmltext:
         wrapped_args = list(map(_wraparg, args))
         wrapped_kwargs = {
             key: _wraparg(value) for key, value in kwargs.items()
         }
         return htmltext(self.s.format(*wrapped_args, **wrapped_kwargs))
 
-    def __add__(self, other):
+    def __add__(self, other: str | htmltext) -> htmltext | NotImplementedType:
         if isinstance(other, str):
             return htmltext(self.s + _escape_string(other))
         elif isinstance(other, htmltext):
@@ -87,17 +101,17 @@ class htmltext(object):
         else:
             return NotImplemented
 
-    def __radd__(self, other):
+    def __radd__(self, other: str) -> htmltext | NotImplementedType:
         if isinstance(other, str):
             return htmltext(_escape_string(other) + self.s)
         else:
             return NotImplemented
 
-    def __mul__(self, n):
+    def __mul__(self, n: int) -> htmltext:
         return htmltext(self.s * n)
 
-    def join(self, items):
-        quoted_items = []
+    def join(self, items: Iterable[object]) -> htmltext:
+        quoted_items: list[str] = []
         for item in items:
             if isinstance(item, htmltext):
                 quoted_items.append(str(item))
@@ -109,14 +123,14 @@ class htmltext(object):
                 )
         return htmltext(self.s.join(quoted_items))
 
-    def startswith(self, s):
+    def startswith(self, s: str | htmltext) -> bool:
         if isinstance(s, htmltext):
             s = s.s
         else:
             s = _escape_string(s)
         return self.s.startswith(s)
 
-    def endswith(self, s):
+    def endswith(self, s: str | htmltext) -> bool:
         if isinstance(s, htmltext):
             s = s.s
         else:
@@ -125,10 +139,10 @@ class htmltext(object):
 
     def replace(
         self,
-        old,
-        new,
-        count = -1,
-    ):
+        old: str | htmltext,
+        new: str | htmltext,
+        count: int = -1,
+    ) -> htmltext:
         if isinstance(old, htmltext):
             old = old.s
         else:
@@ -139,13 +153,13 @@ class htmltext(object):
             new = _escape_string(new)
         return htmltext(self.s.replace(old, new, count))
 
-    def lower(self):
+    def lower(self) -> htmltext:
         return htmltext(self.s.lower())
 
-    def upper(self):
+    def upper(self) -> htmltext:
         return htmltext(self.s.upper())
 
-    def capitalize(self):
+    def capitalize(self) -> htmltext:
         return htmltext(self.s.capitalize())
 
 
@@ -154,20 +168,22 @@ class _QuoteWrapper(object):
 
     __slots__ = ['value']
 
-    def __init__(self, value):
+    value: Any
+
+    def __init__(self, value: Any) -> None:
         self.value = value
 
-    def __str__(self):
+    def __str__(self) -> str:
         return _escape_string(str(self.value))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return _escape_string(repr(self.value))
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: object) -> str | int | float | _QuoteWrapper:
         return _wraparg(self.value[key])
 
 
-def _wraparg(arg):
+def _wraparg(arg: object) -> str | int | float | _QuoteWrapper:
     if isinstance(arg, htmltext):
         return str(arg)
     elif isinstance(arg, str):
@@ -180,7 +196,7 @@ def _wraparg(arg):
         return _QuoteWrapper(arg)
 
 
-def htmlescape(s):
+def htmlescape(s: object) -> htmltext:
     """htmlescape(s) -> htmltext
 
     Return an 'htmltext' object using the argument.  If the argument is not
@@ -204,30 +220,33 @@ class TemplateIO(object):
 
     __slots__ = ['html', 'data']
 
-    def __init__(self, html = False):
+    html: bool | int
+    data: list[object]
+
+    def __init__(self, html: bool | int = False) -> None:
         self.html = html
         self.data = []
 
-    def __call__(self, s):
+    def __call__(self, s: object | None) -> None:
         if s is not None:
             self.data.append(s)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: object | None) -> Self:
         if other is not None:
             self.data.append(other)
         return self
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s at %x: %d chunks>" % (
             self.__class__.__name__,
             id(self),
             len(self.data),
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.getvalue())
 
-    def getvalue(self):
+    def getvalue(self) -> htmltext | str:
         if self.html:
             return htmltext('').join(map(htmlescape, self.data))
         else:
