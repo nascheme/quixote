@@ -6,11 +6,14 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import BaseServer
+from typing import Any, Protocol, cast
 
 import quixote
 from quixote import get_publisher
+from quixote.publish import Publisher
 from quixote.util import import_object
 
 try:
@@ -21,8 +24,27 @@ except ImportError:
         return None
 
 
+CreatePublisher = Callable[[], Publisher]
+
+
+class _SimpleRun(Protocol):
+    def __call__(
+        self,
+        create_publisher,
+        *,
+        host = '',
+        port = 80,
+        https = False,
+    ): ...
+
+
 class SockInheritHTTPServer(HTTPServer):
-    def __init__(self, address_info, handler, bind_and_activate=True):
+    def __init__(
+        self,
+        address_info,
+        handler,
+        bind_and_activate = True,
+    ):
         # This is ugly.  We have to re-implement HTTPServer.__init__
         # and server_bind().  We want to get the inherited socket if
         # available.  If we inherit then we need to skip the bind() call.
@@ -59,12 +81,13 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
     def get_cgi_env(self, method):
+        server = cast(SockInheritHTTPServer, self.server)
         env = dict(
             SERVER_SOFTWARE="Quixote/%s" % quixote.__version__,
-            SERVER_NAME=self.server.server_name,
+            SERVER_NAME=server.server_name,
             GATEWAY_INTERFACE='CGI/1.1',
             SERVER_PROTOCOL=self.protocol_version,
-            SERVER_PORT=str(self.server.server_port),
+            SERVER_PORT=str(server.server_port),
             REQUEST_METHOD=method,
             REMOTE_ADDR=self.client_address[0],
             SCRIPT_NAME='',
@@ -74,13 +97,13 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         else:
             env['PATH_INFO'] = self.path
         env['PATH_INFO'] = urllib.parse.unquote(env['PATH_INFO'])
-        env['CONTENT_TYPE'] = self.headers.get('content-type')
+        env['CONTENT_TYPE'] = self.headers.get('content-type') or ''
         env['CONTENT_LENGTH'] = self.headers.get('content-length') or "0"
         for name, value in self.headers.items():
             header_name = 'HTTP_' + name.upper().replace('-', '_')
             env[header_name] = value
         accept = []
-        for line in self.headers.getallmatchingheaders('accept'):
+        for line in cast(Any, self.headers).getallmatchingheaders('accept'):
             if line[:1] in "\t\n\r ":
                 accept.append(line.strip())
             else:
@@ -92,8 +115,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         env.update(self.required_cgi_environment)
         return env
 
-    def process(self, env, include_body=True):
-        response = get_publisher().process(self.rfile, env)
+    def process(self, env, include_body = True):
+        response = get_publisher().process(cast(Any, self.rfile), env)
         if self.protocol_version == 'HTTP/1.1':
             # single threaded server, persistent connections will block others
             response.set_header('connection', 'close')
@@ -103,7 +126,9 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             )
             self.flush_headers()
             response.write(
-                self.wfile, include_status=False, include_body=include_body
+                cast(Any, self.wfile),
+                include_status=False,
+                include_body=include_body,
             )
         except IOError as err:
             print("IOError while sending response ignored: %s" % err)
@@ -120,7 +145,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         return self.process(self.get_cgi_env('OPTIONS'), include_body=False)
 
-    def send_response(self, code, message=None):
+    def send_response(self, code, message = None):
         """
         Copied, with regret, from BaseHTTPRequestHandler, except that the line
         that adds the 'Date' header is removed to avoid duplicating the one
@@ -130,7 +155,12 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Server', self.version_string())
 
 
-def run(create_publisher, host='', port=80, https=False):
+def run(
+    create_publisher,
+    host = '',
+    port = 80,
+    https = False,
+):
     """Runs a simple, single threaded, synchronous HTTP server that
     publishes a Quixote application.
     """
@@ -139,21 +169,24 @@ def run(create_publisher, host='', port=80, https=False):
     httpd = SockInheritHTTPServer((host, port), HTTPRequestHandler)
 
     def handle_error(request, client_address):
-        HTTPServer.handle_error(httpd, request, client_address)
+        HTTPServer.handle_error(
+            httpd, cast(Any, request), cast(Any, client_address)
+        )
         if sys.exc_info()[0] is SystemExit:
             raise
 
     httpd.handle_error = handle_error
     publisher = create_publisher()
-    if publisher.logger.access_log is None:
-        publisher.logger.access_log = sys.stdout
+    logger = cast(Any, publisher.logger)
+    if logger.access_log is None:
+        logger.access_log = sys.stdout
     try:
         httpd.serve_forever()
     finally:
         httpd.server_close()
 
 
-def main(args=None, _run=run):
+def main(args = None, _run = run):
     from quixote.server.util import get_server_parser
 
     if args is None:
@@ -173,7 +206,7 @@ def main(args=None, _run=run):
     )
     (options, args) = parser.parse_args(args=args)
     _run(
-        import_object(options.factory),
+        cast(CreatePublisher, import_object(options.factory)),
         host=options.host,
         port=options.port,
         https=options.https,

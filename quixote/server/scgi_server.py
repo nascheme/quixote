@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """A SCGI server that uses Quixote to publish dynamic content."""
 
+from typing import cast
+
 from scgi import scgi_server, session_server
+
+from quixote.server.simple_server import CreatePublisher
 
 
 class QuixoteHandler(scgi_server.SCGIHandler):
-    def __init__(self, parent_fd, create_publisher, script_name=None):
+    def __init__(
+        self,
+        parent_fd,
+        create_publisher,
+        script_name = None,
+    ):
         scgi_server.SCGIHandler.__init__(self, parent_fd)
         self.publisher = create_publisher()
         self.script_name = script_name
@@ -13,6 +22,7 @@ class QuixoteHandler(scgi_server.SCGIHandler):
     def _set_script_name(self, env):
         # mod_scgi doesn't know SCRIPT_NAME :-(
         prefix = self.script_name
+        assert prefix is not None
         path = env['SCRIPT_NAME']
         assert path[: len(prefix)] == prefix, (
             "path %r doesn't start with script_name %r" % (path, prefix)
@@ -47,11 +57,11 @@ class QuixoteHandler(scgi_server.SCGIHandler):
 
 def run(
     create_publisher,
-    host='localhost',
-    port=3000,
-    script_name=None,
-    max_children=5,
-    session_affinity=False,
+    host = 'localhost',
+    port = 3000,
+    script_name = None,
+    max_children = 5,
+    session_affinity = False,
 ):
     def create_handler(parent_fd):
         return QuixoteHandler(parent_fd, create_publisher, script_name)
@@ -122,7 +132,7 @@ def main():
     )
     (options, args) = parser.parse_args()
     run(
-        import_object(options.factory),
+        cast(CreatePublisher, import_object(options.factory)),
         host=options.host,
         port=options.port,
         script_name=options.script_name,

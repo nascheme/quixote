@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 
+
 import os
 import sys
+from collections.abc import Callable
+from typing import Any, cast
+
+from quixote.publish import Publisher
+
+CreatePublisher = Callable[[], Publisher]
 
 
 def run(create_publisher):
@@ -12,9 +19,9 @@ def run(create_publisher):
         msvcrt.setmode(sys.__stdin__.fileno(), os.O_BINARY)
         msvcrt.setmode(sys.__stdout__.fileno(), os.O_BINARY)
     publisher = create_publisher()
-    response = publisher.process(sys.__stdin__, os.environ)
+    response = publisher.process(cast(Any, sys.__stdin__), os.environ)
     try:
-        response.write(sys.__stdout__)
+        response.write(cast(Any, sys.__stdout__))
     except IOError as err:
         publisher.log("IOError while sending response ignored: %s" % err)
 

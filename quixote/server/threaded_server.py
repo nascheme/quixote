@@ -8,10 +8,13 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from socketserver import ThreadingMixIn
+from typing import Any, cast
 
 from quixote import get_publisher
 from quixote.http_request import HTTPRequest
 from quixote.server import simple_server
+
+_PROCESSOR = None
 
 
 class ThreadingHTTPServer(
@@ -29,7 +32,7 @@ def _buffer_request_body(rfile, env):
         length = int(length)
     except ValueError:
         length = 0
-    body = tempfile.SpooledTemporaryFile()
+    body = tempfile.SpooledTemporaryFile[bytes]()
     remaining = length
     while remaining > 0:
         s = rfile.read(min(remaining, 10000))
@@ -42,12 +45,14 @@ def _buffer_request_body(rfile, env):
 
 
 class HTTPRequestHandler(simple_server.HTTPRequestHandler):
-    def process(self, env, include_body=True):
+    def process(self, env, include_body = True):
         """Process a single request, in front-end HTTP server thread."""
-        request_body = _buffer_request_body(self.rfile, env)
+        request_body = _buffer_request_body(cast(Any, self.rfile), env)
         try:
             # submit work to back-end executor
-            f = _PROCESSOR.submit(_process, request_body, env, include_body)
+            processor = _PROCESSOR
+            assert processor is not None
+            f = processor.submit(_process, request_body, env, include_body)
             # wait for result from back-end
             status, reason, response_body = f.result()
         finally:
@@ -65,20 +70,29 @@ class HTTPRequestHandler(simple_server.HTTPRequestHandler):
             print("IOError while sending response ignored: %s" % err)
 
 
-def _process(rfile, env, include_body):
+def _process(
+    rfile, env, include_body
+):
     """Process a single request, in background Quixote thread."""
     request = HTTPRequest(rfile, env, seekable=True)
     response = get_publisher().process_request(request)
     status, reason = response.get_status_code(), response.get_reason_phrase()
     # write response body to temporary file, this ensures that write() runs in
     # the correct thread and we are not blocked by slow clients.
-    body = tempfile.SpooledTemporaryFile()
-    response.write(body, include_status=False, include_body=include_body)
+    body = tempfile.SpooledTemporaryFile[bytes]()
+    response.write(
+        cast(Any, body), include_status=False, include_body=include_body
+    )
     body.seek(0)
     return (status, reason, body)
 
 
-def run(create_publisher, host='', port=80, https=False):
+def run(
+    create_publisher,
+    host = '',
+    port = 80,
+    https = False,
+):
     """Runs a simple, multi-threaded, HTTP server that publishes a Quixote
     application.
     """
@@ -88,7 +102,9 @@ def run(create_publisher, host='', port=80, https=False):
     httpd = ThreadingHTTPServer((host, port), HTTPRequestHandler)
 
     def handle_error(request, client_address):
-        ThreadingHTTPServer.handle_error(httpd, request, client_address)
+        ThreadingHTTPServer.handle_error(
+            httpd, cast(Any, request), cast(Any, client_address)
+        )
         if sys.exc_info()[0] is SystemExit:
             raise
 
@@ -104,7 +120,7 @@ def run(create_publisher, host='', port=80, https=False):
             httpd.server_close()
 
 
-def main(args=None):
+def main(args = None):
     simple_server.main(args=args, _run=run)
 
 
