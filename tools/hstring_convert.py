@@ -16,7 +16,7 @@ import sys
 import tokenize
 
 
-def translate_hstrings(tokens):
+def translate_hstrings(tokens: list[tokenize.TokenInfo]) -> None:
     i = 0
     context = [False]
     html_def = False  # True if upcoming indent enters html template
@@ -73,7 +73,7 @@ def translate_hstrings(tokens):
         i += 1
 
 
-def translate(fn, verbose = False):
+def translate(fn: str, verbose: bool = False) -> tuple[str, str]:
     with open(fn, 'rb') as fp:
         tokens = list(tokenize.tokenize(fp.readline))
     translate_hstrings(tokens)
@@ -84,7 +84,7 @@ def translate(fn, verbose = False):
     return ut.encoding or 'utf-8', src
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser()

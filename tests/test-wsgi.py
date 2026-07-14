@@ -7,7 +7,7 @@ import quixote
 
 
 class TestWSGI:
-    def setup(self):
+    def setup(self) -> None:
         wsgi_app = None
 
         x = sys.stdout  # Quixote mangles sys.stdout; save.
@@ -21,11 +21,11 @@ class TestWSGI:
             'localhost', 80, lambda: wsgi_app, '/qx_test'
         )
 
-    def teardown(self):
+    def teardown(self) -> None:
         twill.remove_wsgi_intercept('localhost', 80)
 
         quixote.cleanup()
 
-    def test(self):
+    def test(self) -> None:
         twill.commands.go('http://localhost:80/qx_test/')
         twill.commands.find('hello, world')

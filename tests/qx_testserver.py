@@ -3,12 +3,13 @@ A simple test server for testing Quixote functionality.
 """
 
 import os
+from typing import NoReturn
 
 from quixote.directory import Directory
 from quixote.publish import Publisher
 
 
-def create_publisher():
+def create_publisher() -> Publisher:
     "Create & return a test publisher entry"
     p = Publisher(TestServer())
     p.is_thread_safe = True
@@ -19,10 +20,10 @@ def create_publisher():
 class TestServer(Directory):
     _q_exports = ['', 'exit']
 
-    def _q_index(self):
+    def _q_index(self) -> str:
         return "hello, world"
 
-    def exit(self):
+    def exit(self) -> NoReturn:
         raise SystemExit
 
 

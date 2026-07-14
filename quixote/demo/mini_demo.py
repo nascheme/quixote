@@ -9,13 +9,15 @@ The server listens on localhost:8080 by default.  Debug and error output
 will be sent to the terminal.
 """
 
+from __future__ import annotations
+
 from quixote.directory import Directory, export
 from quixote.publish import Publisher
 
 
 class RootDirectory(Directory):
     @export(name='')
-    def index(self):
+    def index(self) -> str:
         return '''<html>
                     <body>Welcome to the Quixote demo.  Here is a
                     <a href="hello">link</a>.
@@ -24,11 +26,11 @@ class RootDirectory(Directory):
                 '''
 
     @export
-    def hello(self):
+    def hello(self) -> str:
         return '<html><body>Hello world!</body></html>'
 
 
-def create_publisher():
+def create_publisher() -> Publisher:
     return Publisher(RootDirectory(), display_exceptions='plain')
 
 

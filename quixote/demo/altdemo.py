@@ -17,7 +17,9 @@ persistent sessions stored in a durus database, by running:
 
 """
 
-from typing import cast
+from __future__ import annotations
+
+from typing import Any, cast
 
 from quixote import get_field, get_session, get_session_manager, get_user
 from quixote.directory import Directory
@@ -27,7 +29,7 @@ from quixote.session import Session, SessionManager
 from quixote.util import dump_request
 
 
-def format_page(title, content):
+def format_page(title: str, content: object) -> htmltext:
     request = (
         htmltext(
             '<div style="font-size: smaller;background:#eee">'
@@ -50,11 +52,11 @@ def format_page(title, content):
     )
 
 
-def format_request():
+def format_request() -> htmltext:
     return format_page('Request', dump_request())
 
 
-def format_link_list(targets):
+def format_link_list(targets: list[str]) -> htmltext:
     return htmltext('<ul>%s</ul>') % htmltext('').join(
         [htmltext('<li>%s</li>') % href(target, target) for target in targets]
     )
@@ -63,7 +65,7 @@ def format_link_list(targets):
 class RootDirectory(Directory):
     _q_exports = ['', 'login', 'logout']
 
-    def _q_index(self):
+    def _q_index(self) -> htmltext:
         content = htmltext('')
         if not get_user():
             content += htmltext('<p>%s</p>' % href('login', 'login'))
@@ -102,7 +104,7 @@ class RootDirectory(Directory):
             content += htmltext('</table>')
         return format_page("Quixote Session Management Demo", content)
 
-    def login(self):
+    def login(self) -> htmltext:
         content = htmltext('')
         if get_field("name"):
             session = get_session()
@@ -123,7 +125,7 @@ class RootDirectory(Directory):
             )
         return format_page("Quixote Session Demo: Login", content)
 
-    def logout(self):
+    def logout(self) -> htmltext:
         if get_user():
             content = htmltext('<p>Goodbye, %s.</p>') % get_user()
         else:
@@ -134,12 +136,13 @@ class RootDirectory(Directory):
 
 
 class DemoSession(Session):
+    num_requests: int
 
-    def __init__(self, id):
+    def __init__(self, id: str) -> None:
         Session.__init__(self, id)
         self.num_requests = 0
 
-    def start_request(self):
+    def start_request(self) -> None:
         """
         This is called from the main object publishing loop whenever
         we start processing a new request.  Obviously, this is a good
@@ -151,7 +154,7 @@ class DemoSession(Session):
         Session.start_request(self)
         self.num_requests += 1
 
-    def has_info(self):
+    def has_info(self) -> bool:
         """
         Overriding has_info() is essential but non-obvious.  The
         session manager uses has_info() to know if it should hang on
@@ -179,7 +182,7 @@ class DemoSession(Session):
     is_dirty = has_info
 
 
-def create_publisher():
+def create_publisher() -> Publisher:
     return Publisher(
         RootDirectory(),
         session_manager=SessionManager(session_class=DemoSession),
@@ -198,13 +201,13 @@ try:
     from durus.persistent import Persistent
     from durus.persistent_dict import PersistentDict
 
-    connection = None  # set in create_durus_publisher()
+    connection: Any | None = None  # set in create_durus_publisher()
 
     class PersistentSession(DemoSession, Persistent):
         pass
 
     class PersistentSessionManager(SessionManager, Persistent):
-        def __init__(self):
+        def __init__(self) -> None:
             sessions = PersistentDict()
             SessionManager.__init__(
                 self,
@@ -212,17 +215,17 @@ try:
                 session_mapping=sessions,
             )
 
-        def forget_changes(self, session):
+        def forget_changes(self, session: object) -> None:
             print('abort changes', get_session())
             assert connection is not None
             connection.abort()
 
-        def commit_changes(self, session):
+        def commit_changes(self, session: object) -> None:
             print('commit changes', get_session())
             assert connection is not None
             connection.commit()
 
-    def create_durus_publisher():
+    def create_durus_publisher() -> Publisher:
         global connection
         filename = os.path.join(tempfile.gettempdir(), 'quixote-demo.durus')
         print('Opening %r as a Durus database.' % filename)

@@ -25,7 +25,7 @@ import sys
 import tokenize
 
 
-def translate_ptl(tokens):
+def translate_ptl(tokens: list[tokenize.TokenInfo]) -> None:
     i = 0
     while i < len(tokens):
         tok = tokens[i]
@@ -66,7 +66,7 @@ def translate_ptl(tokens):
         i += 1
 
 
-def translate(fn, verbose = False):
+def translate(fn: str, verbose: bool = False) -> tuple[str, str]:
     with open(fn, 'rb') as fp:
         tokens = list(tokenize.tokenize(fp.readline))
     translate_ptl(tokens)
@@ -77,7 +77,7 @@ def translate(fn, verbose = False):
     return ut.encoding or 'utf-8', src
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser()

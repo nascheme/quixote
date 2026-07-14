@@ -7,13 +7,13 @@ except ImportError:
 
 if qpy:
 
-    def setup():
+    def setup() -> None:
         quixote.html.use_qpy()
 
-    def test():
+    def test() -> None:
         import quixote
 
         assert quixote.html.htmltext == qpy.h8
 
-    def teardown():
+    def teardown() -> None:
         quixote.html.cleanup_qpy()

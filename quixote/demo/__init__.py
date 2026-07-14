@@ -4,7 +4,7 @@ from quixote.publish import Publisher
 enable_ptl()
 
 
-def create_publisher():
+def create_publisher() -> Publisher:
     from quixote.demo.root import RootDirectory
 
     return Publisher(RootDirectory(), display_exceptions='plain')

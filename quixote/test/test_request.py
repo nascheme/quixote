@@ -2,7 +2,7 @@ from quixote.http_request import parse_cookies
 
 
 class TestParseCookies:
-    def test_basic(self):
+    def test_basic(self) -> None:
         assert parse_cookies('a') == {'a': ''}
         assert parse_cookies('a = ') == {'a': ''}
         assert parse_cookies('a = ""') == {'a': ''}
@@ -11,7 +11,7 @@ class TestParseCookies:
         assert parse_cookies('a, b=1') == {'a': '', 'b': '1'}
         assert parse_cookies('a = ";, \t";') == {'a': ';, \t'}
 
-    def test_rfc2109_example(self):
+    def test_rfc2109_example(self) -> None:
         s = (
             '$Version="1"; Customer="WILE_E_COYOTE"; $Path="/acme"; '
             'Part_Number="Rocket_Launcher_0001"; $Path="/acme"'
@@ -22,7 +22,7 @@ class TestParseCookies:
         }
         assert parse_cookies(s) == result
 
-    def test_other(self):
+    def test_other(self) -> None:
         s = 'PREF=ID=0a06b1:TM=108:LM=1069:C2COFF=1:S=ETXrcU'
         result = {'PREF': 'ID=0a06b1:TM=108:LM=1069:C2COFF=1:S=ETXrcU'}
         assert parse_cookies(s) == result
@@ -40,6 +40,6 @@ class TestParseCookies:
             'QX_session': '58a3ced39dcd0d',
         }
 
-    def test_invalid(self):
+    def test_invalid(self) -> None:
         parse_cookies('a="123')
         parse_cookies('a=123"')
