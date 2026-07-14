@@ -17,6 +17,8 @@ persistent sessions stored in a durus database, by running:
 
 """
 
+from typing import cast
+
 from quixote import get_field, get_session, get_session_manager, get_user
 from quixote.directory import Directory
 from quixote.html import href, htmltext
@@ -79,7 +81,9 @@ class RootDirectory(Directory):
                 '</tr>'
             )
             this_session = get_session()
-            for index, (id, session) in enumerate(sessions):
+            for index, (id, session) in enumerate(
+                cast(list[tuple[str, DemoSession]], sessions)
+            ):
                 if session is this_session:
                     formatted_id = htmltext(
                         '<span style="font-weight:bold">%s</span>' % id
@@ -102,6 +106,7 @@ class RootDirectory(Directory):
         content = htmltext('')
         if get_field("name"):
             session = get_session()
+            assert session is not None
             session.set_user(get_field("name"))  # This is the important part.
             content += (
                 htmltext('<p>Welcome, %s!  Thank you for logging in.</p>')
@@ -129,6 +134,7 @@ class RootDirectory(Directory):
 
 
 class DemoSession(Session):
+
     def __init__(self, id):
         Session.__init__(self, id)
         self.num_requests = 0
@@ -208,10 +214,12 @@ try:
 
         def forget_changes(self, session):
             print('abort changes', get_session())
+            assert connection is not None
             connection.abort()
 
         def commit_changes(self, session):
             print('commit changes', get_session())
+            assert connection is not None
             connection.commit()
 
     def create_durus_publisher():

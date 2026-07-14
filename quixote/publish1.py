@@ -11,6 +11,7 @@ import types
 import warnings
 
 from quixote import errors, get_request, redirect
+from quixote.config import Config
 from quixote.directory import Directory
 from quixote.html import htmltext
 from quixote.publish import Publisher as _Publisher
@@ -22,9 +23,11 @@ class Publisher(_Publisher):
       namespace_stack : [ module | instance | class ]
     """
 
-    def __init__(self, root_namespace, config=None):
-        from quixote.config import Config
-
+    def __init__(
+        self,
+        root_namespace,
+        config = None,
+    ):
         if isinstance(root_namespace, str):
             root_namespace = _get_module(root_namespace)
         self.namespace_stack = [root_namespace]
@@ -42,7 +45,12 @@ class Publisher(_Publisher):
 
 
 class RootDirectory(Directory):
-    def __init__(self, root_namespace, namespace_stack):
+
+    def __init__(
+        self,
+        root_namespace,
+        namespace_stack,
+    ):
         self.root_namespace = root_namespace
         self.namespace_stack = namespace_stack
 
@@ -54,7 +62,10 @@ class RootDirectory(Directory):
 
         # Traverse package to a (hopefully-) callable object
         obj = _traverse_url(
-            self.root_namespace, path, request, self.namespace_stack
+            self.root_namespace,
+            path,
+            request,
+            self.namespace_stack,
         )
 
         # None means no output -- traverse_url() just issued a redirect.
@@ -90,7 +101,12 @@ def _get_module(name):
 _slash_pat = re.compile("//*")
 
 
-def _traverse_url(root_namespace, path_components, request, namespace_stack):
+def _traverse_url(
+    root_namespace,
+    path_components,
+    request,
+    namespace_stack,
+):
     """(root_namespace : any, path_components : [string],
         request : HTTPRequest, namespace_stack : list) -> (object : any)
 
@@ -169,7 +185,12 @@ def _traverse_url(root_namespace, path_components, request, namespace_stack):
     return obj
 
 
-def _get_component(container, component, request, namespace_stack):
+def _get_component(
+    container,
+    component,
+    request,
+    namespace_stack,
+):
     """Get one component of a path from a namespace."""
     # First security check: if the container doesn't even have an
     # _q_exports list, fail now: all Quixote-traversable namespaces

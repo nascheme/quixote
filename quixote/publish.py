@@ -5,6 +5,8 @@ import sys
 import time
 import traceback
 import urllib.parse
+from types import TracebackType
+from typing import cast
 
 import quixote.directory as _directory
 from quixote.config import Config
@@ -12,8 +14,7 @@ from quixote.errors import (
     INTERNAL_ERROR_MESSAGE,
     MethodNotAllowedError,
     PublishError,
-    format_publish_error,
-)
+    format_publish_error)
 from quixote.http_request import HTTPRequest
 from quixote.http_response import HTTPResponse
 from quixote.logger import DefaultLogger
@@ -50,12 +51,14 @@ class Publisher:
         the HTTP request currently being processed.
     """
 
+    is_thread_safe = False
+
     def __init__(
         self,
         root_directory,
-        logger=None,
-        session_manager=None,
-        config=None,
+        logger = None,
+        session_manager = None,
+        config = None,
         **kwargs,
     ):
         global _publisher
@@ -98,7 +101,10 @@ class Publisher:
         self.root_directory = root_directory
         self._request = None
 
-    def set_session_manager(self, session_manager):
+    def set_session_manager(
+        self,
+        session_manager,
+    ):
         self.session_manager = session_manager
 
     def log(self, msg):
@@ -122,7 +128,10 @@ class Publisher:
 
     def get_request(self):
         """Return the current request object."""
-        return self._request
+        request = self._request
+        if request is None:
+            raise RuntimeError('no active request')
+        return request
 
     def finish_successful_request(self):
         """Called at the end of a successful request."""
@@ -160,12 +169,19 @@ class Publisher:
         # self.log("caught an error (%s), reporting it." %
         #         sys.exc_info()[1])
 
-        (exc_type, exc_value, tb) = sys.exc_info()
+        exc_type, exc_value, tb = cast(
+            tuple[type[BaseException], BaseException, TracebackType | None],
+            sys.exc_info(),
+        )
         error_summary = traceback.format_exception_only(exc_type, exc_value)
         error_summary = error_summary[0][0:-1]  # de-listify and strip newline
 
         plain_error_msg = self._generate_plaintext_error(
-            request, original_response, exc_type, exc_value, tb
+            request,
+            original_response,
+            exc_type,
+            exc_value,
+            tb,
         )
 
         if not self.config.display_exceptions:
@@ -189,8 +205,14 @@ class Publisher:
         return INTERNAL_ERROR_MESSAGE
 
     def _generate_plaintext_error(
-        self, request, original_response, exc_type, exc_value, tb
+        self,
+        request,
+        original_response,
+        exc_type,
+        exc_value,
+        tb,
     ):
+        del original_response
         error_file = io.StringIO()
 
         # format the traceback
@@ -214,12 +236,10 @@ class Publisher:
         allowed_methods = self.config.allowed_methods
         if allowed_methods is not None and method not in allowed_methods:
             raise MethodNotAllowedError(allowed_methods)
-        path = request.get_environ('PATH_INFO', '')
+        path = cast(str, request.get_environ('PATH_INFO', ''))
         if path and path[:1] != '/':
-            return redirect(
-                request.get_environ('SCRIPT_NAME', '') + '/' + path,
-                permanent=True,
-            )
+            script_name = cast(str, request.get_environ('SCRIPT_NAME', ''))
+            return redirect(script_name + '/' + path, permanent=True)
         components = path[1:].split('/')
         output = self.root_directory._q_traverse(components)
         # The callable ran OK, commit any changes to the session
@@ -263,7 +283,11 @@ class Publisher:
         self._clear_request()
         return request.response
 
-    def process(self, stdin, env):
+    def process(
+        self,
+        stdin,
+        env,
+    ):
         """(stdin : stream, env : dict) -> HTTPResponse
 
         Process a single request, given a stream, stdin, containing the
@@ -281,32 +305,45 @@ class Publisher:
 _publisher = None
 
 
+def _require_publisher():
+    publisher = _publisher
+    if publisher is None:
+        raise RuntimeError('no active publisher')
+    return publisher
+
+
 def get_publisher():
-    return _publisher
+    return _require_publisher()
 
 
 def get_request():
-    return _publisher.get_request()
+    return _require_publisher().get_request()
 
 
 def get_response():
-    return _publisher.get_request().response
+    return get_request().response
 
 
-def get_field(name, default=None):
+def get_field(
+    name,
+    default = None,
+):
     """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, a list of values is returned.
     """
-    return _publisher.get_request().get_field(name, default)
+    return get_request().get_field(name, default)
 
 
-def get_param(name, default=None):
+def get_param(
+    name,
+    default = None,
+):
     """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, return the last value specified.
     """
-    value = _publisher.get_request().get_field(name, default)
+    value = get_request().get_field(name, default)
     if isinstance(value, list):
         if value:
             return value[-1]
@@ -315,15 +352,20 @@ def get_param(name, default=None):
     return value
 
 
-def get_cookie(name, default=None):
-    return _publisher.get_request().get_cookie(name, default)
+def get_cookie(
+    name,
+    default = None,
+):
+    if name is None:
+        return default
+    return get_request().get_cookie(name, default)
 
 
-def get_path(n=0):
-    return _publisher.get_request().get_path(n)
+def get_path(n = 0):
+    return get_request().get_path(n)
 
 
-def redirect(location, permanent=False):
+def redirect(location, permanent = False):
     """(location : string, permanent : boolean = false) -> string
 
     Create a redirection response.  If the location is relative, then it
@@ -331,21 +373,25 @@ def redirect(location, permanent=False):
     document indicating the new URL (useful if the client browser does
     not honor the redirect).
     """
-    request = _publisher.get_request()
-    location = urllib.parse.urljoin(request.get_url(), str(location))
-    return request.response.redirect(location, permanent)
+    request = get_request()
+    absolute_location = urllib.parse.urljoin(request.get_url(), str(location))
+    return request.response.redirect(absolute_location, permanent)
 
 
 def get_session():
-    return _publisher.get_request().session
+    from quixote.session import Session
+
+    return cast(Session | None, get_request().session)
 
 
 def get_session_manager():
-    return _publisher.session_manager
+    from quixote.session import BaseSessionManager
+
+    return cast(BaseSessionManager, _require_publisher().session_manager)
 
 
 def get_user():
-    session = _publisher.get_request().session
+    session = get_session()
     if session is None:
         return None
     else:
@@ -355,7 +401,7 @@ def get_user():
 def get_wsgi_app():
     from quixote.wsgi import QWIP
 
-    return QWIP(_publisher)
+    return QWIP(_require_publisher())
 
 
 def cleanup():

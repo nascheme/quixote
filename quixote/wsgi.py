@@ -9,8 +9,9 @@ To create an application object, execute
 Authors: Mike Orr <mso@oz.net> and Titus Brown <titus@caltech.edu>.
 Last updated 2005-05-03.
 """
+from typing import IO, cast
 
-from .http_request import HTTPRequest
+from .http_request import Environ, HTTPRequest
 
 ###### QWIP: WSGI COMPATIBILITY WRAPPER FOR QUIXOTE #####################
 
@@ -23,7 +24,11 @@ class QWIP:
     def __init__(self, publisher):
         self.publisher = publisher
 
-    def __call__(self, env, start_response):
+    def __call__(
+        self,
+        env,
+        start_response,
+    ):
         """I am called for each request."""
         if env.get('wsgi.multithread') and not getattr(
             self.publisher, 'is_thread_safe', False
@@ -31,9 +36,11 @@ class QWIP:
             reason = "%r is not thread safe" % self.publisher
             raise AssertionError(reason)
         if 'REQUEST_URI' not in env:
-            env['REQUEST_URI'] = env['SCRIPT_NAME'] + env['PATH_INFO']
-        input = env['wsgi.input']
-        request = self.request_class(input, env)
+            env['REQUEST_URI'] = str(env['SCRIPT_NAME']) + str(
+                env['PATH_INFO']
+            )
+        input = cast(IO[bytes], env['wsgi.input'])
+        request = self.request_class(input, cast(Environ, env))
         response = self.publisher.process_request(request)
         status = "%03d %s" % (response.status_code, response.reason_phrase)
         headers = response.generate_headers()

@@ -1,7 +1,9 @@
+
 import os
 import socket
 import sys
 import time
+from typing import cast
 
 import quixote
 from quixote.sendmail import sendmail
@@ -29,7 +31,12 @@ class DefaultLogger:
 
     DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
 
-    def __init__(self, access_log=None, error_log=None, error_email=None):
+    def __init__(
+        self,
+        access_log = None,
+        error_log = None,
+        error_email = None,
+    ):
         if access_log:
             self.access_log = self._open_log(access_log)
         else:
@@ -81,8 +88,9 @@ class DefaultLogger:
         """Log a request in the access_log file."""
         if self.access_log is None:
             return
-        if request.session:
-            user = request.session.user or "-"
+        session = cast(Session | None, request.session)
+        if session:
+            user = session.user or "-"
         else:
             user = "-"
         now = time.time()
