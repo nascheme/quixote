@@ -6,12 +6,16 @@ be useful as an example as to how to run a Quixote application under
 WSGI.
 """
 
+from __future__ import annotations
+
 import sys
+from collections.abc import Sequence
 from typing import IO, Any, cast
 from wsgiref.simple_server import (
     ServerHandler,
     WSGIRequestHandler,
-    WSGIServer)
+    WSGIServer,
+)
 
 from quixote.server.simple_server import CreatePublisher
 from quixote.util import import_object
@@ -20,7 +24,7 @@ from quixote.wsgi import QWIP
 
 # Need to override base class handle(), set multithread=False
 class RequestHandler(WSGIRequestHandler):
-    def handle(self):
+    def handle(self) -> None:
         """Handle a single HTTP request"""
 
         self.raw_requestline = self.rfile.readline(65537)
@@ -48,11 +52,11 @@ class RequestHandler(WSGIRequestHandler):
 
 
 def run(
-    create_publisher,
-    host = '',
-    port = 80,
-    handler_class = RequestHandler,
-):
+    create_publisher: CreatePublisher,
+    host: str = '',
+    port: int = 80,
+    handler_class: type[WSGIRequestHandler] = RequestHandler,
+) -> None:
     """Runs a Quixote application using the simple server from wsgiref."""
     publisher = create_publisher()
     app = QWIP(publisher)
@@ -64,7 +68,7 @@ def run(
         server.server_close()
 
 
-def main(args = None):
+def main(args: Sequence[str] | None = None) -> None:
     from quixote.server.util import get_server_parser
 
     if args is None:

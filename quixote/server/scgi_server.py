@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """A SCGI server that uses Quixote to publish dynamic content."""
 
-from typing import cast
+from __future__ import annotations
+
+from typing import Any, cast
 
 from scgi import scgi_server, session_server
 
@@ -11,15 +13,15 @@ from quixote.server.simple_server import CreatePublisher
 class QuixoteHandler(scgi_server.SCGIHandler):
     def __init__(
         self,
-        parent_fd,
-        create_publisher,
-        script_name = None,
-    ):
+        parent_fd: int,
+        create_publisher: CreatePublisher,
+        script_name: str | None = None,
+    ) -> None:
         scgi_server.SCGIHandler.__init__(self, parent_fd)
         self.publisher = create_publisher()
         self.script_name = script_name
 
-    def _set_script_name(self, env):
+    def _set_script_name(self, env: dict[str, str]) -> None:
         # mod_scgi doesn't know SCRIPT_NAME :-(
         prefix = self.script_name
         assert prefix is not None
@@ -30,7 +32,7 @@ class QuixoteHandler(scgi_server.SCGIHandler):
         env['SCRIPT_NAME'] = prefix
         env['PATH_INFO'] = path[len(prefix) :] + env.get('PATH_INFO', '')
 
-    def handle_connection(self, conn):
+    def handle_connection(self, conn: Any) -> None:
         input = conn.makefile("rb")
         output = conn.makefile("wb")
         try:
@@ -56,14 +58,14 @@ class QuixoteHandler(scgi_server.SCGIHandler):
 
 
 def run(
-    create_publisher,
-    host = 'localhost',
-    port = 3000,
-    script_name = None,
-    max_children = 5,
-    session_affinity = False,
-):
-    def create_handler(parent_fd):
+    create_publisher: CreatePublisher,
+    host: str = 'localhost',
+    port: int = 3000,
+    script_name: str | None = None,
+    max_children: int = 5,
+    session_affinity: bool = False,
+) -> None:
+    def create_handler(parent_fd: int) -> QuixoteHandler:
         return QuixoteHandler(parent_fd, create_publisher, script_name)
 
     if session_affinity:
@@ -76,7 +78,7 @@ def run(
     s.serve()
 
 
-def main():
+def main() -> None:
     from optparse import OptionParser
 
     from quixote.util import import_object

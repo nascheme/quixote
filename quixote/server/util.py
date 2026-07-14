@@ -1,8 +1,10 @@
 """Miscellaneous utility functions shared by servers."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from optparse import OptionParser
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from quixote.publish import Publisher
 from quixote.util import import_object
@@ -13,15 +15,15 @@ CreatePublisher = Callable[[], Publisher]
 class _ServerRun(Protocol):
     def __call__(
         self,
-        create_publisher,
+        create_publisher: CreatePublisher,
         *,
-        host,
-        port,
-    ): ...
+        host: str,
+        port: int,
+    ) -> None: ...
 
 
 class Parser(OptionParser):
-    def parse_args(self, *args, **kwargs):
+    def parse_args(self, *args: Any, **kwargs: Any) -> tuple[Any, list[str]]:
         options, values = OptionParser.parse_args(self, *args, **kwargs)
         if options.factory and '.' not in options.factory:
             # make factory include package name as well
@@ -29,7 +31,7 @@ class Parser(OptionParser):
         return options, values
 
 
-def get_server_parser(doc):
+def get_server_parser(doc: str | None) -> Parser:
     parser = Parser()
     parser.set_description(doc)
     default_host = 'localhost'
@@ -68,7 +70,7 @@ def get_server_parser(doc):
     return parser
 
 
-def main(run):
+def main(run: _ServerRun) -> None:
     parser = get_server_parser(run.__doc__)
     (options, args) = parser.parse_args()
     run(

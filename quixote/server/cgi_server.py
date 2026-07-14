@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
 
 import os
 import sys
@@ -11,7 +12,7 @@ from quixote.publish import Publisher
 CreatePublisher = Callable[[], Publisher]
 
 
-def run(create_publisher):
+def run(create_publisher: CreatePublisher) -> None:
     if sys.platform == "win32":
         # on Windows, stdin and stdout are in text mode by default
         import msvcrt

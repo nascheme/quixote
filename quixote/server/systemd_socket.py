@@ -1,12 +1,14 @@
 # Inherit activation sockets from systemd, see systemd man page for
 # sd_listen_fds().
+from __future__ import annotations
+
 import os
 import socket
 
 SD_LISTEN_FDS_START = 3
 
 
-def _set_close_on_exec(fds):
+def _set_close_on_exec(fds: int) -> None:
     try:
         import fcntl
     except ImportError:
@@ -17,7 +19,7 @@ def _set_close_on_exec(fds):
         fcntl.fcntl(fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
 
 
-def sd_listen_fds():
+def sd_listen_fds() -> int:
     """Return the number of inherited sockets.  Return zero if there are
     none.
     """
@@ -35,7 +37,7 @@ def sd_listen_fds():
     return fds
 
 
-def _socket_from_fd(fd):
+def _socket_from_fd(fd: int) -> socket.socket:
     # This is ugly; Python doesn't provide a nice way to use
     # getsockopt() and getsockname() to determine the type of
     # socket.  Using AF_UNIX is a kludge to avoid messing up the
@@ -55,7 +57,7 @@ def _socket_from_fd(fd):
     return s
 
 
-def get_systemd_socket():
+def get_systemd_socket() -> socket.socket | None:
     """Return the inherited socket, if there is one.  If not, return None."""
     num = sd_listen_fds()
     if not num:

@@ -4,17 +4,20 @@ a single back-end thread.  Multiple threads are used for communicating with
 HTTP clients.
 """
 
+from __future__ import annotations
+
 import sys
 import tempfile
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from socketserver import ThreadingMixIn
-from typing import Any, cast
+from typing import IO, Any, cast
 
 from quixote import get_publisher
-from quixote.http_request import HTTPRequest
+from quixote.http_request import Environ, HTTPRequest
 from quixote.server import simple_server
 
-_PROCESSOR = None
+_PROCESSOR: ThreadPoolExecutor | None = None
 
 
 class ThreadingHTTPServer(
@@ -23,7 +26,7 @@ class ThreadingHTTPServer(
     pass
 
 
-def _buffer_request_body(rfile, env):
+def _buffer_request_body(rfile: IO[bytes], env: Environ) -> IO[bytes]:
     """Read the HTTP request body into a temporary file.  Return an
     open file object that points to the start of the file.
     """
@@ -45,7 +48,7 @@ def _buffer_request_body(rfile, env):
 
 
 class HTTPRequestHandler(simple_server.HTTPRequestHandler):
-    def process(self, env, include_body = True):
+    def process(self, env: Environ, include_body: bool = True) -> None:
         """Process a single request, in front-end HTTP server thread."""
         request_body = _buffer_request_body(cast(Any, self.rfile), env)
         try:
@@ -71,8 +74,8 @@ class HTTPRequestHandler(simple_server.HTTPRequestHandler):
 
 
 def _process(
-    rfile, env, include_body
-):
+    rfile: IO[bytes], env: Environ, include_body: bool
+) -> tuple[int, str, IO[bytes]]:
     """Process a single request, in background Quixote thread."""
     request = HTTPRequest(rfile, env, seekable=True)
     response = get_publisher().process_request(request)
@@ -88,11 +91,11 @@ def _process(
 
 
 def run(
-    create_publisher,
-    host = '',
-    port = 80,
-    https = False,
-):
+    create_publisher: simple_server.CreatePublisher,
+    host: str = '',
+    port: int = 80,
+    https: bool = False,
+) -> None:
     """Runs a simple, multi-threaded, HTTP server that publishes a Quixote
     application.
     """
@@ -101,7 +104,7 @@ def run(
         HTTPRequestHandler.required_cgi_environment['HTTPS'] = 'on'
     httpd = ThreadingHTTPServer((host, port), HTTPRequestHandler)
 
-    def handle_error(request, client_address):
+    def handle_error(request: object, client_address: object) -> None:
         ThreadingHTTPServer.handle_error(
             httpd, cast(Any, request), cast(Any, client_address)
         )
@@ -120,7 +123,7 @@ def run(
             httpd.server_close()
 
 
-def main(args = None):
+def main(args: Sequence[str] | None = None) -> None:
     simple_server.main(args=args, _run=run)
 
 

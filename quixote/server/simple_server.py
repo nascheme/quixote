@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """A simple, single threaded, synchronous HTTP server."""
 
+from __future__ import annotations
+
 import socket
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import BaseServer
+from socketserver import BaseRequestHandler, BaseServer
 from typing import Any, Protocol, cast
 
 import quixote
 from quixote import get_publisher
+from quixote.http_request import Environ
 from quixote.publish import Publisher
 from quixote.util import import_object
 
@@ -20,7 +23,7 @@ try:
     from scgi.systemd_socket import get_systemd_socket
 except ImportError:
 
-    def get_systemd_socket():
+    def get_systemd_socket() -> socket.socket | None:
         return None
 
 
@@ -30,21 +33,21 @@ CreatePublisher = Callable[[], Publisher]
 class _SimpleRun(Protocol):
     def __call__(
         self,
-        create_publisher,
+        create_publisher: CreatePublisher,
         *,
-        host = '',
-        port = 80,
-        https = False,
-    ): ...
+        host: str = '',
+        port: int = 80,
+        https: bool = False,
+    ) -> None: ...
 
 
 class SockInheritHTTPServer(HTTPServer):
     def __init__(
         self,
-        address_info,
-        handler,
-        bind_and_activate = True,
-    ):
+        address_info: tuple[str, int],
+        handler: type[BaseRequestHandler],
+        bind_and_activate: bool = True,
+    ) -> None:
         # This is ugly.  We have to re-implement HTTPServer.__init__
         # and server_bind().  We want to get the inherited socket if
         # available.  If we inherit then we need to skip the bind() call.
@@ -65,7 +68,7 @@ class SockInheritHTTPServer(HTTPServer):
                 self.server_close()
                 raise
 
-    def server_bind(self):
+    def server_bind(self) -> None:
         if not self._skip_bind:
             HTTPServer.server_bind(self)
         else:
@@ -76,11 +79,11 @@ class SockInheritHTTPServer(HTTPServer):
 
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
-    required_cgi_environment = {}
+    required_cgi_environment: dict[str, str] = {}
 
     protocol_version = 'HTTP/1.1'
 
-    def get_cgi_env(self, method):
+    def get_cgi_env(self, method: str) -> Environ:
         server = cast(SockInheritHTTPServer, self.server)
         env = dict(
             SERVER_SOFTWARE="Quixote/%s" % quixote.__version__,
@@ -115,7 +118,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         env.update(self.required_cgi_environment)
         return env
 
-    def process(self, env, include_body = True):
+    def process(self, env: Environ, include_body: bool = True) -> None:
         response = get_publisher().process(cast(Any, self.rfile), env)
         if self.protocol_version == 'HTTP/1.1':
             # single threaded server, persistent connections will block others
@@ -133,19 +136,19 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         except IOError as err:
             print("IOError while sending response ignored: %s" % err)
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         return self.process(self.get_cgi_env('POST'))
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         return self.process(self.get_cgi_env('GET'))
 
-    def do_HEAD(self):
+    def do_HEAD(self) -> None:
         return self.process(self.get_cgi_env('HEAD'), include_body=False)
 
-    def do_OPTIONS(self):
+    def do_OPTIONS(self) -> None:
         return self.process(self.get_cgi_env('OPTIONS'), include_body=False)
 
-    def send_response(self, code, message = None):
+    def send_response(self, code: int, message: str | None = None) -> None:
         """
         Copied, with regret, from BaseHTTPRequestHandler, except that the line
         that adds the 'Date' header is removed to avoid duplicating the one
@@ -156,11 +159,11 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 def run(
-    create_publisher,
-    host = '',
-    port = 80,
-    https = False,
-):
+    create_publisher: CreatePublisher,
+    host: str = '',
+    port: int = 80,
+    https: bool = False,
+) -> None:
     """Runs a simple, single threaded, synchronous HTTP server that
     publishes a Quixote application.
     """
@@ -168,7 +171,7 @@ def run(
         HTTPRequestHandler.required_cgi_environment['HTTPS'] = 'on'
     httpd = SockInheritHTTPServer((host, port), HTTPRequestHandler)
 
-    def handle_error(request, client_address):
+    def handle_error(request: object, client_address: object) -> None:
         HTTPServer.handle_error(
             httpd, cast(Any, request), cast(Any, client_address)
         )
@@ -186,7 +189,7 @@ def run(
         httpd.server_close()
 
 
-def main(args = None, _run = run):
+def main(args: Sequence[str] | None = None, _run: _SimpleRun = run) -> None:
     from quixote.server.util import get_server_parser
 
     if args is None:
