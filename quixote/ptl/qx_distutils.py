@@ -3,18 +3,24 @@ PTL files.
 """
 
 import os
-from distutils.command.build_py import build_py
 from glob import glob
+from typing import cast
+
+from distutils.command.build_py import build_py
 
 
 class qx_build_py(build_py):
-    def find_package_modules(self, package, package_dir):
+    def find_package_modules(
+        self, package, package_dir
+    ):
         self.check_package(package, package_dir)
         module_files = glob(os.path.join(package_dir, "*.py")) + glob(
             os.path.join(package_dir, "*.ptl")
         )
         modules = []
-        setup_script = os.path.abspath(self.distribution.script_name)
+        setup_script = os.path.abspath(
+            cast(str, self.distribution.script_name)
+        )
 
         for f in module_files:
             abs_f = os.path.abspath(f)
@@ -25,7 +31,9 @@ class qx_build_py(build_py):
                 self.debug_print("excluding %s" % setup_script)
         return modules
 
-    def build_module(self, module, module_file, package):
+    def build_module(
+        self, module, module_file, package
+    ):
         if type(package) is str:
             package = package.split('.')
         elif type(package) not in (list, tuple):

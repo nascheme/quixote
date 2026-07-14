@@ -6,11 +6,29 @@ import os
 import py_compile
 import struct
 import sys
+from typing import Any, Protocol, cast
 
 from quixote.ptl.ptl_import import PTL_EXT, PTLFileLoader
 
 
-def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
+class _Readable(Protocol):
+    def read(self): ...
+
+
+class _ByteWritable(Protocol):
+    def write(self, data): ...
+
+
+_bootstrap_external = cast(Any, importlib._bootstrap_external)
+
+
+def ptl_compile(
+    file,
+    cfile,
+    dfile = None,
+    doraise = False,
+    optimize = -1,
+):
     """Byte-compile one PTL source file to Python bytecode.
 
     :param file: The source file name.
@@ -70,13 +88,15 @@ def ptl_compile(file, cfile, dfile=None, doraise=False, optimize=-1):
     bytecode = _code_to_bytecode(
         code, source_stats['mtime'], source_stats['size']
     )
-    mode = importlib._bootstrap_external._calc_mode(file)
-    importlib._bootstrap_external._write_atomic(cfile, bytecode, mode)
+    mode = _bootstrap_external._calc_mode(file)
+    _bootstrap_external._write_atomic(cfile, bytecode, mode)
     return cfile
 
 
 # derived from compileall.py
-def _walk_dir(dir, ddir=None, maxlevels=10, quiet=0):
+def _walk_dir(
+    dir, ddir = None, maxlevels = 10, quiet = 0
+):
     if not quiet:
         print('Listing {!r}...'.format(dir))
     try:
@@ -111,14 +131,14 @@ def _walk_dir(dir, ddir=None, maxlevels=10, quiet=0):
 # derived from compileall.py
 def compile_dir(
     dir,
-    maxlevels=10,
-    ddir=None,
-    force=False,
-    rx=None,
-    quiet=0,
-    legacy=False,
-    optimize=-1,
-    workers=1,
+    maxlevels = 10,
+    ddir = None,
+    force = False,
+    rx = None,
+    quiet = 0,
+    legacy = False,
+    optimize = -1,
+    workers = 1,
 ):
     """Byte-compile all modules in the given directory tree.
 
@@ -146,12 +166,12 @@ def compile_dir(
 # derived from compileall.py
 def compile_file(
     fullname,
-    ddir=None,
-    force=False,
-    rx=None,
-    quiet=0,
-    legacy=False,
-    optimize=-1,
+    ddir = None,
+    force = False,
+    rx = None,
+    quiet = 0,
+    legacy = False,
+    optimize = -1,
 ):
     """Byte-compile one file.
 
@@ -238,12 +258,12 @@ def compile_file(
 
 # derived from compileall.py
 def compile_path(
-    skip_curdir=1,
-    maxlevels=0,
-    force=False,
-    quiet=0,
-    legacy=False,
-    optimize=-1,
+    skip_curdir = True,
+    maxlevels = 0,
+    force = False,
+    quiet = 0,
+    legacy = False,
+    optimize = -1,
 ):
     """Byte-compile all module on sys.path.
 
@@ -274,12 +294,14 @@ def compile_path(
     return success
 
 
-def compile_package(paths, force=0, verbose=0):
+def compile_package(
+    paths, force = False, verbose = False
+):
     """Compile all PTL files in a package.  'path' should be a list
     of directory names containing the files of the package (i.e. __path__).
     """
     for path in paths:
-        compile_dir(path, quiet=0 if verbose else 1, force=force, legacy=1)
+        compile_dir(path, quiet=0 if verbose else 1, force=force, legacy=True)
 
 
 def main():
@@ -384,7 +406,10 @@ def main():
     if args.ddir and (
         len(compile_dests) != 1 or not os.path.isdir(compile_dests[0])
     ):
-        parser.exit('-d destdir requires exactly one directory argument')
+        parser.exit(
+            status=2,
+            message='-d destdir requires exactly one directory argument\n',
+        )
     if args.rx:
         import re
 
@@ -447,14 +472,16 @@ def main():
     return True
 
 
-if hasattr(importlib._bootstrap_external, '_code_to_bytecode'):
-    _code_to_bytecode = importlib._bootstrap_external._code_to_bytecode
+if hasattr(_bootstrap_external, '_code_to_bytecode'):
+    _code_to_bytecode = _bootstrap_external._code_to_bytecode
 else:
     # renamed in Python 3.7
-    _code_to_bytecode = importlib._bootstrap_external._code_to_timestamp_pyc
+    _code_to_bytecode = _bootstrap_external._code_to_timestamp_pyc
 
 
-def compile_template(input, filename, output=None):
+def compile_template(
+    input, filename, output = None
+):
     """(input, filename) -> code
 
     Compile an open file.  The code object is returned.

@@ -11,7 +11,7 @@ def run_ptl(*source):
     Compile the given lines of source code using the ptl compiler
     and run the resulting compiled code.
     """
-    source = [
+    source_lines = [
         'from quixote.html import htmltext',
         'from quixote.ptl import ptl_plain, ptl_html',
     ] + list(source)
@@ -19,7 +19,7 @@ def run_ptl(*source):
     # and _q_htmltext into the globals of the module.  Here, we don't
     # have a module, but we provide these same globals for eval.
     eval(
-        compile_template(StringIO('\n'.join(source)), 'test'),
+        compile_template(StringIO('\n'.join(source_lines)), 'test'),
         dict(
             _q_TemplateIO=TemplateIO,
             _q_htmltext=htmltext,

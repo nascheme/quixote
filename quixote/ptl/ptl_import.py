@@ -2,6 +2,7 @@
 as if they were Python modules.
 """
 
+import os
 import sys
 from importlib.machinery import FileFinder, PathFinder, SourceFileLoader
 
@@ -12,10 +13,16 @@ PTL_EXT = ".ptl"
 
 class PTLFileLoader(SourceFileLoader):
     @staticmethod
-    def source_to_code(data, path, *, _optimize=-1):
-        node = parse(data, path)
+    def source_to_code(  # pyrefly: ignore[bad-override]  # TODO: Preserve legacy staticmethod API.
+        data, path = '<string>', *, _optimize = -1
+    ):
+        path_str = os.fsdecode(path)
+        if isinstance(data, str | bytes):
+            node = parse(data, path_str)
+        else:
+            node = data
         return compile(
-            node, path, 'exec', dont_inherit=True, optimize=_optimize
+            node, path_str, 'exec', dont_inherit=True, optimize=_optimize
         )
 
 

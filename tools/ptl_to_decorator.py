@@ -66,7 +66,7 @@ def translate_ptl(tokens):
         i += 1
 
 
-def translate(fn, verbose=False):
+def translate(fn, verbose = False):
     with open(fn, 'rb') as fp:
         tokens = list(tokenize.tokenize(fp.readline))
     translate_ptl(tokens)
@@ -74,7 +74,7 @@ def translate(fn, verbose=False):
     src = ut.untokenize(tokens)
     if verbose:
         sys.stdout.write(src)
-    return ut.encoding, src
+    return ut.encoding or 'utf-8', src
 
 
 def main():

@@ -51,9 +51,8 @@ def translate_hstrings(tokens):
             context.pop()
         elif tok.type == tokenize.STRING and context[-1]:
             # found literal string inside html template
-            str_tok = list(tokens[i])
             # prefix string with marker
-            s = str_tok[1]
+            s = tok.string
             if s[:1] == 'f':
                 # we could support this, just gets more complicated
                 raise RuntimeError(
@@ -68,12 +67,13 @@ def translate_hstrings(tokens):
                     # escape f-string chars
                     s = s.replace('{', '{{')
                     s = s.replace('}', '}}')
-                str_tok[1] = 'h' + s
-                tokens[i] = tokenize.TokenInfo(*str_tok)
+                tokens[i] = tokenize.TokenInfo(
+                    tok.type, 'h' + s, tok.start, tok.end, tok.line
+                )
         i += 1
 
 
-def translate(fn, verbose=False):
+def translate(fn, verbose = False):
     with open(fn, 'rb') as fp:
         tokens = list(tokenize.tokenize(fp.readline))
     translate_hstrings(tokens)
@@ -81,7 +81,7 @@ def translate(fn, verbose=False):
     src = ut.untokenize(tokens)
     if verbose:
         sys.stdout.write(src)
-    return ut.encoding, src
+    return ut.encoding or 'utf-8', src
 
 
 def main():

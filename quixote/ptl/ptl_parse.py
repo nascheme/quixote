@@ -9,8 +9,9 @@ to pass to the compile() built-in function.
 
 import ast
 import io
-import sys
 import tokenize
+from types import EllipsisType
+from typing import Literal, cast
 
 # A special marker for h-strings, added as a prefix by token
 # translator. It is not allowed to appear in source code literals.
@@ -18,6 +19,8 @@ import tokenize
 # information from the tokenizer to the AST that a string should be
 # htmltext.
 HSTRING_MARKER = '\x02HSTRING\x03'
+
+TemplateType = Literal['html', 'plain']
 
 TEMPLATE_TYPES = {
     'ptl_html': 'html',
@@ -72,7 +75,7 @@ def _translate_hstrings_lexical(tokens):
             assert tokens[i + 1].type == FSTRING_MIDDLE
         elif tok.type == FSTRING_MIDDLE and in_h_string[-1]:
             # Handle Python 3.12+ F-strings.
-            if _has_str_marker(tok):
+            if HSTRING_MARKER in tok.string:
                 raise SyntaxError(
                     'invalid str literal, cannot contain h-string marker'
                 )
@@ -101,10 +104,9 @@ def _translate_hstrings_tokenized(tokens):
                 i += 1
                 continue
             # found a F-prefixed string
-            str_tok = list(tok)
             s = tok[1][1:]  # string value with 'F' stripped
             s = ast.literal_eval(s)
-            if _has_str_marker(tok):
+            if HSTRING_MARKER in s:
                 raise SyntaxError(
                     'invalid str literal, cannot contain '
                     'h-string marker, got %r' % s
@@ -117,18 +119,18 @@ def _translate_hstrings_tokenized(tokens):
                 # doesn't contain any f-string braces, just use a normal
                 # string as that generates more efficient bytecode
                 s = 'f' + s
-            str_tok[1] = s
-            tokens[i] = tokenize.TokenInfo(*str_tok)
+            tokens[i] = tokenize.TokenInfo(
+                tok.type, s, tok.start, tok.end, tok.line
+            )
         i += 1
 
 
-if sys.hexversion > 0x30C0000:
-    translate_hstrings = _translate_hstrings_lexical
-else:
-    translate_hstrings = _translate_hstrings_tokenized
+translate_hstrings = _translate_hstrings_lexical
 
 
-def translate_source(buf, filename='<string>'):
+def translate_source(
+    buf, filename = '<string>'
+):
     """
     Since we can't modify the parser in the builtin parser module we
     must do token translation here.  Luckily it does not affect line
@@ -146,50 +148,42 @@ def translate_source(buf, filename='<string>'):
     translate_hstrings(tokens)
     ut = tokenize.Untokenizer()
     src = ut.untokenize(tokens)
-    return ut.encoding, src
+    return ut.encoding or 'utf-8', src
 
 
-if sys.hexversion > 0x30C0000:
+def _is_str_node(n):
+    return isinstance(n, ast.Constant) and isinstance(n.value, str)
 
-    def _is_str_node(n):
-        return isinstance(n, ast.Constant) and isinstance(n.value, str)
 
-    def _has_str_marker(n):
-        return _is_str_node(n) and HSTRING_MARKER in n.value
+def _has_str_marker(n):
+    return (
+        isinstance(n, ast.Constant)
+        and isinstance(n.value, str)
+        and HSTRING_MARKER in n.value
+    )
 
-    def _h_str_replace(n):
-        return ast.Constant(n.value.replace(HSTRING_MARKER, ''))
 
-    def _ast_const(value):
-        return ast.Constant(value)
+def _h_str_replace(n):
+    assert isinstance(n.value, str)
+    return ast.Constant(n.value.replace(HSTRING_MARKER, ''))
 
-    def _ast_num(value):
-        return ast.Constant(value)
 
-else:
+ConstantValue = (
+    str | bytes | bool | int | float | complex | None | EllipsisType
+)
 
-    def _is_str_node(n):
-        # Python 3.8 replaces Str with Constant
-        return isinstance(n, ast.Str) or (
-            isinstance(n, ast.Constant) and isinstance(n.value, str)
-        )
 
-    def _has_str_marker(n):
-        return _is_str_node(n) and HSTRING_MARKER in n.s
+def _ast_const(value):
+    return ast.Constant(value)
 
-    def _h_str_replace(n):
-        return ast.Str(n.s.replace(HSTRING_MARKER, ''))
 
-    def _ast_const(value):
-        return ast.NameConstant(value)
-
-    def _ast_num(value):
-        return ast.Num(value)
+def _ast_num(value):
+    return ast.Constant(value)
 
 
 class TemplateTransformer(ast.NodeTransformer):
-    def __init__(self, *args, **kwargs):
-        ast.NodeTransformer.__init__(self, *args, **kwargs)
+    def __init__(self):
+        super().__init__()
         # __template_type is a stack whose values are
         # "html", "plain", or None
         self.__template_type = [None]
@@ -231,7 +225,7 @@ class TemplateTransformer(ast.NodeTransformer):
             ):
                 idx = i + 1
         node.body[idx:idx] = ptl_imports
-        return self.generic_visit(node)
+        return cast(ast.Module, self.generic_visit(node))
 
     def visit_FunctionDef(self, node):
         name = node.name
@@ -243,11 +237,11 @@ class TemplateTransformer(ast.NodeTransformer):
                     template_type = TEMPLATE_TYPES[dec.id]
         if template_type is None:
             self.__template_type.append(None)
-            node = self.generic_visit(node)
+            node = cast(ast.FunctionDef, self.generic_visit(node))
         else:
             node.name = name
             self.__template_type.append(template_type)
-            node = self.generic_visit(node)
+            node = cast(ast.FunctionDef, self.generic_visit(node))
 
             # _q_output = _q_TemplateIO(template_type == 'html')
             klass = ast.Name(id='_q_TemplateIO', ctx=ast.Load())
@@ -257,15 +251,15 @@ class TemplateTransformer(ast.NodeTransformer):
             assign = ast.Assign(targets=[assign_name], value=instance)
             ast.copy_location(assign, node)
             ast.fix_missing_locations(assign)
-            docstring = getattr(node, 'docstring', None)
+            docstring = cast(str | None, getattr(node, 'docstring', None))
             if docstring:
                 # Python 3.7 alpha adds a docstring attribute to FunctionDef
                 # bpo-29463: Add docstring field to some AST nodes. (#46)
-                docstring = ast.Expr(ast.Str(docstring))
-                ast.copy_location(assign, docstring)
-                ast.fix_missing_locations(docstring)
-                node.body.insert(0, self.visit_Expr(docstring))
-                node.docstring = ''
+                docstring_expr = ast.Expr(ast.Constant(docstring))
+                ast.copy_location(assign, docstring_expr)
+                ast.fix_missing_locations(docstring_expr)
+                node.body.insert(0, self.visit_Expr(docstring_expr))
+                setattr(node, 'docstring', '')
             node.body.insert(0, assign)
 
             # return _q_output.getvalue()
@@ -281,7 +275,7 @@ class TemplateTransformer(ast.NodeTransformer):
         return node
 
     def visit_Expr(self, node):
-        node = self.generic_visit(node)
+        node = cast(ast.Expr, self.generic_visit(node))
         if self._get_template_type() is not None:
             # Inside template function.  Instead of discarding objects on the
             # stack, call _q_output(obj).
@@ -293,7 +287,9 @@ class TemplateTransformer(ast.NodeTransformer):
             return ast.copy_location(expr, node)
         return node
 
-    def visit_Constant(self, node, html=False):
+    def visit_Constant(
+        self, node, html = False
+    ):
         if not _is_str_node(node):
             return node
         if html or _has_str_marker(node):
@@ -303,15 +299,15 @@ class TemplateTransformer(ast.NodeTransformer):
             s = _h_str_replace(node)
             ast.copy_location(s, node)
             # wrap in call to _q_htmltext
-            n = ast.Name(id='_q_htmltext', ctx=ast.Load())
-            ast.copy_location(n, node)
-            n = ast.Call(func=n, args=[s], keywords=[])
-            return ast.copy_location(n, node)
+            htmltext_name = ast.Name(id='_q_htmltext', ctx=ast.Load())
+            ast.copy_location(htmltext_name, node)
+            call = ast.Call(func=htmltext_name, args=[s], keywords=[])
+            return cast(ast.expr, ast.copy_location(call, node))
         return node
 
-    def visit_Str(self, node, html=False):
+    def visit_Str(self, node, html = False):
         # exists for backwards compatibility, Python 3.8 uses Constant
-        return self.visit_Constant(node, html=html)
+        return self.visit_Constant(cast(ast.Constant, node), html=html)
 
     def visit_JoinedStr(self, node):
         # JoinedStr is used for combining the parts of an f-string.
@@ -323,46 +319,47 @@ class TemplateTransformer(ast.NodeTransformer):
         else:
             # none of the join arguments are htmltext, just use normal
             # f-string logic
-            return self.generic_visit(node)
+            return cast(ast.expr, self.generic_visit(node))
         # call _q_format on the values, call _q_join to create the result
         values = []
         for v in node.values:
             if isinstance(v, ast.FormattedValue):
-                v = self.visit_FormattedValue(v, html=True)
-            elif _is_str_node(v):
+                values.append(self.visit_FormattedValue(v, html=True))
+            elif isinstance(v, ast.Constant) and isinstance(v.value, str):
                 if v.value == HSTRING_MARKER:
                     # The translate_hstrings() function can insert empty
                     # strings into the values list.  Discard them here as
                     # a small performance optimization.
                     continue
-                v = self.visit_Constant(v, html=True)
+                values.append(self.visit_Constant(v, html=True))
             else:
-                v = self.generic_visit(v)
-            values.append(v)
-        n = ast.Name(id='_q_join', ctx=ast.Load())
-        n = ast.Call(func=n, args=values, keywords=[])
-        ast.copy_location(n, node)
-        ast.fix_missing_locations(n)
-        return n
+                values.append(cast(ast.expr, self.generic_visit(v)))
+        join_name = ast.Name(id='_q_join', ctx=ast.Load())
+        call = ast.Call(func=join_name, args=values, keywords=[])
+        ast.copy_location(call, node)
+        ast.fix_missing_locations(call)
+        return call
 
-    def visit_FormattedValue(self, node, html=False):
+    def visit_FormattedValue(
+        self, node, html = False
+    ):
         # FormattedValue is used for the {..} parts of an f-string.
         # In CPython, there is a FORMAT_VALUE opcode.  For h-strings
         # call quixote.html._q_format instead.
-        node = self.generic_visit(node)
+        node = cast(ast.FormattedValue, self.generic_visit(node))
         if not html:
             return node
-        n = ast.Name(id='_q_format', ctx=ast.Load())
+        format_name = ast.Name(id='_q_format', ctx=ast.Load())
         conversion = ast.copy_location(_ast_num(node.conversion), node)
         args = [node.value]
         if node.format_spec is not None:
             args += [conversion, node.format_spec]
         elif node.conversion != -1:
             args += [conversion]
-        n = ast.Call(func=n, args=args, keywords=[])
-        ast.copy_location(n, node)
-        ast.fix_missing_locations(n)
-        return n
+        call = ast.Call(func=format_name, args=args, keywords=[])
+        ast.copy_location(call, node)
+        ast.fix_missing_locations(call)
+        return call
 
 
 def translate_ast(node):
@@ -370,7 +367,7 @@ def translate_ast(node):
     return t.visit(node)
 
 
-def parse(buf, filename='<string>'):
+def parse(buf, filename = '<string>'):
     if isinstance(buf, str):
         buf = buf.encode('utf-8')
     encoding, buf = translate_source(buf, filename)
@@ -379,7 +376,7 @@ def parse(buf, filename='<string>'):
     except SyntaxError as e:
         # set the filename attribute
         raise SyntaxError(str(e), (filename, e.lineno, e.offset, e.text))
-    return translate_ast(node)
+    return cast(ast.Module, translate_ast(node))
 
 
 def main():
