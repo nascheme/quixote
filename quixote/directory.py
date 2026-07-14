@@ -1,5 +1,8 @@
 """Logic for traversing directory objects and generating output."""
 
+from collections.abc import Callable
+from typing import Any, cast
+
 import quixote
 from quixote.errors import TraversalError
 
@@ -11,30 +14,41 @@ from quixote.errors import TraversalError
 # omit the slash.  This gets turned on when DISPLAY_EXCEPTIONS true in order
 # to avoid log file noise in production setups.
 WARN_TRAILING_SLASH = False
+_MISSING = object()
 
 
 class DirectoryClass(type):
-    """A meta-class for Directory.  Its purpose is to process methods
-    that are exported using the export() and subdir() decorators.
+    """A meta-class for Directory.
+
+    Its purpose is to process methods that are exported using the export()
+    and subdir() decorators.
     """
 
-    def __new__(meta, classname, bases, classdict):
+    def __new__(
+        meta,
+        classname,
+        bases,
+        classdict,
+    ):
         cls = type.__new__(meta, classname, bases, classdict)
         exports = []
-        for k, v in classdict.items():
-            if isinstance(v, property):
+        for key, value in classdict.items():
+            if isinstance(value, property):
                 # might be a property from subdir(), get the original method
-                v = v.fget
-            if hasattr(v, '_q_name'):
-                if v._q_name == k:
-                    exports.append(k)
+                value = value.fget or value
+            q_name = getattr(value, '_q_name', _MISSING)
+            if q_name is not _MISSING:
+                if not isinstance(q_name, str):
+                    raise TypeError('_q_name must be a string')
+                if q_name == key:
+                    exports.append(key)
                 else:
-                    exports.append((v._q_name, k))
+                    exports.append((q_name, key))
         if exports:
             # Only monkey with _q_exports if names are exported using the
             # decorators.
-            exports += getattr(cls, '_q_exports', [])
-            cls._q_exports = exports
+            exports += list(getattr(cls, '_q_exports', []))
+            setattr(cls, '_q_exports', exports)
         return cls
 
 
@@ -62,11 +76,9 @@ class Directory(object, metaclass=DirectoryClass):
         else:
             # check for an explicit external to internal mapping
             for value in self._q_exports:
-                if isinstance(value, tuple):
-                    if value[0] == component:
-                        return value[1]
-            else:
-                return None
+                if isinstance(value, tuple) and value[0] == component:
+                    return value[1]
+            return None
 
     def _q_lookup(self, component, /):
         """(component : string) -> object
@@ -98,16 +110,16 @@ class Directory(object, metaclass=DirectoryClass):
             )
         if path:
             if hasattr(obj, '_q_traverse'):
-                return obj._q_traverse(path)
+                return cast(Directory, obj)._q_traverse(path)
             else:
                 raise TraversalError
         elif callable(obj):
-            return obj()
+            return cast(Callable[[], object], obj)()
         else:
             return obj
 
     def __call__(self):
-        if "" in self._q_exports and not quixote.get_request().form:
+        if '' in self._q_exports and not quixote.get_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
             if WARN_TRAILING_SLASH:
@@ -130,7 +142,10 @@ class AccessControlled(object):
 
     def _q_traverse(self, path, /):
         self._q_access()
-        return super(AccessControlled, self)._q_traverse(path)
+        return cast(
+            Directory,
+            super(AccessControlled, self),
+        )._q_traverse(path)
 
 
 class Resolving(object):
@@ -145,24 +160,30 @@ class Resolving(object):
         return None
 
     def _q_translate(self, component, /):
-        name = super(Resolving, self)._q_translate(component)
+        name = cast(
+            Directory,
+            super(Resolving, self),
+        )._q_translate(component)
         if name is not None and not hasattr(self, name):
             obj = self._q_resolve(name)
             setattr(self, name, obj)
         return name
 
 
-def export(func=None, name=None):
-    """Export a function that generates a page.  If 'name' is not
-    provided then the name of the page defaults to the name of the
-    function (method).
+def export(
+    func = None,
+    name = None,
+):
+    """Export a function that generates a page.
+
+    If 'name' is not provided then the name of the page defaults to the name
+    of the function (method).
     """
 
     def do_export(func):
-        if name is None:
-            func._q_name = func.__name__
-        else:
-            func._q_name = name
+        if name is not None and not isinstance(name, str):
+            raise TypeError('export name must be a string')
+        cast(Any, func)._q_name = func.__name__ if name is None else name
         return func
 
     if func is None:
@@ -171,17 +192,20 @@ def export(func=None, name=None):
         return do_export(func)
 
 
-def subdir(func=None, name=None):
-    """Export a function that returns a sub-directory object.  If 'name'
-    is not provided then the name of the directory defaults to the name
-    of the function (method).
+def subdir(
+    func = None,
+    name = None,
+):
+    """Export a function that returns a sub-directory object.
+
+    If 'name' is not provided then the name of the directory defaults to the
+    name of the function (method).
     """
 
     def do_export(func):
-        if name is None:
-            func._q_name = func.__name__
-        else:
-            func._q_name = name
+        if name is not None and not isinstance(name, str):
+            raise TypeError('subdir name must be a string')
+        cast(Any, func)._q_name = func.__name__ if name is None else name
         return property(func)
 
     if func is None:

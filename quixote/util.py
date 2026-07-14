@@ -23,8 +23,10 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-import xmlrpc.server as _xmlrpc
+import xmlrpc.client as _xmlrpc
+from collections.abc import Callable
 from email.utils import formatdate
+from typing import Any, cast
 
 try:
     import secrets
@@ -37,36 +39,52 @@ from quixote.directory import Directory
 from quixote.html import TemplateIO, htmltext
 from quixote.http_response import Stream
 
+
 if secrets is not None:
     # available in Python 3.6+, this is the preferred implementation
-    randbytes = secrets.token_urlsafe
+    def randbytes(n = 16):
+        """Return bytes of random data as a text string."""
+        return secrets.token_urlsafe(n)
+
 elif hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
     def _encode_base64(s):
         return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
 
-    def randbytes(n=16):
+    def randbytes(n = 16):
         """Return bytes of random data as a text string."""
         return _encode_base64(os.urandom(n))
 
 else:
     # give up, we used to try to provide a less secure version
-    def randbytes(n=16):
+    def randbytes(n = 16):
         raise NotImplementedError('platform missing os.urandom')
 
 
 def safe_str_cmp(a, b):
     """A (mostly) constant time comparison function for two strings.
-    Returns True if the strings are equal.  Using a constant time
-    function is necessary to prevent timing attacks with checking
-    security tokens (e.g. passwords, form tokens).  The arguments
-    can 'str' or 'bytes' object but mixed types are not allowed.
+
+    Returns True if the strings are equal.  Using a constant time function is
+    necessary to prevent timing attacks with checking security tokens (e.g.
+    passwords, form tokens).  The arguments can 'str' or 'bytes' object but
+    mixed types are not allowed.
     """
-    if not isinstance(a, bytes):
-        a = a.encode('utf-8')
-        b = b.encode('utf-8')
-    result = 0 if len(a) == len(b) else 1
-    for x, y in zip(a, b):
+    if isinstance(a, bytes):
+        if not isinstance(b, bytes):
+            raise TypeError(
+                'mixed string and bytes arguments are not allowed'
+            )
+        left = a
+        right = b
+    else:
+        if not isinstance(b, str):
+            raise TypeError(
+                'mixed string and bytes arguments are not allowed'
+            )
+        left = a.encode('utf-8')
+        right = b.encode('utf-8')
+    result = 0 if len(left) == len(right) else 1
+    for x, y in zip(left, right):
         result |= x ^ y
     return result == 0
 
@@ -83,7 +101,10 @@ def import_object(name):
         return sys.modules[name]
 
 
-def xmlrpc(request, func):
+def xmlrpc(
+    request,
+    func,
+):
     """xmlrpc(request:Request, func:callable) : string
 
     Processes the body of an XML-RPC request, and calls 'func' with
@@ -97,32 +118,39 @@ def xmlrpc(request, func):
         return "XML-RPC handlers only accept the POST method."
 
     length = int(request.environ['CONTENT_LENGTH'])
-    data = request.stdin.read(length)
+    stdin = request.stdin
+    if stdin is None:
+        raise RuntimeError('request has no input stream')
+    data = stdin.read(length)
 
     # Parse arguments
     params, method = _xmlrpc.loads(data)
+    method_name = cast(str, method)
+    method_params = cast(tuple[object, ...], params)
 
     try:
-        result = func(method, params)
+        result = func(method_name, method_params)
     except _xmlrpc.Fault as exc:
-        result = exc
+        payload = _xmlrpc.dumps(exc)
     except BaseException:
         # report exception back to client
-        result = _xmlrpc.dumps(
+        payload = _xmlrpc.dumps(
             _xmlrpc.Fault(1, "%s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
         )
     else:
-        result = (result,)
-        result = _xmlrpc.dumps(result, methodresponse=1)
+        payload = _xmlrpc.dumps(
+            cast(Any, (result,)),
+            methodresponse=True,
+        )
 
     request.response.set_content_type('text/xml')
-    return result
+    return payload
 
 
 class FileStream(Stream):
     CHUNK_SIZE = 20000
 
-    def __init__(self, fp, size=None):
+    def __init__(self, fp, size = None):
         self.fp = fp
         self.length = size
 
@@ -148,10 +176,10 @@ class StaticFile:
     def __init__(
         self,
         path,
-        follow_symlinks=False,
-        mime_type=None,
-        encoding=None,
-        cache_time=None,
+        follow_symlinks = False,
+        mime_type = None,
+        encoding = None,
+        cache_time = None,
     ):
         """StaticFile(path:string, follow_symlinks:bool)
 
@@ -242,12 +270,12 @@ class StaticDirectory(Directory):
     def __init__(
         self,
         path,
-        use_cache=False,
-        list_directory=False,
-        follow_symlinks=False,
-        cache_time=None,
-        file_class=None,
-        index_filenames=None,
+        use_cache = False,
+        list_directory = False,
+        follow_symlinks = False,
+        cache_time = None,
+        file_class = None,
+        index_filenames = None,
     ):
         """(path:string, use_cache:bool, list_directory:bool,
             follow_symlinks:bool, cache_time:int,
@@ -296,7 +324,7 @@ class StaticDirectory(Directory):
                 except errors.TraversalError:
                     continue
                 if not isinstance(obj, StaticDirectory) and callable(obj):
-                    return obj()
+                    return cast(Callable[[], object], obj)()
         if self.list_directory:
             title = 'Index of %s' % quixote.get_path()
             r = TemplateIO(html=True)
@@ -307,14 +335,14 @@ class StaticDirectory(Directory):
             files.sort()
             for filename in files:
                 filepath = os.path.join(self.path, filename)
-                marker = os.path.isdir(filepath) and "/" or ""
+                marker = '/' if os.path.isdir(filepath) else ''
                 r += template % (
                     urllib.parse.quote(filename),
                     filename,
                     marker,
                 )
             r += htmltext('</pre>')
-            body = r.getvalue()
+            body = cast(htmltext, r.getvalue())
         else:
             title = 'Directory listing denied'
             body = htmltext(
@@ -370,11 +398,18 @@ class StaticDirectory(Directory):
 
 
 class MemoryFile:
-    """A static-like file that exists only in memory, not on disk.  The
-    data for the file is stored as a 'str' object.
+    """A static-like file that exists only in memory, not on disk.
+
+    The data for the file is stored as a 'str' object.
     """
 
-    def __init__(self, data, mime_type=None, encoding=None, cache_time=None):
+    def __init__(
+        self,
+        data,
+        mime_type = None,
+        encoding = None,
+        cache_time = None,
+    ):
         self.data = data
         self.mime_type = mime_type or 'text/plain'
         self.encoding = encoding or quixote.DEFAULT_CHARSET
@@ -392,18 +427,21 @@ class MemoryFile:
 
 
 @functools.cache
-def _get_static_file_hash(static_file):
+def _get_static_file_hash(
+    static_file,
+):
     """Return hex-digest hash of the static file content."""
     return hashlib.sha1(static_file.get_data()).hexdigest()
 
 
 class StaticBundle(Directory):
-    """A virtual directory that holds static files.  Can be used for
-    Javascript, CSS files, and images.  It can optionally concatenate
-    multiple text files into a single file (e.g. Javascript).  A token based
-    on the content hash of the file is used as part of the URL and so a very
-    long cache time can be specified.  If the file gets updated, a new path
-    will be generated by make_path() because of the new content hash.
+    """A virtual directory that holds static files.
+
+    Can be used for Javascript, CSS files, and images.  It can optionally
+    concatenate multiple text files into a single file (e.g. Javascript).  A
+    token based on the content hash of the file is used as part of the URL and
+    so a very long cache time can be specified.  If the file gets updated, a
+    new path will be generated by make_path() because of the new content hash.
 
     Additional notes:
 
@@ -418,20 +456,26 @@ class StaticBundle(Directory):
     * If the file content changes while Quixote is running, the content ID
       is not re-computed.  If you modify the file, you need to restart the
       Quixote. application.
-
     """
 
     # Because we generate a path based on the file content hash it is safe to
     # use a very long cache time.
     CACHE_TIME = 3600 * 24 * 100
 
-    def __init__(self, dirname, basepath='', sep='\n', encoding=None):
-        """Create a new StaticBundle.  'dirname' is a file path to the
-        files on disk.  'basepath' is the base web path for the files and
-        is used by make_path() to generate an absolute path URL.  If files
-        are to be concatenated, 'sep' is used as a separator between files.
-        Using newline is the default since minimized Javascript and CSS
-        sometimes are missing a final newline.
+    def __init__(
+        self,
+        dirname,
+        basepath = '',
+        sep = '\n',
+        encoding = None,
+    ):
+        """Create a new StaticBundle.
+
+        'dirname' is a file path to the files on disk.  'basepath' is the base
+        web path for the files and is used by make_path() to generate an
+        absolute path URL.  If files are to be concatenated, 'sep' is used
+        as a separator between files. Using newline is the default since
+        minimized Javascript and CSS sometimes are missing a final newline.
         """
         self.basedir = dirname
         self.basepath = basepath
@@ -441,12 +485,13 @@ class StaticBundle(Directory):
         self.paths = {}
 
     def _create_bundle(self, filenames):
-        """Generate concatenated data for 'filenames'.  Return a MemoryFile
-        object containing the data.
+        """Generate concatenated data for 'filenames'.
+
+        Return a MemoryFile object containing the data.
         """
         data = io.StringIO()
         mime_type = None
-        for fn in filenames:
+        for index, fn in enumerate(filenames):
             if fn == '..' or '/' in fn:
                 # should not happen, check anyhow
                 raise ValueError('invalid file name for static file')
@@ -455,17 +500,24 @@ class StaticBundle(Directory):
                 raise errors.TraversalError('static file missing')
             with open(filename, 'r', encoding=self.encoding) as fp:
                 data.write(fp.read())
-            if fn is not filenames[-1]:
+            if index + 1 < len(filenames):
                 data.write(self.sep)
             if mime_type is None:
-                mime_type, guess_enc = mimetypes.guess_type(fn, strict=False)
+                mime_type, _guess_enc = mimetypes.guess_type(
+                    fn,
+                    strict=False,
+                )
         return MemoryFile(
             data.getvalue(),
             mime_type=mime_type,
             encoding=self.encoding,
         )
 
-    def _get_static_file(self, filename, cache_time=None):
+    def _get_static_file(
+        self,
+        filename,
+        cache_time = None,
+    ):
         """Return static file object for 'filename'."""
         static_file = self.files.get(filename)
         if static_file is not None:
@@ -484,29 +536,33 @@ class StaticBundle(Directory):
         return static_file
 
     def _get_content_hash_token(self, filename):
-        """Return a token based on the content of the file.  If the content
-        changes then this token is very likely to change as well.
+        """Return a token based on the content of the file.
+
+        If the content changes then this token is very likely to change as
+        well.
         """
         # Previously we used the modification time here but a content hash is
         # more reliable and works with re-producible builds.
         static_file = self._get_static_file(filename)
-        hash = _get_static_file_hash(static_file)
-        return hash[:10]
+        hash_value = _get_static_file_hash(static_file)
+        return hash_value[:10]
 
     def make_path(self, *filenames):
-        """Generate a path for a file or list of files.  The returned path
-        will include a path component based on the content.  If multiple file
-        names are provided, they must all have the same extension.
+        """Generate a path for a file or list of files.
+
+        The returned path will include a path component based on the content.
+        If multiple file names are provided, they must all have the same
+        extension.
         """
-        filenames = [str(fn) for fn in filenames]
-        key = ','.join(filenames)
+        filename_parts = [str(fn) for fn in filenames]
+        key = ','.join(filename_parts)
         path = self.paths.get(key)
         if path is not None:
             return path
-        exts = set([os.path.splitext(fn)[1] for fn in filenames])
+        exts = {os.path.splitext(fn)[1] for fn in filename_parts}
         if len(exts) != 1:
             raise ValueError('different file extensions %s' % exts)
-        for fn in filenames:
+        for fn in filename_parts:
             fn = os.path.join(self.basedir, fn)
             if not os.path.exists(fn):
                 raise ValueError('missing file %r' % fn)
@@ -546,7 +602,7 @@ class Redirector:
 
     _q_exports = []
 
-    def __init__(self, location, permanent=False):
+    def __init__(self, location, permanent = False):
         self.location = location
         self.permanent = permanent
 
@@ -557,10 +613,10 @@ class Redirector:
         return quixote.redirect(self.location, self.permanent)
 
 
-def dump_request(request=None):
+def dump_request(request = None):
+    """Dump an HTTPRequest object as HTML."""
     if request is None:
         request = quixote.get_request()
-    """Dump an HTTPRequest object as HTML."""
     row_fmt = htmltext('<tr><th>%s</th><td>%s</td></tr>')
     r = TemplateIO(html=True)
     r += htmltext('<h3>form</h3><table>')
@@ -573,13 +629,11 @@ def dump_request(request=None):
     for k, v in request.environ.items():
         r += row_fmt % (k, v)
     r += htmltext('</table>')
-    return r.getvalue()
+    return cast(htmltext, r.getvalue())
 
 
 def get_directory_path():
-    """() -> [object]
-    Return the list of traversed instances.
-    """
+    """Return the list of traversed instances."""
     path = []
     frame = sys._getframe()
     while frame:
