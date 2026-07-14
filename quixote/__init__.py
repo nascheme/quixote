@@ -27,7 +27,7 @@ from quixote.publish import (  # noqa: F401
 DEFAULT_CHARSET = 'utf-8'
 
 
-def enable_ptl():
+def enable_ptl() -> None:
     """
     Installs the import hooks needed to import PTL modules.  This must
     be done explicitly because not all Quixote applications need to use

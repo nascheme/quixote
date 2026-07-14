@@ -1,12 +1,17 @@
+from __future__ import annotations
 
 import os
 import socket
 import sys
 import time
-from typing import cast
+from typing import TYPE_CHECKING, TextIO, cast
 
 import quixote
 from quixote.sendmail import sendmail
+
+if TYPE_CHECKING:
+    from quixote.http_request import HTTPRequest
+    from quixote.session import Session
 
 
 class DefaultLogger:
@@ -29,14 +34,18 @@ class DefaultLogger:
         this address
     """
 
-    DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
+    DEFAULT_CHARSET: str | None = None  # defaults to quixote.DEFAULT_CHARSET
+
+    access_log: TextIO | None
+    error_log: TextIO
+    error_email: str | None
 
     def __init__(
         self,
-        access_log = None,
-        error_log = None,
-        error_email = None,
-    ):
+        access_log: str | None = None,
+        error_log: str | None = None,
+        error_email: str | None = None,
+    ) -> None:
         if access_log:
             self.access_log = self._open_log(access_log)
         else:
@@ -48,7 +57,7 @@ class DefaultLogger:
         self.error_email = error_email
         sys.stdout = self.error_log  # print is handy for debugging
 
-    def _open_log(self, filename):
+    def _open_log(self, filename: str) -> TextIO:
         charset = self.DEFAULT_CHARSET or quixote.DEFAULT_CHARSET
         return open(
             filename,
@@ -58,7 +67,7 @@ class DefaultLogger:
             errors='xmlcharrefreplace',
         )
 
-    def log(self, msg):
+    def log(self, msg: str) -> None:
         """
         Write an message to the error log with a time stamp.
         """
@@ -67,7 +76,7 @@ class DefaultLogger:
         )
         self.error_log.write("[%s] %s%s" % (timestamp, msg, os.linesep))
 
-    def log_internal_error(self, error_summary, error_msg):
+    def log_internal_error(self, error_summary: str, error_msg: str) -> None:
         """(error_summary: str, error_msg: str)
 
         error_summary is a single line summary of the internal error, suitable
@@ -84,7 +93,7 @@ class DefaultLogger:
                 from_addr=(self.error_email, socket.gethostname()),
             )
 
-    def log_request(self, request, start_time):
+    def log_request(self, request: HTTPRequest, start_time: float) -> None:
         """Log a request in the access_log file."""
         if self.access_log is None:
             return

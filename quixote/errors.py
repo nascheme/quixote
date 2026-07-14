@@ -3,7 +3,11 @@
 Exception classes used by Quixote
 """
 
+from collections.abc import Sequence
+
 from quixote.html import htmlescape, htmltext
+
+type Rendered = str | htmltext
 
 
 class PublishError(Exception):
@@ -29,6 +33,9 @@ class PublishError(Exception):
 
     """
 
+    public_msg: str | None
+    private_msg: str | None
+
     status_code = 400  # bad request
     title = "Publishing error"
     description = (
@@ -36,16 +43,18 @@ class PublishError(Exception):
         "For help, please contact the site administrator."
     )
 
-    def __init__(self, public_msg=None, private_msg=None):
+    def __init__(
+        self, public_msg: str | None = None, private_msg: str | None = None
+    ) -> None:
         self.public_msg = public_msg
         self.private_msg = (
             private_msg  # cleared if DISPLAY_EXCEPTIONS is false
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.private_msg or self.public_msg or "???"
 
-    def format(self):
+    def format(self) -> Rendered:
         msg = htmlescape(self.title)
         if self.public_msg:
             msg = msg + ": " + self.public_msg
@@ -73,7 +82,12 @@ class TraversalError(PublishError):
         "page, please inform that page's maintainer."
     )
 
-    def __init__(self, public_msg=None, private_msg=None, path=None):
+    def __init__(
+        self,
+        public_msg: str | None = None,
+        private_msg: str | None = None,
+        path: str | None = None,
+    ) -> None:
         PublishError.__init__(self, public_msg, private_msg)
         if path is None:
             import quixote
@@ -81,7 +95,7 @@ class TraversalError(PublishError):
             path = quixote.get_request().get_path()
         self.path = path
 
-    def format(self):
+    def format(self) -> Rendered:
         msg = htmlescape(self.title) + ": " + self.path
         if self.public_msg:
             msg = msg + ": " + self.public_msg
@@ -140,11 +154,11 @@ class MethodNotAllowedError(PublishError):
         "the resource identified by the URI."
     )
 
-    def __init__(self, allowed_methods):
+    def __init__(self, allowed_methods: Sequence[str]) -> None:
         self.allowed_methods = allowed_methods
         self.public_msg = self.private_msg = None
 
-    def format(self):
+    def format(self) -> Rendered:
         import quixote
 
         allowed_methods = ', '.join(self.allowed_methods)
@@ -152,8 +166,7 @@ class MethodNotAllowedError(PublishError):
         return 'Allowed methods are: %s' % allowed_methods
 
 
-PAGE_TEMPLATE = htmltext(
-    '''\
+PAGE_TEMPLATE = htmltext('''\
 <!DOCTYPE html>
 <html>
 <head>
@@ -175,11 +188,10 @@ p {
     %(body)s
 </body>
 </html>
-'''
-)
+''')
 
 
-def format_page(title, body):
+def format_page(title: object, body: object) -> Rendered:
     """Used for Quixote generated HTML pages.  This function can be replaced
     to ensure you application has a consistent look to web pages.  Be aware
     that this function should do a minimal amount of processing since it can
@@ -188,15 +200,15 @@ def format_page(title, body):
     return PAGE_TEMPLATE % dict(title=title, body=body)
 
 
-ERROR_BODY = htmltext(
-    '''
+ERROR_BODY = htmltext('''
     <p>%(description)s</p>
     <p>%(details)s</p>
-'''
-)
+''')
 
 
-def format_error_page(title, description, details):
+def format_error_page(
+    title: object, description: object, details: object
+) -> Rendered:
     body = ERROR_BODY % dict(description=description, details=details)
     return format_page(title=title, body=body)
 
@@ -218,7 +230,7 @@ INTERNAL_ERROR_MESSAGE = format_error_page(
 )
 
 
-def format_publish_error(exc):
+def format_publish_error(exc: PublishError) -> Rendered:
     """(exc : PublishError) -> string
 
     Format a PublishError exception as a web page.

@@ -1,14 +1,15 @@
 import sys
+from typing import NoReturn
 
 USAGE = "Usage: quixote run [options]"
 
 
-def usage():
+def usage() -> NoReturn:
     print(USAGE, file=sys.stderr)
     raise SystemExit()
 
 
-def main():
+def main() -> None:
     if len(sys.argv) <= 1:
         usage()
 

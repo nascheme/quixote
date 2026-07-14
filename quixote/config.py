@@ -9,6 +9,7 @@ the defaults here is harmless if you're just playing around and don't
 care what happens in the future.
 """
 
+from collections.abc import Mapping
 
 # Note that the default values here are geared towards a production
 # environment, preferring security and performance over verbosity and
@@ -135,7 +136,7 @@ class Config:
     attributes of this class.
     """
 
-    config_vars = [
+    config_vars: list[str] = [
         'error_email',
         'access_log',
         'display_exceptions',
@@ -159,14 +160,36 @@ class Config:
         'mail_debug_addr',
     ]
 
-    def __init__(self, **kwargs):
+    error_email: str | None
+    access_log: str | None
+    display_exceptions: str | None
+    error_log: str | None
+    compress_pages: bool
+    form_tokens: bool
+    allowed_methods: list[str] | None
+    session_cookie_domain: str | None
+    session_cookie_name: str
+    session_cookie_path: str | None
+    session_cookie_secure: bool
+    session_cookie_httponly: bool
+    mail_from: str | tuple[str, str] | None
+    mail_server: str
+    mail_port: int | None
+    mail_username: str | None
+    mail_password: str | None
+    mail_use_ssl: bool
+    mail_use_tls: bool
+    mail_allow_sslv3: bool
+    mail_debug_addr: str | None
+
+    def __init__(self, **kwargs: object) -> None:
         self.set_from_dict(globals())  # set defaults
         for name, value in kwargs.items():
             if name not in self.config_vars:
                 raise ValueError('unknown config variable %r' % name)
             setattr(self, name, value)
 
-    def set_from_dict(self, config_vars):
+    def set_from_dict(self, config_vars: Mapping[str, object]) -> None:
         for name, value in config_vars.items():
             if name.isupper():
                 name = name.lower()
@@ -174,7 +197,7 @@ class Config:
                     raise ValueError('unknown config variable %r' % name)
                 setattr(self, name, value)
 
-    def read_file(self, filename):
+    def read_file(self, filename: str) -> None:
         """Read configuration from a file.  Any variables already
         defined in this Config instance, but not in the file, are
         unchanged, so you can use this to build up a configuration
