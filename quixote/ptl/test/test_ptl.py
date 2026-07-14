@@ -6,7 +6,7 @@ from quixote.html import TemplateIO, _q_format, _q_join, htmltext
 from quixote.ptl.ptl_compile import compile_template
 
 
-def run_ptl(*source):
+def run_ptl(*source: str) -> None:
     """
     Compile the given lines of source code using the ptl compiler
     and run the resulting compiled code.
@@ -29,7 +29,7 @@ def run_ptl(*source):
     )
 
 
-def test_html():
+def test_html() -> None:
     run_ptl(
         '@ptl_html',
         'def f(a):',
@@ -42,7 +42,7 @@ def test_html():
     )
 
 
-def test_plain():
+def test_plain() -> None:
     run_ptl(
         '@ptl_plain',
         'def f(a):',
@@ -56,7 +56,7 @@ def test_plain():
     )
 
 
-def test_fstring():
+def test_fstring() -> None:
     run_ptl(
         '@ptl_html',
         'def f(a):',
@@ -67,7 +67,7 @@ def test_fstring():
     )
 
 
-def test_fstring_suffix():
+def test_fstring_suffix() -> None:
     run_ptl(
         '@ptl_html',
         'def f(a):',
@@ -76,7 +76,7 @@ def test_fstring_suffix():
     )
 
 
-def test_fstring_nested():
+def test_fstring_nested() -> None:
     if sys.hexversion < 0x030F0000:
         return
     run_ptl(
@@ -87,12 +87,12 @@ def test_fstring_nested():
     )
 
 
-def test_q_join():
+def test_q_join() -> None:
     assert _q_join('x', '&') == 'x&amp;'
     assert _q_join('x', htmltext('&')) == 'x&'
 
 
-def test_q_format():
+def test_q_format() -> None:
     assert _q_format('&') == '&amp;'
     assert _q_format(htmltext('&')) == '&'
     assert _q_format('a', ord('r')) == "'a'"

@@ -7,6 +7,8 @@ by adding extra nodes to the tree.  The modified AST is returned, ready
 to pass to the compile() built-in function.
 """
 
+from __future__ import annotations
+
 import ast
 import io
 import tokenize
@@ -22,19 +24,19 @@ HSTRING_MARKER = '\x02HSTRING\x03'
 
 TemplateType = Literal['html', 'plain']
 
-TEMPLATE_TYPES = {
+TEMPLATE_TYPES: dict[str, TemplateType] = {
     'ptl_html': 'html',
     'ptl_plain': 'plain',
 }
 
 
-def _is_h_str_tok(tok):
+def _is_h_str_tok(tok: tokenize.TokenInfo) -> bool:
     """Return True if the token is a h-string (f-string as htmltext)."""
     prefix = tok.string[:2]
     return prefix in {'F"', "F'"}
 
 
-def _translate_hstrings_lexical(tokens):
+def _translate_hstrings_lexical(tokens: list[tokenize.TokenInfo]) -> None:
     """Find h-string literals and annotate them so that the AST transform
     can turn them into htmltext values.
     """
@@ -89,7 +91,7 @@ def _translate_hstrings_lexical(tokens):
         i += 1
 
 
-def _translate_hstrings_tokenized(tokens):
+def _translate_hstrings_tokenized(tokens: list[tokenize.TokenInfo]) -> None:
     """Find h-string literals and annotate them so that the AST transform
     can turn them into htmltext values.
     """
@@ -129,8 +131,8 @@ translate_hstrings = _translate_hstrings_lexical
 
 
 def translate_source(
-    buf, filename = '<string>'
-):
+    buf: bytes, filename: str = '<string>'
+) -> tuple[str, str]:
     """
     Since we can't modify the parser in the builtin parser module we
     must do token translation here.  Luckily it does not affect line
@@ -151,11 +153,11 @@ def translate_source(
     return ut.encoding or 'utf-8', src
 
 
-def _is_str_node(n):
+def _is_str_node(n: ast.AST) -> bool:
     return isinstance(n, ast.Constant) and isinstance(n.value, str)
 
 
-def _has_str_marker(n):
+def _has_str_marker(n: ast.AST) -> bool:
     return (
         isinstance(n, ast.Constant)
         and isinstance(n.value, str)
@@ -163,7 +165,7 @@ def _has_str_marker(n):
     )
 
 
-def _h_str_replace(n):
+def _h_str_replace(n: ast.Constant) -> ast.Constant:
     assert isinstance(n.value, str)
     return ast.Constant(n.value.replace(HSTRING_MARKER, ''))
 
@@ -173,22 +175,22 @@ ConstantValue = (
 )
 
 
-def _ast_const(value):
+def _ast_const(value: ConstantValue) -> ast.Constant:
     return ast.Constant(value)
 
 
-def _ast_num(value):
+def _ast_num(value: int) -> ast.Constant:
     return ast.Constant(value)
 
 
 class TemplateTransformer(ast.NodeTransformer):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # __template_type is a stack whose values are
         # "html", "plain", or None
-        self.__template_type = [None]
+        self.__template_type: list[TemplateType | None] = [None]
 
-    def _get_template_type(self):
+    def _get_template_type(self) -> TemplateType | None:
         """Return the type of the function being compiled (
         "html", "plain", or None)
         """
@@ -197,7 +199,7 @@ class TemplateTransformer(ast.NodeTransformer):
         else:
             return None
 
-    def visit_Module(self, node):
+    def visit_Module(self, node: ast.Module) -> ast.Module:
         html_imp = ast.ImportFrom(
             module='quixote.html',
             names=[
@@ -227,7 +229,7 @@ class TemplateTransformer(ast.NodeTransformer):
         node.body[idx:idx] = ptl_imports
         return cast(ast.Module, self.generic_visit(node))
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
         name = node.name
         template_type = None
         # look for @ptl_html or @ptl_plain decorator
@@ -274,7 +276,7 @@ class TemplateTransformer(ast.NodeTransformer):
         self.__template_type.pop()
         return node
 
-    def visit_Expr(self, node):
+    def visit_Expr(self, node: ast.Expr) -> ast.Expr:
         node = cast(ast.Expr, self.generic_visit(node))
         if self._get_template_type() is not None:
             # Inside template function.  Instead of discarding objects on the
@@ -288,8 +290,8 @@ class TemplateTransformer(ast.NodeTransformer):
         return node
 
     def visit_Constant(
-        self, node, html = False
-    ):
+        self, node: ast.Constant, html: bool = False
+    ) -> ast.expr:
         if not _is_str_node(node):
             return node
         if html or _has_str_marker(node):
@@ -305,11 +307,11 @@ class TemplateTransformer(ast.NodeTransformer):
             return cast(ast.expr, ast.copy_location(call, node))
         return node
 
-    def visit_Str(self, node, html = False):
+    def visit_Str(self, node: ast.Str, html: bool = False) -> ast.expr:
         # exists for backwards compatibility, Python 3.8 uses Constant
         return self.visit_Constant(cast(ast.Constant, node), html=html)
 
-    def visit_JoinedStr(self, node):
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> ast.expr:
         # JoinedStr is used for combining the parts of an f-string.
         # In CPython, it is done with the BUILD_STRING opcode.  For
         # h-strings, we call quixote.html._q_join() instead.
@@ -321,7 +323,7 @@ class TemplateTransformer(ast.NodeTransformer):
             # f-string logic
             return cast(ast.expr, self.generic_visit(node))
         # call _q_format on the values, call _q_join to create the result
-        values = []
+        values: list[ast.expr] = []
         for v in node.values:
             if isinstance(v, ast.FormattedValue):
                 values.append(self.visit_FormattedValue(v, html=True))
@@ -341,8 +343,8 @@ class TemplateTransformer(ast.NodeTransformer):
         return call
 
     def visit_FormattedValue(
-        self, node, html = False
-    ):
+        self, node: ast.FormattedValue, html: bool = False
+    ) -> ast.expr:
         # FormattedValue is used for the {..} parts of an f-string.
         # In CPython, there is a FORMAT_VALUE opcode.  For h-strings
         # call quixote.html._q_format instead.
@@ -351,7 +353,7 @@ class TemplateTransformer(ast.NodeTransformer):
             return node
         format_name = ast.Name(id='_q_format', ctx=ast.Load())
         conversion = ast.copy_location(_ast_num(node.conversion), node)
-        args = [node.value]
+        args: list[ast.expr] = [node.value]
         if node.format_spec is not None:
             args += [conversion, node.format_spec]
         elif node.conversion != -1:
@@ -362,12 +364,12 @@ class TemplateTransformer(ast.NodeTransformer):
         return call
 
 
-def translate_ast(node):
+def translate_ast(node: ast.AST) -> ast.AST:
     t = TemplateTransformer()
     return t.visit(node)
 
 
-def parse(buf, filename = '<string>'):
+def parse(buf: str | bytes, filename: str = '<string>') -> ast.Module:
     if isinstance(buf, str):
         buf = buf.encode('utf-8')
     encoding, buf = translate_source(buf, filename)
@@ -379,7 +381,7 @@ def parse(buf, filename = '<string>'):
     return cast(ast.Module, translate_ast(node))
 
 
-def main():
+def main() -> None:
     import argparse
     import dis
 

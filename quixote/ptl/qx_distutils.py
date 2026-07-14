@@ -2,6 +2,8 @@
 PTL files.
 """
 
+from __future__ import annotations
+
 import os
 from glob import glob
 from typing import cast
@@ -11,13 +13,13 @@ from distutils.command.build_py import build_py
 
 class qx_build_py(build_py):
     def find_package_modules(
-        self, package, package_dir
-    ):
+        self, package: str, package_dir: str
+    ) -> list[tuple[str, str, str]]:
         self.check_package(package, package_dir)
         module_files = glob(os.path.join(package_dir, "*.py")) + glob(
             os.path.join(package_dir, "*.ptl")
         )
-        modules = []
+        modules: list[tuple[str, str, str]] = []
         setup_script = os.path.abspath(
             cast(str, self.distribution.script_name)
         )
@@ -32,8 +34,8 @@ class qx_build_py(build_py):
         return modules
 
     def build_module(
-        self, module, module_file, package
-    ):
+        self, module: str, module_file: str, package: str | list[str]
+    ) -> tuple[str, int]:
         if type(package) is str:
             package = package.split('.')
         elif type(package) not in (list, tuple):

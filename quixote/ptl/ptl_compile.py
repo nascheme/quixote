@@ -1,34 +1,39 @@
 #!/usr/bin/env python
 """Compile a PTL template."""
 
+from __future__ import annotations
+
 import importlib.util
 import os
 import py_compile
 import struct
 import sys
+from collections.abc import Iterator, Sequence
+from re import Pattern
+from types import CodeType
 from typing import Any, Protocol, cast
 
 from quixote.ptl.ptl_import import PTL_EXT, PTLFileLoader
 
 
 class _Readable(Protocol):
-    def read(self): ...
+    def read(self) -> str | bytes: ...
 
 
 class _ByteWritable(Protocol):
-    def write(self, data): ...
+    def write(self, data: bytes) -> object: ...
 
 
 _bootstrap_external = cast(Any, importlib._bootstrap_external)
 
 
 def ptl_compile(
-    file,
-    cfile,
-    dfile = None,
-    doraise = False,
-    optimize = -1,
-):
+    file: str,
+    cfile: str,
+    dfile: str | None = None,
+    doraise: bool = False,
+    optimize: int = -1,
+) -> str | None:
     """Byte-compile one PTL source file to Python bytecode.
 
     :param file: The source file name.
@@ -95,8 +100,8 @@ def ptl_compile(
 
 # derived from compileall.py
 def _walk_dir(
-    dir, ddir = None, maxlevels = 10, quiet = 0
-):
+    dir: str, ddir: str | None = None, maxlevels: int = 10, quiet: int = 0
+) -> Iterator[str]:
     if not quiet:
         print('Listing {!r}...'.format(dir))
     try:
@@ -130,16 +135,16 @@ def _walk_dir(
 
 # derived from compileall.py
 def compile_dir(
-    dir,
-    maxlevels = 10,
-    ddir = None,
-    force = False,
-    rx = None,
-    quiet = 0,
-    legacy = False,
-    optimize = -1,
-    workers = 1,
-):
+    dir: str,
+    maxlevels: int = 10,
+    ddir: str | None = None,
+    force: bool = False,
+    rx: Pattern[str] | None = None,
+    quiet: int = 0,
+    legacy: bool = False,
+    optimize: int = -1,
+    workers: int | None = 1,
+) -> int:
     """Byte-compile all modules in the given directory tree.
 
     Arguments (only dir is required):
@@ -165,14 +170,14 @@ def compile_dir(
 
 # derived from compileall.py
 def compile_file(
-    fullname,
-    ddir = None,
-    force = False,
-    rx = None,
-    quiet = 0,
-    legacy = False,
-    optimize = -1,
-):
+    fullname: str,
+    ddir: str | None = None,
+    force: bool = False,
+    rx: Pattern[str] | None = None,
+    quiet: int = 0,
+    legacy: bool = False,
+    optimize: int = -1,
+) -> int:
     """Byte-compile one file.
 
     Arguments (only fullname is required):
@@ -258,13 +263,13 @@ def compile_file(
 
 # derived from compileall.py
 def compile_path(
-    skip_curdir = True,
-    maxlevels = 0,
-    force = False,
-    quiet = 0,
-    legacy = False,
-    optimize = -1,
-):
+    skip_curdir: bool = True,
+    maxlevels: int = 0,
+    force: bool = False,
+    quiet: int = 0,
+    legacy: bool = False,
+    optimize: int = -1,
+) -> int:
     """Byte-compile all module on sys.path.
 
     Arguments (all optional):
@@ -295,8 +300,8 @@ def compile_path(
 
 
 def compile_package(
-    paths, force = False, verbose = False
-):
+    paths: Sequence[str], force: bool = False, verbose: bool = False
+) -> None:
     """Compile all PTL files in a package.  'path' should be a list
     of directory names containing the files of the package (i.e. __path__).
     """
@@ -304,7 +309,7 @@ def compile_package(
         compile_dir(path, quiet=0 if verbose else 1, force=force, legacy=True)
 
 
-def main():
+def main() -> bool | int:
     """Script main program."""
     import argparse
 
@@ -480,8 +485,8 @@ else:
 
 
 def compile_template(
-    input, filename, output = None
-):
+    input: _Readable, filename: str, output: _ByteWritable | None = None
+) -> CodeType:
     """(input, filename) -> code
 
     Compile an open file.  The code object is returned.
