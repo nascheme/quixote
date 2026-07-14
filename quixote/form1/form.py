@@ -1,20 +1,34 @@
 """Provides the Form class and bureaucracy for registering widget classes.
 (The standard widget classes are registered automatically.)
 """
-from typing import cast
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
 
 from quixote import get_publisher, get_session, redirect
 from quixote.form1.widget import (
     FormValueError,
     HiddenWidget,
-    SubmitButtonWidget)
+    Rendered,
+    SubmitButtonWidget,
+    Widget,
+)
 from quixote.html import TemplateIO, htmltag, htmltext, nl2br, url_quote
+
+if TYPE_CHECKING:
+    from quixote.http_request import HTTPRequest
 
 StringType = str
 
+type FormValues = dict[str, object | None]
+type WidgetFactory = Callable[..., Widget]
+type WidgetType = str | type[Widget] | WidgetFactory
+
 
 class FormTokenWidget(HiddenWidget):
-    def render(self, request):
+    def render(self, request: HTTPRequest) -> Rendered:
         session = get_session()
         assert session is not None
         self.value = session.create_form_token()
@@ -90,12 +104,24 @@ class Form:
 
     TOKEN_NAME = "_form_id"  # name of hidden token widget
 
+    method: str
+    enctype: str | None
+    widgets: dict[str, Widget]
+    widget_order: list[Widget]
+    submit_buttons: list[SubmitButtonWidget]
+    cancel_url: str | htmltext | None
+    error: dict[str, object]
+    hint: dict[str, object | None]
+    title: dict[str, object | None]
+    required: dict[str, bool | int]
+    use_form_tokens: bool | int
+
     def __init__(
         self,
-        method = "post",
-        enctype = None,
-        use_tokens = 1,
-    ):
+        method: str = "post",
+        enctype: str | None = None,
+        use_tokens: bool | int = 1,
+    ) -> None:
         if method not in ("post", "get"):
             raise ValueError(
                 "Form method must be 'post' or 'get', not %r" % method
@@ -153,8 +179,8 @@ class Form:
     # page (depending on your level of abstraction).
 
     def render(
-        self, request, action_url
-    ):
+        self, request: HTTPRequest, action_url: str | htmltext
+    ) -> Rendered:
         # render(request : HTTPRequest,
         #           action_url : string)
         #    -> HTML text
@@ -171,12 +197,12 @@ class Form:
 
     def _render_start(
         self,
-        request,
-        action,
-        enctype = None,
-        method = 'post',
-        name = None,
-    ):
+        request: HTTPRequest,
+        action: str | htmltext,
+        enctype: str | None = None,
+        method: str = 'post',
+        name: str | None = None,
+    ) -> Rendered:
         r = TemplateIO(html=1)
         r += htmltag(
             'form', enctype=enctype, method=method, action=action, name=name
@@ -184,18 +210,18 @@ class Form:
         r += self._render_hidden_widgets(request)
         return r.getvalue()
 
-    def _render_finish(self, request):
+    def _render_finish(self, request: HTTPRequest) -> Rendered:
         r = TemplateIO(html=1)
         r += htmltext('</form>')
         r += self._render_javascript(request)
         return r.getvalue()
 
-    def _render_sep(self, text, line = 1):
+    def _render_sep(self, text: object, line: bool | int = 1) -> Rendered:
         return htmltext(
             '<tr><td colspan="3">%s<strong><big>%s</big></strong></td></tr>'
         ) % (line and htmltext('<hr>') or '', text)
 
-    def _render_error(self, error):
+    def _render_error(self, error: object | None) -> Rendered:
         if error:
             return htmltext('<font color="red">%s</font><br />') % nl2br(
                 error
@@ -203,18 +229,18 @@ class Form:
         else:
             return ''
 
-    def _render_hint(self, hint):
+    def _render_hint(self, hint: object | None) -> Rendered:
         if hint:
             return htmltext('<em>%s</em>') % hint
         else:
             return ''
 
     def _render_widget_row(
-        self, request, widget
-    ):
+        self, request: HTTPRequest, widget: Widget
+    ) -> Rendered:
         if widget.widget_type == 'hidden':
             return ''
-        title = htmltext('%s') % (self.title[widget.name] or '')
+        title: Rendered = htmltext('%s') % (self.title[widget.name] or '')
         if self.required.get(widget.name):
             title += htmltext('&nbsp;*')
         r = TemplateIO(html=1)
@@ -228,7 +254,7 @@ class Form:
         r += htmltext('</td></tr>')
         return r.getvalue()
 
-    def _render_hidden_widgets(self, request):
+    def _render_hidden_widgets(self, request: HTTPRequest) -> Rendered:
         r = TemplateIO(html=1)
         for widget in self.widget_order:
             if widget.widget_type == 'hidden':
@@ -237,8 +263,8 @@ class Form:
         return r.getvalue()
 
     def _render_submit_buttons(
-        self, request, ncols = 3
-    ):
+        self, request: HTTPRequest, ncols: int = 3
+    ) -> Rendered:
         r = TemplateIO(html=1)
         r += htmltext('<tr><td colspan="%d">\n') % ncols
         for button in self.submit_buttons:
@@ -246,13 +272,13 @@ class Form:
         r += htmltext('</td></tr>')
         return r.getvalue()
 
-    def _render_visible_widgets(self, request):
+    def _render_visible_widgets(self, request: HTTPRequest) -> Rendered:
         r = TemplateIO(html=1)
         for widget in self.widget_order:
             r += self._render_widget_row(request, widget)
         return r.getvalue()
 
-    def _render_error_notice(self, request):
+    def _render_error_notice(self, request: HTTPRequest) -> Rendered:
         if self.error:
             r = htmltext(
                 '<tr><td colspan="3">'
@@ -265,7 +291,7 @@ class Form:
             r = ''
         return r
 
-    def _render_required_notice(self, request):
+    def _render_required_notice(self, request: HTTPRequest) -> Rendered:
         if any(self.required.values()):
             r = htmltext(
                 '<tr><td colspan="3">'
@@ -276,7 +302,7 @@ class Form:
             r = ''
         return r
 
-    def _render_body(self, request):
+    def _render_body(self, request: HTTPRequest) -> Rendered:
         r = TemplateIO(html=1)
         r += htmltext('<table>')
         r += self._render_error_notice(request)
@@ -286,7 +312,7 @@ class Form:
         r += htmltext('</table>')
         return r.getvalue()
 
-    def _render_javascript(self, request):
+    def _render_javascript(self, request: HTTPRequest) -> Rendered:
         """Render javacript code for the form, if any.
         Insert code lexically sorted by code_id
         """
@@ -309,7 +335,7 @@ class Form:
     # The standard 'process()' method just parses every widget and
     # returns a { field_name : field_value } dictionary as 'values'.
 
-    def process(self, request):
+    def process(self, request: HTTPRequest) -> FormValues:
         """process(request : HTTPRequest) -> values : { string : any }
 
         Process the form data, validating all input fields (widgets).
@@ -333,10 +359,10 @@ class Form:
 
     def action(
         self,
-        request,
-        submit,
-        values,
-    ):
+        request: HTTPRequest,
+        submit: str | None,
+        values: FormValues,
+    ) -> Rendered:
         """action(request : HTTPRequest, submit : string,
                   values : { string : any }) -> string
 
@@ -348,7 +374,7 @@ class Form:
         """
         raise NotImplementedError("sub-classes must implement 'action()'")
 
-    def handle(self, request):
+    def handle(self, request: HTTPRequest) -> Rendered:
         """handle(request : HTTPRequest) -> string
 
         Master method for handling forms.  It should be called after
@@ -398,21 +424,21 @@ class Form:
 
     # -- Convenience methods -------------------------------------------
 
-    def form_submitted(self, request):
+    def form_submitted(self, request: HTTPRequest) -> bool:
         """form_submitted(request : HTTPRequest) -> boolean
 
         Return true if a form was submitted in the current request.
         """
         return len(request.form) > 0
 
-    def get_action_url(self, request):
+    def get_action_url(self, request: HTTPRequest) -> str:
         action_url = url_quote(request.get_path())
         query = request.get_environ("QUERY_STRING")
         if query:
             action_url += "?" + query
         return action_url
 
-    def get_submit_button(self, request):
+    def get_submit_button(self, request: HTTPRequest) -> str | None:
         """get_submit_button(request : HTTPRequest) -> string | None
 
         Get the name of the submit button that was used to submit the
@@ -428,10 +454,10 @@ class Form:
             else:
                 return None
 
-    def get_widget(self, widget_name):
+    def get_widget(self, widget_name: str) -> Widget | None:
         return self.widgets.get(widget_name)
 
-    def parse_widget(self, name, request):
+    def parse_widget(self, name: str, request: HTTPRequest) -> object | None:
         """parse_widget(name : string, request : HTTPRequest) -> any
 
         Parse the value of named widget.  If any parse errors, store the
@@ -447,13 +473,13 @@ class Form:
 
     def store_value(
         self,
-        widget_name,
-        request,
-        target,
-        mode = "modifier",
-        key = None,
-        missing_error = None,
-    ):
+        widget_name: str,
+        request: HTTPRequest,
+        target: Any,
+        mode: str = "modifier",
+        key: str | None = None,
+        missing_error: str | None = None,
+    ) -> None:
         """store_value(widget_name : string,
                        request : HTTPRequest,
                        target : instance | dict,
@@ -500,29 +526,29 @@ class Form:
         else:
             raise ValueError("unknown update mode %s" % repr(mode))
 
-    def clear_widget(self, widget_name):
+    def clear_widget(self, widget_name: str) -> None:
         self.widgets[widget_name].clear()
 
-    def get_widget_value(self, widget_name):
+    def get_widget_value(self, widget_name: str) -> object | None:
         return self.widgets[widget_name].value
 
     def set_widget_value(
-        self, widget_name, value
-    ):
+        self, widget_name: str, value: object | None
+    ) -> None:
         self.widgets[widget_name].set_value(value)
 
     # -- Form population methods ---------------------------------------
 
     def add_widget(
         self,
-        widget_type,
-        name,
-        value = None,
-        title = None,
-        hint = None,
-        required = 0,
-        **args,
-    ):
+        widget_type: WidgetType,
+        name: str,
+        value: object | None = None,
+        title: object | None = None,
+        hint: object | None = None,
+        required: bool | int = 0,
+        **args: Any,
+    ) -> Widget:
         """add_widget(widget_type : string | Widget,
                       name : string,
                       value : any = None,
@@ -550,7 +576,7 @@ class Form:
         self.required[name] = required
         return new_widget
 
-    def add_submit_button(self, name, value):
+    def add_submit_button(self, name: str, value: object) -> None:
         global _widget_class
         if name in self.widgets:
             raise ValueError("form already has '%s' variable" % name)
@@ -561,7 +587,7 @@ class Form:
         self.widgets[name] = new_widget
         self.submit_buttons.append(new_widget)
 
-    def add_cancel_button(self, caption, url):
+    def add_cancel_button(self, caption: object, url: str | htmltext) -> None:
         if not isinstance(url, (StringType, htmltext)):
             raise TypeError("url must be a string (got %r)" % url)
         self.add_submit_button("cancel", caption)
@@ -571,12 +597,12 @@ class Form:
 # class Form
 
 
-_widget_class = {}
+_widget_class: dict[str, WidgetFactory] = {}
 
 
 def register_widget_class(
-    klass, widget_type = None
-):
+    klass: type[Widget], widget_type: str | None = None
+) -> None:
     global _widget_class
     if widget_type is None:
         widget_type = klass.widget_type
@@ -584,7 +610,7 @@ def register_widget_class(
     _widget_class[widget_type] = klass
 
 
-def get_widget_class(widget_type):
+def get_widget_class(widget_type: object) -> WidgetFactory:
     global _widget_class
     if callable(widget_type):
         # Presumably someone passed a widget class object to
