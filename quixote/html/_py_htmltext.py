@@ -22,16 +22,14 @@ def _escape_string(s):
     s = s.replace(">", "&gt;")
     s = s.replace('"', "&quot;")
     return s
-
-
-# backwards comptibility, unneeded in Python 3
 stringify = str
 
 
 class htmltext(object):
-    """The htmltext string-like type.  This type serves as a tag
-    signifying that HTML special characters do not need to be escaped
-    using entities.
+    """The htmltext string-like type.
+
+    This type serves as a tag signifying that HTML special characters do not
+    need to be escaped using entities.
     """
 
     __slots__ = ['s']
@@ -75,11 +73,11 @@ class htmltext(object):
             return htmltext(self.s % _wraparg(args))
 
     def format(self, *args, **kwargs):
-        args = list(map(_wraparg, args))
-        newkw = {}
-        for k, v in kwargs.items():
-            newkw[k] = _wraparg(v)
-        return htmltext(self.s.format(*args, **newkw))
+        wrapped_args = list(map(_wraparg, args))
+        wrapped_kwargs = {
+            key: _wraparg(value) for key, value in kwargs.items()
+        }
+        return htmltext(self.s.format(*wrapped_args, **wrapped_kwargs))
 
     def __add__(self, other):
         if isinstance(other, str):
@@ -125,7 +123,12 @@ class htmltext(object):
             s = _escape_string(s)
         return self.s.endswith(s)
 
-    def replace(self, old, new, count=-1):
+    def replace(
+        self,
+        old,
+        new,
+        count = -1,
+    ):
         if isinstance(old, htmltext):
             old = old.s
         else:
@@ -201,7 +204,7 @@ class TemplateIO(object):
 
     __slots__ = ['html', 'data']
 
-    def __init__(self, html=False):
+    def __init__(self, html = False):
         self.html = html
         self.data = []
 

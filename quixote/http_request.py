@@ -12,6 +12,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.header import Header
 
 import quixote
 from quixote.errors import RequestError
@@ -63,8 +64,8 @@ def parse_header(line):
     Return the main content-type and a dictionary of options.
 
     """
-    if isinstance(line, email.header.Header):  # file upload
-        line = ''.join(val for val, charset in line._chunks)
+    if isinstance(line, Header):
+        line = str(line)
     plist = [val.strip() for val in line.split(';')]
     key = plist.pop(0).lower()
     pdict = {}
@@ -79,7 +80,9 @@ def parse_header(line):
     return key, pdict
 
 
-def parse_content_disposition(full_cdisp):
+def parse_content_disposition(
+    full_cdisp,
+):
     (cdisp, cdisp_params) = parse_header(full_cdisp)
     name = cdisp_params.get('name')
     if not (cdisp == 'form-data' and name):
@@ -119,7 +122,11 @@ def parse_query(qs, charset):
     return fields
 
 
-def _add_field_value(fields, name, value):
+def _add_field_value(
+    fields,
+    name,
+    value,
+):
     if name in fields:
         values = fields[name]
         if not isinstance(values, list):
@@ -157,7 +164,12 @@ class HTTPRequest:
 
     DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
 
-    def __init__(self, stdin, environ, seekable=False):
+    def __init__(
+        self,
+        stdin,
+        environ,
+        seekable = False,
+    ):
         self.stdin = stdin
         self._stdin = None  # set after stdin is buffered to temp file
         self.body_is_seekable = seekable
@@ -205,8 +217,10 @@ class HTTPRequest:
 
     def make_body_seekable(self):
         """Ensure that 'stdin' is a seekable file object."""
+        stdin = self.stdin
         if self.body_is_seekable:
-            self.stdin.seek(0)
+            if stdin is not None:
+                stdin.seek(0)
             return
         if self._content_length < 20000:
             fp = io.BytesIO()
@@ -214,13 +228,15 @@ class HTTPRequest:
             fp = tempfile.TemporaryFile("w+b")
         remaining = self._content_length
         while remaining > 0:
-            s = self.stdin.read(min(remaining, 10000))
+            if stdin is None:
+                raise RequestError('unexpected end of request body')
+            s = stdin.read(min(remaining, 10000))
             if not s:
                 raise RequestError('unexpected end of request body')
             fp.write(s)
             remaining -= len(s)
         fp.seek(0)
-        self._stdin = self.stdin
+        self._stdin = stdin
         self.stdin = fp
         self.body_is_seekable = True
 
@@ -242,7 +258,9 @@ class HTTPRequest:
                 self._process_multipart(self._content_length, ctype_params)
 
     def _process_urlencoded(self, length, params):
-        query = self.stdin.read(length)
+        stdin = self.stdin
+        assert stdin is not None
+        query = stdin.read(length)
         if len(query) != length:
             raise RequestError('unexpected end of request body')
         # Use the declared charset if it's provided (most browser's don't
@@ -257,7 +275,9 @@ class HTTPRequest:
         if not boundary:
             raise RequestError('multipart/form-data missing boundary')
         charset = params.get('charset')
-        mimeinput = MIMEInput(self.stdin, boundary, length)
+        stdin = self.stdin
+        assert stdin is not None
+        mimeinput = MIMEInput(stdin, boundary, length)
         try:
             for _line in mimeinput.readpart():
                 pass  # discard lines up to first boundary
@@ -266,15 +286,19 @@ class HTTPRequest:
         except EOFError:
             raise RequestError('unexpected end of multipart/form-data')
 
-    def _process_multipart_body(self, mimeinput, charset):
-        headers = io.BytesIO()
+    def _process_multipart_body(
+        self,
+        mimeinput,
+        charset,
+    ):
+        headers_fp = io.BytesIO()
         lines = mimeinput.readpart()
         for line in lines:
-            headers.write(line)
+            headers_fp.write(line)
             if line == b'\r\n':
                 break
-        headers.seek(0)
-        headers = email.message_from_binary_file(headers)
+        headers_fp.seek(0)
+        headers = email.message_from_binary_file(headers_fp)
         ctype, ctype_params = parse_header(headers.get('content-type', ''))
         if ctype and 'charset' in ctype_params:
             charset = ctype_params['charset']
@@ -302,7 +326,11 @@ class HTTPRequest:
             value = _decode_string(b''.join(lines), charset or self.charset)
             _add_field_value(self.form, name, value)
 
-    def get_header(self, name, default=None):
+    def get_header(
+        self,
+        name,
+        default = None,
+    ):
         """get_header(name : string, default : string = None) -> string
 
         Return the named HTTP header, or an optional default argument
@@ -320,13 +348,21 @@ class HTTPRequest:
             name = 'HTTP_' + name
         return environ.get(name, default)
 
-    def get_cookie(self, cookie_name, default=None):
+    def get_cookie(
+        self,
+        cookie_name,
+        default = None,
+    ):
         return self.cookies.get(cookie_name, default)
 
     def get_cookies(self):
         return self.cookies
 
-    def get_field(self, name, default=None):
+    def get_field(
+        self,
+        name,
+        default = None,
+    ):
         return self.form.get(name, default)
 
     def get_fields(self):
@@ -370,7 +406,7 @@ class HTTPRequest:
         else:
             return server_name + ":" + server_port
 
-    def get_path(self, n=0):
+    def get_path(self, n = 0):
         """get_path(n : int = 0) -> string
 
         Return the path of the current request, chopping off 'n' path
@@ -426,7 +462,7 @@ class HTTPRequest:
             path += '?' + query
         return path
 
-    def get_url(self, n=0):
+    def get_url(self, n = 0):
         """get_url(n : int = 0) -> string
 
         Return the URL of the current request, chopping off 'n' path
@@ -441,7 +477,11 @@ class HTTPRequest:
             urllib.parse.quote(self.get_path(n)),
         )
 
-    def get_environ(self, key, default=None):
+    def get_environ(
+        self,
+        key,
+        default = None,
+    ):
         """get_environ(key : string) -> string
 
         Fetch a CGI environment variable from the request environment.
@@ -474,7 +514,7 @@ class HTTPRequest:
         accept_types = self.environ.get('HTTP_ACCEPT', "")
         return self._parse_pref_header(accept_types)
 
-    def _parse_pref_header(self, S):
+    def _parse_pref_header(self, s):
         """_parse_pref_header(S:string) : {string:float}
         Parse a list of HTTP preferences (content types, encodings) and
         return a dictionary mapping strings to the quality value.
@@ -482,8 +522,8 @@ class HTTPRequest:
 
         found = {}
         # remove all linear whitespace
-        S = _http_lws_re.sub("", S)
-        for coding in _http_list_re.split(S):
+        s = _http_lws_re.sub("", s)
+        for coding in _http_list_re.split(s):
             m = _http_encoding_re.match(coding)
             if m:
                 encoding = m.group(1).lower()
@@ -545,7 +585,8 @@ class HTTPRequest:
         #  ctext           = <any TEXT excluding "(" and ")">
         #  token           = 1*<any CHAR except CTLs or tspecials>
         #  tspecials       = "(" | ")" | "<" | ">" | "@" | "," | ";" | ":" |
-        #                    "\" | <"> | "/" | "[" | "]" | "?" | "=" | "{" |
+        #                    "\" | <">
+        #                    | "/" | "[" | "]" | "?" | "=" | "{" |
         #                    "}" | SP | HT
         #
         # This function handles the most-commonly-used subset of this syntax,
@@ -688,7 +729,12 @@ class Upload:
         the charset provide by the user-agent
     """
 
-    def __init__(self, orig_filename, content_type=None, charset=None):
+    def __init__(
+        self,
+        orig_filename,
+        content_type = None,
+        charset = None,
+    ):
         if orig_filename:
             self.orig_filename = orig_filename
             bspos = orig_filename.rfind("\\")
@@ -717,26 +763,31 @@ class Upload:
             self.fp.write(line)
         self.fp.seek(0)
 
+    def _get_fp(self):
+        fp = self.fp
+        assert fp is not None
+        return fp
+
     def __str__(self):
         return str(self.orig_filename)
 
     def __repr__(self):
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
-    def read(self, n):
-        return self.fp.read(n)
+    def read(self, n = -1):
+        return self._get_fp().read(n)
 
     def readline(self):
-        return self.fp.readline()
+        return self._get_fp().readline()
 
     def readlines(self):
-        return self.fp.readlines()
+        return self._get_fp().readlines()
 
     def __iter__(self):
-        return iter(self.fp)
+        return iter(self._get_fp())
 
     def close(self):
-        self.fp.close()
+        self._get_fp().close()
 
     def get_size(self):
         """Return the size of the file, in bytes."""
@@ -770,7 +821,7 @@ class LineInput:
         self.length = length
         self.buf = b''
 
-    def readline(self, maxlength=4096):
+    def readline(self, maxlength = 4096):
         # fill buffer
         n = min(self.length, maxlength - len(self.buf))
         if n > 0:

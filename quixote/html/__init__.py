@@ -42,6 +42,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import Any, cast
 
 _HAVE_T_STRING = sys.hexversion >= 0x030E0000
 
@@ -51,8 +52,7 @@ try:
         TemplateIO,
         htmlescape,
         htmltext,
-        stringify,
-    )
+        stringify)
 
     if _HAVE_T_STRING:
         from quixote.html._c_htmltext import htmlformat
@@ -61,8 +61,7 @@ except ImportError:
         TemplateIO,
         htmlescape,
         htmltext,
-        stringify,
-    )
+        stringify)
 
     if _HAVE_T_STRING:
         from quixote.html._py_htmltext import htmlformat  # noqa: F401
@@ -72,7 +71,12 @@ from quixote.html._py_htmltext import _wraparg  # noqa: E402
 ValuelessAttr = object()  # magic singleton object
 
 
-def htmltag(tag, xml_end=False, css_class=None, **attrs):
+def htmltag(
+    tag,
+    xml_end = False,
+    css_class = None,
+    **attrs,
+):
     """Create a HTML tag."""
     r = ["<%s" % tag]
     if css_class is not None:
@@ -89,9 +93,17 @@ def htmltag(tag, xml_end=False, css_class=None, **attrs):
     return htmltext("".join(r))
 
 
-def href(url, text, title=None, **attrs):
+def href(
+    url,
+    text,
+    title = None,
+    **attrs,
+):
     return (
-        htmltag("a", href=url, title=title, **attrs)
+        htmltag(
+            "a",
+            **cast(Any, {"href": url, "title": title, **attrs}),
+        )
         + htmlescape(text)
         + htmltext("</a>")
     )
@@ -100,9 +112,12 @@ def href(url, text, title=None, **attrs):
 def url_with_query(path, **attrs):
     result = htmltext(url_quote(path))
     if attrs:
-        attrs = sorted(attrs.items())
+        attrs = dict(sorted(attrs.items()))
         result += "?" + "&".join(
-            [url_quote(key) + "=" + url_quote(value) for key, value in attrs]
+            [
+                url_quote(key) + "=" + url_quote(value)
+                for key, value in attrs.items()
+            ]
         )
     return result
 
@@ -116,7 +131,7 @@ def nl2br(value):
     return htmltext(text.s.replace('\n', '<br />\n'))
 
 
-def url_quote(value, fallback=None):
+def url_quote(value, fallback = None):
     """url_quote(value : any [, fallback : string]) -> string
 
     Quotes 'value' for use in a URL; see urllib.quote().  If value is None,
@@ -137,22 +152,26 @@ def _q_join(*args):
     return htmltext('').join(args)
 
 
-def _q_format(value, conversion=-1, format_spec=None):
+def _q_format(
+    value,
+    conversion = -1,
+    format_spec = None,
+):
     # Used by f-strings to format the {..} parts
     if conversion == -1 and format_spec is None:
         return htmlescape(value)  # simple and fast case
     if conversion == -1:
         fmt = '{%s}'
     else:
-        conversion = chr(conversion)
-        if conversion == 'r':
+        conversion_char = chr(conversion)
+        if conversion_char == 'r':
             fmt = '{%s!r}'
-        elif conversion == 's':
+        elif conversion_char == 's':
             fmt = '{%s!s}'
-        elif conversion == 'a':
+        elif conversion_char == 'a':
             fmt = '{%s!a}'
         else:
-            raise RuntimeError('invalid conversion %r' % conversion)
+            raise RuntimeError('invalid conversion %r' % conversion_char)
     arg = _wraparg(value)
     if format_spec:
         fmt = fmt % (':' + str(format_spec))
@@ -173,7 +192,7 @@ def use_qpy():
     from .qpy_templateio import qpy_TemplateIO
 
     global _saved, htmltext, stringify, htmlescape, TemplateIO
-    if not _saved:
+    if _saved is None:
         _saved = (htmltext, stringify, htmlescape, TemplateIO)
 
         htmltext = qpy.h8
@@ -185,6 +204,8 @@ def use_qpy():
 def cleanup_qpy():
     global _saved, htmltext, stringify, htmlescape, TemplateIO
 
+    if _saved is None:
+        raise RuntimeError('qpy support is not active')
     htmltext, stringify, htmlescape, TemplateIO = _saved
     _saved = None
 
