@@ -17,9 +17,12 @@ Quixote process shuts down, all session data is lost.  See
 doc/session-mgmt.txt for information on session persistence.
 """
 
+from __future__ import annotations
+
 import sys
+from collections.abc import Iterator, MutableMapping
 from time import localtime, strftime, time
-from typing import cast
+from typing import TextIO, TypeVar, cast
 
 from quixote import (
     get_cookie,
@@ -27,10 +30,13 @@ from quixote import (
     get_publisher,
     get_request,
     get_response,
-    get_session)
+    get_session,
+)
+from quixote.config import Config
 from quixote.util import randbytes, safe_str_cmp
 
 CSRF_TOKEN_NAME = 'csrf_token'
+_T = TypeVar('_T')
 
 
 class SessionStore:
@@ -38,40 +44,40 @@ class SessionStore:
     into some form of storage.
     """
 
-    def load_session(self, id):
+    def load_session(self, id: str | None) -> Session | None:
         """Return the session if it exists, else return 'None'."""
         raise NotImplementedError()
 
-    def save_session(self, session):
+    def save_session(self, session: Session) -> None:
         """Save the session in the store."""
         raise NotImplementedError()
 
-    def delete_session(self, session_id):
+    def delete_session(self, session_id: str | None) -> None:
         """Delete the session in the store."""
         raise NotImplementedError()
 
-    def has_session(self, id):
+    def has_session(self, id: str | None) -> bool:
         """Return true if the session exists in the store, else false."""
         return self.load_session(id) is not None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Return an iterator of all session IDs in the storage."""
         raise NotImplementedError()
 
-    def transaction_start(self):
+    def transaction_start(self) -> None:
         """Called near the beginning of each request: after the HTTPRequest
         object has been built, but before we traverse the URL or call the
         callable object found by URL traversal.
         """
         pass
 
-    def transaction_commit(self, session):
+    def transaction_commit(self, session: Session | None) -> None:
         """Called near the end of each successful request.  Not called if
         there were any errors processing the request.
         """
         pass
 
-    def transaction_abort(self, session):
+    def transaction_abort(self, session: Session | None) -> None:
         """Called near the end of a failed request (i.e. a exception that was
         not a PublisherError was raised.
         """
@@ -86,13 +92,14 @@ class BaseSessionManager:
     ACCESS_TIME_RESOLUTION = 1
 
     # use a class attribute in case __init__ not called on subclass
-    store = SessionStore()
+    store: SessionStore = SessionStore()
+    session_class: type[Session]
 
     def __init__(
         self,
-        session_class = None,
-        session_store = None,
-    ):
+        session_class: type[Session] | None = None,
+        session_store: SessionStore | None = None,
+    ) -> None:
         self.session_class = session_class or Session
         if session_store is not None:
             self.store = session_store
@@ -100,7 +107,7 @@ class BaseSessionManager:
     # Hooks into the Quixote main loop.  These are the only three
     # methods that a session manager *must* implement.
 
-    def start_request(self):
+    def start_request(self) -> None:
         """
         Called near the beginning of each request: after the HTTPRequest
         object has been built, but before we traverse the URL or call the
@@ -111,7 +118,7 @@ class BaseSessionManager:
         get_request().session = session
         session.start_request()
 
-    def finish_successful_request(self):
+    def finish_successful_request(self) -> None:
         """Called near the end of each successful request.  Not called if
         there were any errors processing the request.
         """
@@ -120,7 +127,7 @@ class BaseSessionManager:
             self.maintain_session(session)
         self.commit_changes(session)
 
-    def finish_failed_request(self):
+    def finish_failed_request(self) -> None:
         """Called near the end of a failed request (i.e. a exception that was
         not a PublisherError was raised.
         """
@@ -130,7 +137,7 @@ class BaseSessionManager:
     # stored in databases, these methods must transfer data to and from
     # the database.
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Session]:
         """Iterate over all the sessions contained by the manager and return
         each Session object.
         """
@@ -141,9 +148,9 @@ class BaseSessionManager:
 
     def get(
         self,
-        session_id,
-        default = None,
-    ):
+        session_id: str | None,
+        default: _T | None = None,
+    ) -> Session | _T | None:
         """(session_id) -> Session|None
 
         Return the session object identified by 'session_id'.  Return None if
@@ -154,17 +161,17 @@ class BaseSessionManager:
             return default
         return session
 
-    def __setitem__(self, session_id, session):
+    def __setitem__(self, session_id: str, session: Session) -> None:
         """Store a new or updated session object into the session manager."""
         self.store.save_session(session)
 
-    def __delitem__(self, session_id):
+    def __delitem__(self, session_id: str | None) -> None:
         """Remove a session from the session manager.  E.g. if the user
         signs out or the session expires.
         """
         self.store.delete_session(session_id)
 
-    def __contains__(self, session_id):
+    def __contains__(self, session_id: object) -> bool:
         """(session_id : string) -> boolean
 
         Return true if a session identified by 'session_id' exists in
@@ -181,7 +188,7 @@ class BaseSessionManager:
     # methods let you hook into your transaction machinery after a
     # request is finished processing.
 
-    def abort_changes(self, session):
+    def abort_changes(self, session: Session | None) -> None:
         """(session : Session)
 
         Placeholder for subclasses that implement transactional
@@ -191,7 +198,7 @@ class BaseSessionManager:
         """
         self.store.transaction_abort(session)
 
-    def commit_changes(self, session):
+    def commit_changes(self, session: Session | None) -> None:
         """(session : Session)
 
         Placeholder for subclasses that implement transactional
@@ -205,7 +212,7 @@ class BaseSessionManager:
     # Other session manager implementions may re-use these or do their own
     # thing.
 
-    def get_session(self):
+    def get_session(self) -> Session:
         """() -> Session
 
         Fetch or create a session object for the current session, and
@@ -226,7 +233,7 @@ class BaseSessionManager:
         session._set_access_time(self.ACCESS_TIME_RESOLUTION)
         return session
 
-    def _get_session_id(self, config):
+    def _get_session_id(self, config: Config) -> str | None:
         """() -> string
 
         Find the ID of the current session by looking for the session
@@ -239,7 +246,7 @@ class BaseSessionManager:
         else:
             return id
 
-    def _make_session_id(self):
+    def _make_session_id(self) -> str:
         # Generate a session ID, which is just the value of the session
         # cookie we are about to drop on the user.  (It's also the key
         # used with the session manager mapping interface.)
@@ -248,7 +255,7 @@ class BaseSessionManager:
             id = randbytes(16)  # 128-bit random number
         return id
 
-    def new_session(self, id):
+    def new_session(self, id: str | None) -> Session:
         """(id : string) -> Session
 
         Return a new session object, ie. an instance of the session_class
@@ -256,7 +263,7 @@ class BaseSessionManager:
         """
         return self.session_class(id)
 
-    def maintain_session(self, session):
+    def maintain_session(self, session: Session) -> None:
         """(session : Session)
 
         Maintain session information.  This method is called after servicing
@@ -291,12 +298,12 @@ class BaseSessionManager:
 
     def set_session_cookie(
         self,
-        session_id,
-        **attrs,
-    ):
+        session_id: str,
+        **attrs: object | None,
+    ) -> str:
         return set_session_cookie(session_id, **attrs)
 
-    def revoke_session_cookie(self):
+    def revoke_session_cookie(self) -> None:
         """
         Remove the session cookie from the remote user's session by
         resetting the value and maximum age in the response object.  Also
@@ -307,7 +314,7 @@ class BaseSessionManager:
         if get_cookie(cookie_name) is not None:
             del get_request().cookies[cookie_name]
 
-    def expire_session(self):
+    def expire_session(self) -> None:
         """
         Expire the current session, ie. revoke the session cookie from
         the client and remove the session object from the session
@@ -331,23 +338,23 @@ class NullSessionManager(BaseSessionManager):
     manager.
     """
 
-    def start_request(self):
+    def start_request(self) -> None:
         pass
 
-    def finish_successful_request(self):
+    def finish_successful_request(self) -> None:
         pass
 
-    def finish_failed_request(self):
+    def finish_failed_request(self) -> None:
         pass
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Session]:
         return iter([])
 
     def get(
         self,
-        session_id,
-        default = None,
-    ):
+        session_id: str | None,
+        default: _T | None = None,
+    ) -> _T | None:
         return default
 
 
@@ -374,11 +381,13 @@ class SessionManager(BaseSessionManager):
 
     ACCESS_TIME_RESOLUTION = 1  # in seconds
 
+    sessions: MutableMapping[str, Session]
+
     def __init__(
         self,
-        session_class = None,
-        session_mapping = None,
-    ):
+        session_class: type[Session] | None = None,
+        session_mapping: MutableMapping[str, Session] | None = None,
+    ) -> None:
         """(session_class : class = Session, session_mapping : mapping = None)
 
         Create a new session manager.  There should be one session
@@ -398,16 +407,16 @@ class SessionManager(BaseSessionManager):
         else:
             self.sessions = session_mapping
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s at %x>" % (self.__class__.__name__, id(self))
 
     # Implementation of the required methods of the session manager.
 
     def get(
         self,
-        session_id,
-        default = None,
-    ):
+        session_id: str | None,
+        default: _T | None = None,
+    ) -> Session | _T | None:
         """(session_id : string, default : any = None) -> Session
 
         Return the session object identified by 'session_id', or None if
@@ -417,10 +426,10 @@ class SessionManager(BaseSessionManager):
             return default
         return self.sessions.get(session_id, default)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Session]:
         return iter(self.sessions.values())
 
-    def __setitem__(self, session_id, session):
+    def __setitem__(self, session_id: str, session: Session) -> None:
         """(session_id : string, session : Session)
 
         Store 'session' in the session manager under 'session_id'.
@@ -434,7 +443,7 @@ class SessionManager(BaseSessionManager):
         assert session_id == session.id, "session ID mismatch"
         self.sessions[session_id] = session
 
-    def __delitem__(self, session_id):
+    def __delitem__(self, session_id: str | None) -> None:
         """(session_id : string) -> Session
 
         Remove the session object identified by 'session_id' from the session
@@ -444,7 +453,7 @@ class SessionManager(BaseSessionManager):
             raise KeyError(session_id)
         del self.sessions[session_id]
 
-    def __contains__(self, session_id):
+    def __contains__(self, session_id: object) -> bool:
         """(session_id : string) -> boolean
 
         Return true if a session identified by 'session_id' exists in
@@ -457,7 +466,7 @@ class SessionManager(BaseSessionManager):
     # mapping interface for SessionManager but nothing in Quixote expects them
     # to exist.
 
-    def __getitem__(self, session_id):
+    def __getitem__(self, session_id: str) -> Session:
         """(session_id : string) -> Session
 
         Return the session object identified by 'session_id'.  Raise KeyError
@@ -465,31 +474,31 @@ class SessionManager(BaseSessionManager):
         """
         return self.sessions[session_id]
 
-    def has_session(self, session_id):
+    def has_session(self, session_id: str) -> bool:
         return session_id in self.sessions
 
-    def keys(self):
+    def keys(self) -> list[str]:
         """() -> [string]
 
         Return the list of session IDs of sessions in this session manager.
         """
         return list(self.sessions.keys())
 
-    def sorted_keys(self):
+    def sorted_keys(self) -> list[str]:
         """() -> [string]
 
         Return the same list as keys(), but sorted.
         """
         return sorted(self.keys())
 
-    def values(self):
+    def values(self) -> list[Session]:
         """() -> [Session]
 
         Return the list of sessions in this session manager.
         """
         return list(self.sessions.values())
 
-    def items(self):
+    def items(self) -> list[tuple[str, Session]]:
         """() -> [(string, Session)]
 
         Return the list of (session_id, session) pairs in this session
@@ -497,16 +506,16 @@ class SessionManager(BaseSessionManager):
         """
         return list(self.sessions.items())
 
-    def _create_session(self):
+    def _create_session(self) -> Session:
         # Create a new session object, with no ID for now - one will
         # be assigned later if we save the session.
         return self.new_session(None)
 
-    def _set_cookie(self, value, **attrs):
+    def _set_cookie(self, value: str, **attrs: object | None) -> None:
         # exists only for backwards compatiblity, use set_session_cookie()
         set_session_cookie(value, **attrs)
 
-    def has_session_cookie(self, must_exist = False):
+    def has_session_cookie(self, must_exist: bool = False) -> bool:
         """(must_exist : boolean = false) -> bool
 
         Return true if the request already has a cookie identifying a
@@ -561,7 +570,15 @@ class Session:
 
     MAX_FORM_TOKENS = 16  # maximum number of outstanding form tokens
 
-    def __init__(self, id):
+    id: str | None
+    user: object | None
+    _remote_address: str | None
+    _creation_time: float
+    _access_time: float
+    _form_tokens: list[str]
+    _csrf_token: str | None
+
+    def __init__(self, id: str | None) -> None:
         self.id = id
         self.user = None
         self._remote_address = get_request().get_environ("REMOTE_ADDR")
@@ -569,16 +586,16 @@ class Session:
         self._form_tokens = []  # queue
         self._csrf_token = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self.id)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.user:
             return "session %s (user %s)" % (self.id, self.user)
         else:
             return "session %s (no user)" % self.id
 
-    def has_info(self):
+    def has_info(self) -> bool:
         """() -> boolean
 
         Return true if this session contains any information that must
@@ -586,7 +603,7 @@ class Session:
         """
         return bool(self.user or self._form_tokens or self._csrf_token)
 
-    def is_dirty(self):
+    def is_dirty(self) -> bool:
         """() -> boolean
 
         Return true if this session has changed since it was last saved
@@ -603,10 +620,10 @@ class Session:
 
     def dump(
         self,
-        file = None,
-        header = True,
-        deep = True,
-    ):
+        file: TextIO | None = None,
+        header: bool = True,
+        deep: bool = True,
+    ) -> None:
         if file is None:
             file = sys.stdout
         time_fmt = "%Y-%m-%d %H:%M:%S"
@@ -620,7 +637,7 @@ class Session:
         file.write('  created %s, last accessed %s' % (ctime, atime))
         file.write('  _form_tokens: %s\n' % self._form_tokens)
 
-    def start_request(self):
+    def start_request(self) -> None:
         """
         Called near the beginning of each request: after the HTTPRequest
         object has been built, but before we traverse the URL or call the
@@ -631,51 +648,51 @@ class Session:
 
     # -- Simple accessors and modifiers --------------------------------
 
-    def set_user(self, user):
+    def set_user(self, user: object | None) -> None:
         self.user = user
 
-    def get_user(self):
+    def get_user(self) -> object | None:
         return self.user
 
-    def get_remote_address(self):
+    def get_remote_address(self) -> str | None:
         """Return the IP address (dotted-quad string) that made the
         initial request in this session.
         """
         return self._remote_address
 
-    def get_creation_time(self):
+    def get_creation_time(self) -> float:
         """Return the time that this session was created (seconds
         since epoch).
         """
         return self._creation_time
 
-    def get_access_time(self):
+    def get_access_time(self) -> float:
         """Return the time that this session was last accessed (seconds
         since epoch).
         """
         return self._access_time
 
-    def get_creation_age(self, _now = None):
+    def get_creation_age(self, _now: float | None = None) -> float:
         """Return the number of seconds since session was created."""
         # _now arg is not strictly necessary, but there for consistency
         # with get_access_age()
         return (_now or time()) - self._creation_time
 
-    def get_access_age(self, _now = None):
+    def get_access_age(self, _now: float | None = None) -> float:
         """Return the number of seconds since session was last accessed."""
         # _now arg is for SessionManager's use
         return (_now or time()) - self._access_time
 
     # -- Methods for SessionManager only -------------------------------
 
-    def _set_access_time(self, resolution):
+    def _set_access_time(self, resolution: float) -> None:
         now = time()
         if now - self._access_time > resolution:
             self._access_time = now
 
     # -- Form token methods --------------------------------------------
 
-    def create_form_token(self):
+    def create_form_token(self) -> str:
         """() -> string
 
         Create a new form token and add it to a queue of outstanding form
@@ -689,14 +706,14 @@ class Session:
             del self._form_tokens[:extra]
         return token
 
-    def has_form_token(self, token):
+    def has_form_token(self, token: str) -> bool:
         """(token : string) -> boolean
 
         Return true if 'token' is in the queue of outstanding tokens.
         """
         return token in self._form_tokens
 
-    def remove_form_token(self, token):
+    def remove_form_token(self, token: str) -> None:
         """(token : string)
 
         Remove 'token' from the queue of outstanding tokens.
@@ -705,7 +722,7 @@ class Session:
 
     # -- Cross-site request forgery (CSRF) prevention tokens -----------
 
-    def get_csrf_token(self):
+    def get_csrf_token(self) -> str:
         """Return a random token unique to the session.  This is
         suitable for inclusion in forms as a hidden field in order
         to prevent CSRF attacks.  When the form is submitted, the
@@ -719,7 +736,7 @@ class Session:
             self._csrf_token = randbytes(16)  # 128-bit random number
         return self._csrf_token
 
-    def valid_csrf_token(self, name = None):
+    def valid_csrf_token(self, name: str | None = None) -> bool:
         """Return true if the request contains the CSRF token in the
         parameter called 'name'.  The HTTP method must be POST.  If
         'name' is not provided, then CSRF_TOKEN_NAME is used as the
@@ -733,7 +750,7 @@ class Session:
         return safe_str_cmp(value, self.get_csrf_token())
 
 
-def set_session_cookie(session_id, **attrs):
+def set_session_cookie(session_id: str, **attrs: object | None) -> str:
     """Create a cookie in the HTTP response for 'session_id'."""
     config = get_publisher().config
     name = config.session_cookie_name

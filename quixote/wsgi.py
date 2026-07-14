@@ -9,9 +9,17 @@ To create an application object, execute
 Authors: Mike Orr <mso@oz.net> and Titus Brown <titus@caltech.edu>.
 Last updated 2005-05-03.
 """
-from typing import IO, cast
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import IO, TYPE_CHECKING, cast
+from wsgiref.types import StartResponse, WSGIEnvironment
 
 from .http_request import Environ, HTTPRequest
+
+if TYPE_CHECKING:
+    from .publish import Publisher
 
 ###### QWIP: WSGI COMPATIBILITY WRAPPER FOR QUIXOTE #####################
 
@@ -19,16 +27,17 @@ from .http_request import Environ, HTTPRequest
 class QWIP:
     """I make a Quixote Publisher object look like a WSGI application."""
 
-    request_class = HTTPRequest
+    request_class: type[HTTPRequest] = HTTPRequest
+    publisher: Publisher
 
-    def __init__(self, publisher):
+    def __init__(self, publisher: Publisher) -> None:
         self.publisher = publisher
 
     def __call__(
         self,
-        env,
-        start_response,
-    ):
+        env: WSGIEnvironment,
+        start_response: StartResponse,
+    ) -> Iterable[bytes]:
         """I am called for each request."""
         if env.get('wsgi.multithread') and not getattr(
             self.publisher, 'is_thread_safe', False

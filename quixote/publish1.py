@@ -5,15 +5,19 @@ the _q_lookup(), _q_resolve(), and _q_access() methods work as they did
 in Quixote 1.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 import types
 import warnings
+from typing import Any
 
 from quixote import errors, get_request, redirect
 from quixote.config import Config
 from quixote.directory import Directory
 from quixote.html import htmltext
+from quixote.http_request import HTTPRequest
 from quixote.publish import Publisher as _Publisher
 
 
@@ -23,11 +27,13 @@ class Publisher(_Publisher):
       namespace_stack : [ module | instance | class ]
     """
 
+    namespace_stack: list[object]
+
     def __init__(
         self,
-        root_namespace,
-        config = None,
-    ):
+        root_namespace: str | object,
+        config: Config | None = None,
+    ) -> None:
         if isinstance(root_namespace, str):
             root_namespace = _get_module(root_namespace)
         self.namespace_stack = [root_namespace]
@@ -36,25 +42,27 @@ class Publisher(_Publisher):
         directory = RootDirectory(root_namespace, self.namespace_stack)
         _Publisher.__init__(self, directory, config=config)
 
-    def debug(self, msg):
+    def debug(self, msg: str) -> None:
         self.log(msg)
 
-    def get_namespace_stack(self):
+    def get_namespace_stack(self) -> list[object]:
         """get_namespace_stack() ->  [ module | instance | class ]"""
         return self.namespace_stack
 
 
 class RootDirectory(Directory):
+    root_namespace: object
+    namespace_stack: list[object]
 
     def __init__(
         self,
-        root_namespace,
-        namespace_stack,
-    ):
+        root_namespace: object,
+        namespace_stack: list[object],
+    ) -> None:
         self.root_namespace = root_namespace
         self.namespace_stack = namespace_stack
 
-    def _q_traverse(self, path):
+    def _q_traverse(self, path: list[str]) -> object:
         # Initialize the publisher's namespace_stack
         del self.namespace_stack[:]
 
@@ -91,7 +99,7 @@ class RootDirectory(Directory):
         return output
 
 
-def _get_module(name):
+def _get_module(name: str) -> types.ModuleType:
     """Get a module object by name."""
     __import__(name)
     module = sys.modules[name]
@@ -102,11 +110,11 @@ _slash_pat = re.compile("//*")
 
 
 def _traverse_url(
-    root_namespace,
-    path_components,
-    request,
-    namespace_stack,
-):
+    root_namespace: object,
+    path_components: list[str],
+    request: HTTPRequest,
+    namespace_stack: list[object],
+) -> object | None:
     """(root_namespace : any, path_components : [string],
         request : HTTPRequest, namespace_stack : list) -> (object : any)
 
@@ -143,7 +151,7 @@ def _traverse_url(
         return redirect(request.environ['SCRIPT_NAME'] + '/', permanent=1)
 
     # Traverse starting at the root
-    obj = root_namespace
+    obj: object = root_namespace
     namespace_stack.append(obj)
 
     # Loop over the components of the path
@@ -186,11 +194,11 @@ def _traverse_url(
 
 
 def _get_component(
-    container,
-    component,
-    request,
-    namespace_stack,
-):
+    container: Any,
+    component: str,
+    request: HTTPRequest,
+    namespace_stack: list[object],
+) -> object:
     """Get one component of a path from a namespace."""
     # First security check: if the container doesn't even have an
     # _q_exports list, fail now: all Quixote-traversable namespaces
@@ -296,5 +304,5 @@ def _get_component(
     return obj
 
 
-def isstring(x):
+def isstring(x: object) -> bool:
     return isinstance(x, (str, htmltext))

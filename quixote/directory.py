@@ -1,7 +1,9 @@
 """Logic for traversing directory objects and generating output."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import quixote
 from quixote.errors import TraversalError
@@ -13,7 +15,10 @@ from quixote.errors import TraversalError
 # automatic redirect.  For URLs entered by humans, it's common for them to
 # omit the slash.  This gets turned on when DISPLAY_EXCEPTIONS true in order
 # to avoid log file noise in production setups.
-WARN_TRAILING_SLASH = False
+WARN_TRAILING_SLASH: bool = False
+
+type ExportItem = str | tuple[str, str]
+_F = TypeVar('_F', bound=Callable[..., object])
 _MISSING = object()
 
 
@@ -25,13 +30,13 @@ class DirectoryClass(type):
     """
 
     def __new__(
-        meta,
-        classname,
-        bases,
-        classdict,
-    ):
+        meta: type[DirectoryClass],
+        classname: str,
+        bases: tuple[type, ...],
+        classdict: dict[str, object],
+    ) -> DirectoryClass:
         cls = type.__new__(meta, classname, bases, classdict)
-        exports = []
+        exports: list[ExportItem] = []
         for key, value in classdict.items():
             if isinstance(value, property):
                 # might be a property from subdir(), get the original method
@@ -60,9 +65,9 @@ class Directory(object, metaclass=DirectoryClass):
     # A list containing strings or 2-tuples of strings that map external
     # names to internal names.  Note that the empty string will be
     # implicitly mapped to '_q_index'.
-    _q_exports = []
+    _q_exports: list[ExportItem] = []
 
-    def _q_translate(self, component, /):
+    def _q_translate(self, component: str, /) -> str | None:
         """(component : string) -> string | None
 
         Translate a path component into a Python identifier.  Returning
@@ -80,7 +85,7 @@ class Directory(object, metaclass=DirectoryClass):
                     return value[1]
             return None
 
-    def _q_lookup(self, component, /):
+    def _q_lookup(self, component: str, /) -> object | None:
         """(component : string) -> object
 
         Lookup a path component and return the corresponding object (usually
@@ -89,7 +94,7 @@ class Directory(object, metaclass=DirectoryClass):
         """
         return None
 
-    def _q_traverse(self, path, /):
+    def _q_traverse(self, path: list[str], /) -> object:
         """(path: [string]) -> object
 
         Traverse a path and return the result.
@@ -118,7 +123,7 @@ class Directory(object, metaclass=DirectoryClass):
         else:
             return obj
 
-    def __call__(self):
+    def __call__(self) -> object:
         if '' in self._q_exports and not quixote.get_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
@@ -137,10 +142,10 @@ class AccessControlled(object):
     into the directory.
     """
 
-    def _q_access(self):
+    def _q_access(self) -> None:
         pass
 
-    def _q_traverse(self, path, /):
+    def _q_traverse(self, path: list[str], /) -> object:
         self._q_access()
         return cast(
             Directory,
@@ -156,10 +161,10 @@ class Resolving(object):
     component object.
     """
 
-    def _q_resolve(self, name, /):
+    def _q_resolve(self, name: str, /) -> object | None:
         return None
 
-    def _q_translate(self, component, /):
+    def _q_translate(self, component: str, /) -> str | None:
         name = cast(
             Directory,
             super(Resolving, self),
@@ -171,16 +176,16 @@ class Resolving(object):
 
 
 def export(
-    func = None,
-    name = None,
-):
+    func: _F | None = None,
+    name: str | None = None,
+) -> _F | Callable[[_F], _F]:
     """Export a function that generates a page.
 
     If 'name' is not provided then the name of the page defaults to the name
     of the function (method).
     """
 
-    def do_export(func):
+    def do_export(func: _F) -> _F:
         if name is not None and not isinstance(name, str):
             raise TypeError('export name must be a string')
         cast(Any, func)._q_name = func.__name__ if name is None else name
@@ -193,16 +198,16 @@ def export(
 
 
 def subdir(
-    func = None,
-    name = None,
-):
+    func: _F | None = None,
+    name: str | None = None,
+) -> property | Callable[[_F], property]:
     """Export a function that returns a sub-directory object.
 
     If 'name' is not provided then the name of the directory defaults to the
     name of the function (method).
     """
 
-    def do_export(func):
+    def do_export(func: _F) -> property:
         if name is not None and not isinstance(name, str):
             raise TypeError('subdir name must be a string')
         cast(Any, func)._q_name = func.__name__ if name is None else name

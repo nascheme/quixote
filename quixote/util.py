@@ -13,6 +13,8 @@ StaticFile and StaticDirectory were contributed by Hamish Lawson.
 See doc/static-files.txt for examples of their use.
 """
 
+from __future__ import annotations
+
 import base64
 import functools
 import hashlib
@@ -24,9 +26,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xmlrpc.client as _xmlrpc
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from email.utils import formatdate
-from typing import Any, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 try:
     import secrets
@@ -39,29 +41,36 @@ from quixote.directory import Directory
 from quixote.html import TemplateIO, htmltext
 from quixote.http_response import Stream
 
+if TYPE_CHECKING:
+    from quixote.http_request import HTTPRequest
+
+type FilePath = str | os.PathLike[str]
+type StaticResult = str | FileStream
+type StaticItem = StaticFile | StaticDirectory
+
 
 if secrets is not None:
     # available in Python 3.6+, this is the preferred implementation
-    def randbytes(n = 16):
+    def randbytes(n: int = 16) -> str:
         """Return bytes of random data as a text string."""
         return secrets.token_urlsafe(n)
 
 elif hasattr(os, 'urandom'):
     # available in Python 2.4 and also works on win32
-    def _encode_base64(s):
+    def _encode_base64(s: bytes) -> str:
         return base64.urlsafe_b64encode(s).rstrip(b'=\n').decode('ascii')
 
-    def randbytes(n = 16):
+    def randbytes(n: int = 16) -> str:
         """Return bytes of random data as a text string."""
         return _encode_base64(os.urandom(n))
 
 else:
     # give up, we used to try to provide a less secure version
-    def randbytes(n = 16):
+    def randbytes(n: int = 16) -> str:
         raise NotImplementedError('platform missing os.urandom')
 
 
-def safe_str_cmp(a, b):
+def safe_str_cmp(a: str | bytes, b: str | bytes) -> bool:
     """A (mostly) constant time comparison function for two strings.
 
     Returns True if the strings are equal.  Using a constant time function is
@@ -89,7 +98,7 @@ def safe_str_cmp(a, b):
     return result == 0
 
 
-def import_object(name):
+def import_object(name: str) -> object:
     i = name.rfind('.')
     if i != -1:
         module_name = name[:i]
@@ -102,9 +111,9 @@ def import_object(name):
 
 
 def xmlrpc(
-    request,
-    func,
-):
+    request: HTTPRequest,
+    func: Callable[[str, tuple[object, ...]], object],
+) -> str:
     """xmlrpc(request:Request, func:callable) : string
 
     Processes the body of an XML-RPC request, and calls 'func' with
@@ -150,20 +159,23 @@ def xmlrpc(
 class FileStream(Stream):
     CHUNK_SIZE = 20000
 
-    def __init__(self, fp, size = None):
+    fp: IO[bytes]
+    length: int | None
+
+    def __init__(self, fp: IO[bytes], size: int | None = None) -> None:
         self.fp = fp
         self.length = size
 
-    def __iter__(self):
+    def __iter__(self) -> FileStream:
         return self
 
-    def __next__(self):
+    def __next__(self) -> bytes:
         chunk = self.fp.read(self.CHUNK_SIZE)
         if not chunk:
             raise StopIteration
         return chunk
 
-    def close(self):
+    def close(self) -> None:
         if hasattr(self.fp, 'close'):
             self.fp.close()
 
@@ -173,14 +185,20 @@ class StaticFile:
     Wrapper for a static file on the filesystem.
     """
 
+    path: FilePath
+    follow_symlinks: bool
+    mime_type: str
+    encoding: str | None
+    cache_time: int | None
+
     def __init__(
         self,
-        path,
-        follow_symlinks = False,
-        mime_type = None,
-        encoding = None,
-        cache_time = None,
-    ):
+        path: FilePath,
+        follow_symlinks: bool = False,
+        mime_type: str | None = None,
+        encoding: str | None = None,
+        cache_time: int | None = None,
+    ) -> None:
         """StaticFile(path:string, follow_symlinks:bool)
 
         Initialize instance with the absolute path to the file.  If
@@ -210,12 +228,12 @@ class StaticFile:
         self.cache_time = cache_time
         self.follow_symlinks = follow_symlinks
 
-    def get_data(self):
+    def get_data(self) -> bytes:
         with open(self.path, 'rb') as fp:
             data = fp.read()
         return data
 
-    def __call__(self):
+    def __call__(self) -> StaticResult:
         if not self.follow_symlinks and os.path.islink(self.path):
             raise errors.TraversalError(
                 private_msg="Path %r is a symlink" % self.path
@@ -265,18 +283,27 @@ class StaticDirectory(Directory):
 
     _q_exports = ['']
 
-    FILE_CLASS = StaticFile
+    FILE_CLASS: type[StaticFile] = StaticFile
+
+    path: FilePath
+    use_cache: bool
+    cache: dict[str, StaticItem]
+    list_directory: bool
+    follow_symlinks: bool
+    cache_time: int | None
+    file_class: type[StaticFile]
+    index_filenames: Sequence[str] | None
 
     def __init__(
         self,
-        path,
-        use_cache = False,
-        list_directory = False,
-        follow_symlinks = False,
-        cache_time = None,
-        file_class = None,
-        index_filenames = None,
-    ):
+        path: FilePath,
+        use_cache: bool = False,
+        list_directory: bool = False,
+        follow_symlinks: bool = False,
+        cache_time: int | None = None,
+        file_class: type[StaticFile] | None = None,
+        index_filenames: Sequence[str] | None = None,
+    ) -> None:
         """(path:string, use_cache:bool, list_directory:bool,
             follow_symlinks:bool, cache_time:int,
             file_class=None, index_filenames:[string])
@@ -310,7 +337,7 @@ class StaticDirectory(Directory):
             self.file_class = self.FILE_CLASS
         self.index_filenames = index_filenames
 
-    def _q_index(self):
+    def _q_index(self) -> object:
         """
         If directory listings are allowed, generate a simple HTML
         listing of the directory's contents with each item hyperlinked;
@@ -351,7 +378,7 @@ class StaticDirectory(Directory):
             )
         return errors.format_page(title, body)
 
-    def _q_lookup(self, name, /):
+    def _q_lookup(self, name: str, /) -> StaticItem:
         """
         Get a file from the filesystem directory and return the StaticFile
         or StaticDirectory wrapper of it; use caching if that is in use.
@@ -403,22 +430,27 @@ class MemoryFile:
     The data for the file is stored as a 'str' object.
     """
 
+    data: str
+    mime_type: str
+    encoding: str
+    cache_time: int | None
+
     def __init__(
         self,
-        data,
-        mime_type = None,
-        encoding = None,
-        cache_time = None,
-    ):
+        data: str,
+        mime_type: str | None = None,
+        encoding: str | None = None,
+        cache_time: int | None = None,
+    ) -> None:
         self.data = data
         self.mime_type = mime_type or 'text/plain'
         self.encoding = encoding or quixote.DEFAULT_CHARSET
         self.cache_time = cache_time
 
-    def get_data(self):
+    def get_data(self) -> bytes:
         return self.data.encode('utf-8')
 
-    def __call__(self):
+    def __call__(self) -> str:
         response = quixote.get_response()
         response.set_content_type(self.mime_type, self.encoding)
         if self.cache_time:
@@ -428,8 +460,8 @@ class MemoryFile:
 
 @functools.cache
 def _get_static_file_hash(
-    static_file,
-):
+    static_file: StaticFile | MemoryFile,
+) -> str:
     """Return hex-digest hash of the static file content."""
     return hashlib.sha1(static_file.get_data()).hexdigest()
 
@@ -462,13 +494,20 @@ class StaticBundle(Directory):
     # use a very long cache time.
     CACHE_TIME = 3600 * 24 * 100
 
+    basedir: FilePath
+    basepath: str
+    sep: str
+    encoding: str
+    files: dict[str, StaticFile | MemoryFile]
+    paths: dict[str, str]
+
     def __init__(
         self,
-        dirname,
-        basepath = '',
-        sep = '\n',
-        encoding = None,
-    ):
+        dirname: FilePath,
+        basepath: str = '',
+        sep: str = '\n',
+        encoding: str | None = None,
+    ) -> None:
         """Create a new StaticBundle.
 
         'dirname' is a file path to the files on disk.  'basepath' is the base
@@ -484,13 +523,13 @@ class StaticBundle(Directory):
         self.files = {}
         self.paths = {}
 
-    def _create_bundle(self, filenames):
+    def _create_bundle(self, filenames: Sequence[str]) -> MemoryFile:
         """Generate concatenated data for 'filenames'.
 
         Return a MemoryFile object containing the data.
         """
         data = io.StringIO()
-        mime_type = None
+        mime_type: str | None = None
         for index, fn in enumerate(filenames):
             if fn == '..' or '/' in fn:
                 # should not happen, check anyhow
@@ -515,9 +554,9 @@ class StaticBundle(Directory):
 
     def _get_static_file(
         self,
-        filename,
-        cache_time = None,
-    ):
+        filename: str,
+        cache_time: int | None = None,
+    ) -> StaticFile | MemoryFile:
         """Return static file object for 'filename'."""
         static_file = self.files.get(filename)
         if static_file is not None:
@@ -535,7 +574,7 @@ class StaticBundle(Directory):
         self.files[filename] = static_file
         return static_file
 
-    def _get_content_hash_token(self, filename):
+    def _get_content_hash_token(self, filename: str) -> str:
         """Return a token based on the content of the file.
 
         If the content changes then this token is very likely to change as
@@ -547,7 +586,7 @@ class StaticBundle(Directory):
         hash_value = _get_static_file_hash(static_file)
         return hash_value[:10]
 
-    def make_path(self, *filenames):
+    def make_path(self, *filenames: object) -> str:
         """Generate a path for a file or list of files.
 
         The returned path will include a path component based on the content.
@@ -571,7 +610,7 @@ class StaticBundle(Directory):
         self.paths[key] = path
         return path
 
-    def _q_traverse(self, path, /):
+    def _q_traverse(self, path: list[str], /) -> StaticResult:
         if len(path) == 1:
             # if hash token component missing, allow direct path, no caching
             filename = path[0]
@@ -600,20 +639,23 @@ class Redirector:
     requests.
     """
 
-    _q_exports = []
+    _q_exports: list[str] = []
 
-    def __init__(self, location, permanent = False):
+    location: str
+    permanent: bool
+
+    def __init__(self, location: str, permanent: bool = False) -> None:
         self.location = location
         self.permanent = permanent
 
-    def _q_lookup(self, component, /):
+    def _q_lookup(self, component: str, /) -> Redirector:
         return self
 
-    def __call__(self):
+    def __call__(self) -> object:
         return quixote.redirect(self.location, self.permanent)
 
 
-def dump_request(request = None):
+def dump_request(request: HTTPRequest | None = None) -> htmltext:
     """Dump an HTTPRequest object as HTML."""
     if request is None:
         request = quixote.get_request()
@@ -632,9 +674,9 @@ def dump_request(request = None):
     return cast(htmltext, r.getvalue())
 
 
-def get_directory_path():
+def get_directory_path() -> list[object]:
     """Return the list of traversed instances."""
-    path = []
+    path: list[object] = []
     frame = sys._getframe()
     while frame:
         if frame.f_code.co_name == '_q_traverse':

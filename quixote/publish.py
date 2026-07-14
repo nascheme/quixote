@@ -1,12 +1,14 @@
 """Logic for publishing modules and objects on the Web."""
 
+from __future__ import annotations
+
 import io
 import sys
 import time
 import traceback
 import urllib.parse
 from types import TracebackType
-from typing import cast
+from typing import IO, TYPE_CHECKING, TypeVar, cast
 
 import quixote.directory as _directory
 from quixote.config import Config
@@ -14,10 +16,19 @@ from quixote.errors import (
     INTERNAL_ERROR_MESSAGE,
     MethodNotAllowedError,
     PublishError,
-    format_publish_error)
-from quixote.http_request import HTTPRequest
+    Rendered,
+    format_publish_error,
+)
+from quixote.http_request import Environ, FieldItem, FieldValue, HTTPRequest
 from quixote.http_response import HTTPResponse
 from quixote.logger import DefaultLogger
+
+if TYPE_CHECKING:
+    from quixote.directory import Directory
+    from quixote.session import BaseSessionManager, Session
+    from quixote.wsgi import QWIP
+
+_T = TypeVar('_T')
 
 
 class Publisher:
@@ -51,16 +62,22 @@ class Publisher:
         the HTTP request currently being processed.
     """
 
-    is_thread_safe = False
+    is_thread_safe: bool = False
+
+    root_directory: Directory
+    logger: DefaultLogger
+    session_manager: BaseSessionManager
+    config: Config
+    _request: HTTPRequest | None
 
     def __init__(
         self,
-        root_directory,
-        logger = None,
-        session_manager = None,
-        config = None,
-        **kwargs,
-    ):
+        root_directory: Directory,
+        logger: DefaultLogger | None = None,
+        session_manager: BaseSessionManager | None = None,
+        config: Config | None = None,
+        **kwargs: object,
+    ) -> None:
         global _publisher
         if config is None:
             self.config = Config(**kwargs)
@@ -103,44 +120,44 @@ class Publisher:
 
     def set_session_manager(
         self,
-        session_manager,
-    ):
+        session_manager: BaseSessionManager,
+    ) -> None:
         self.session_manager = session_manager
 
-    def log(self, msg):
+    def log(self, msg: str) -> None:
         self.logger.log(msg)
 
-    def parse_request(self, request):
+    def parse_request(self, request: HTTPRequest) -> None:
         """Parse the request information waiting in 'request'."""
         request.process_inputs()
 
-    def start_request(self):
+    def start_request(self) -> None:
         """Called at the start of each request."""
         self.session_manager.start_request()
 
-    def _set_request(self, request):
+    def _set_request(self, request: HTTPRequest) -> None:
         """Set the current request object."""
         self._request = request
 
-    def _clear_request(self):
+    def _clear_request(self) -> None:
         """Unset the current request object."""
         self._request = None
 
-    def get_request(self):
+    def get_request(self) -> HTTPRequest:
         """Return the current request object."""
         request = self._request
         if request is None:
             raise RuntimeError('no active request')
         return request
 
-    def finish_successful_request(self):
+    def finish_successful_request(self) -> None:
         """Called at the end of a successful request."""
         self.session_manager.finish_successful_request()
 
-    def format_publish_error(self, exc):
+    def format_publish_error(self, exc: PublishError) -> Rendered:
         return format_publish_error(exc)
 
-    def finish_interrupted_request(self, exc):
+    def finish_interrupted_request(self, exc: PublishError) -> Rendered:
         """
         Called at the end of an interrupted request.  Requests are
         interrupted by raising a PublishError exception.  This method
@@ -155,7 +172,7 @@ class Publisher:
         self.session_manager.finish_successful_request()
         return output
 
-    def finish_failed_request(self):
+    def finish_failed_request(self) -> Rendered:
         """
         Called at the end of an failed request.  Any exception (other
         than PublishError) causes a request to fail.  This method should
@@ -201,17 +218,17 @@ class Publisher:
         self.session_manager.finish_failed_request()
         return user_error_msg
 
-    def _generate_internal_error(self, request):
+    def _generate_internal_error(self, request: HTTPRequest) -> Rendered:
         return INTERNAL_ERROR_MESSAGE
 
     def _generate_plaintext_error(
         self,
-        request,
-        original_response,
-        exc_type,
-        exc_value,
-        tb,
-    ):
+        request: HTTPRequest,
+        original_response: HTTPResponse,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        tb: TracebackType | None,
+    ) -> str:
         del original_response
         error_file = io.StringIO()
 
@@ -225,7 +242,7 @@ class Publisher:
 
         return error_file.getvalue()
 
-    def try_publish(self, request):
+    def try_publish(self, request: HTTPRequest) -> object:
         """(request : HTTPRequest) -> object
 
         The master method that does all the work for a single request.
@@ -246,13 +263,13 @@ class Publisher:
         self.finish_successful_request()
         return output
 
-    def filter_output(self, request, output):
+    def filter_output(self, request: HTTPRequest, output: object) -> object:
         """Hook for post processing the output.  Subclasses may wish to
         override (e.g. check HTML syntax).
         """
         return output
 
-    def process_request(self, request):
+    def process_request(self, request: HTTPRequest) -> HTTPResponse:
         """(request : HTTPRequest) -> HTTPResponse
 
         Process a single request, given an HTTPRequest object.  The
@@ -285,9 +302,9 @@ class Publisher:
 
     def process(
         self,
-        stdin,
-        env,
-    ):
+        stdin: IO[bytes] | None,
+        env: Environ,
+    ) -> HTTPResponse:
         """(stdin : stream, env : dict) -> HTTPResponse
 
         Process a single request, given a stream, stdin, containing the
@@ -302,32 +319,32 @@ class Publisher:
 
 
 # Publisher singleton, only one of these per process.
-_publisher = None
+_publisher: Publisher | None = None
 
 
-def _require_publisher():
+def _require_publisher() -> Publisher:
     publisher = _publisher
     if publisher is None:
         raise RuntimeError('no active publisher')
     return publisher
 
 
-def get_publisher():
+def get_publisher() -> Publisher:
     return _require_publisher()
 
 
-def get_request():
+def get_request() -> HTTPRequest:
     return _require_publisher().get_request()
 
 
-def get_response():
+def get_response() -> HTTPResponse:
     return get_request().response
 
 
 def get_field(
-    name,
-    default = None,
-):
+    name: str,
+    default: _T | None = None,
+) -> FieldValue | _T | None:
     """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, a list of values is returned.
@@ -336,9 +353,9 @@ def get_field(
 
 
 def get_param(
-    name,
-    default = None,
-):
+    name: str,
+    default: _T | None = None,
+) -> FieldItem | _T | None:
     """Return the query parameter or form field named 'name'.  If
     it doesn't exist then return 'default'.  If a query parameter
     is appears multiple times, return the last value specified.
@@ -353,19 +370,19 @@ def get_param(
 
 
 def get_cookie(
-    name,
-    default = None,
-):
+    name: str | None,
+    default: _T | None = None,
+) -> str | _T | None:
     if name is None:
         return default
     return get_request().get_cookie(name, default)
 
 
-def get_path(n = 0):
+def get_path(n: int = 0) -> str:
     return get_request().get_path(n)
 
 
-def redirect(location, permanent = False):
+def redirect(location: object, permanent: bool | int = False) -> str:
     """(location : string, permanent : boolean = false) -> string
 
     Create a redirection response.  If the location is relative, then it
@@ -378,19 +395,19 @@ def redirect(location, permanent = False):
     return request.response.redirect(absolute_location, permanent)
 
 
-def get_session():
+def get_session() -> Session | None:
     from quixote.session import Session
 
     return cast(Session | None, get_request().session)
 
 
-def get_session_manager():
+def get_session_manager() -> BaseSessionManager:
     from quixote.session import BaseSessionManager
 
     return cast(BaseSessionManager, _require_publisher().session_manager)
 
 
-def get_user():
+def get_user() -> object | None:
     session = get_session()
     if session is None:
         return None
@@ -398,12 +415,12 @@ def get_user():
         return session.user
 
 
-def get_wsgi_app():
+def get_wsgi_app() -> QWIP:
     from quixote.wsgi import QWIP
 
     return QWIP(_require_publisher())
 
 
-def cleanup():
+def cleanup() -> None:
     global _publisher
     _publisher = None
