@@ -15,8 +15,7 @@ from quixote.form.widget import (
     SingleSelectWidget,
     StringWidget,
     SubmitWidget,
-    TextWidget,
-)
+    TextWidget)
 from quixote.html import TemplateIO, htmltag, htmltext
 
 
@@ -24,7 +23,8 @@ class FormTokenWidget(HiddenWidget):
     def _parse(self, request):
         token = request.form.get(self.name)
         session = get_session()
-        if not session.has_form_token(token):
+        assert session is not None
+        if not isinstance(token, str) or not session.has_form_token(token):
             self.error = 'invalid'  # this error does not get displayed
         else:
             session.remove_form_token(token)
@@ -33,7 +33,9 @@ class FormTokenWidget(HiddenWidget):
         return ''
 
     def render(self):
-        self.value = get_session().create_form_token()
+        session = get_session()
+        assert session is not None
+        self.value = session.create_form_token()
         return HiddenWidget.render(self)
 
 
@@ -79,10 +81,10 @@ class Form(object):
 
     def __init__(
         self,
-        method="post",
-        action=None,
-        enctype=None,
-        use_tokens=True,
+        method = "post",
+        action = None,
+        enctype = None,
+        use_tokens = True,
         **attrs,
     ):
         if method not in ("post", "get"):
@@ -140,7 +142,7 @@ class Form(object):
         """Return true if the widget named 'name' is in the form."""
         return name in self._names
 
-    def get(self, name, default=None):
+    def get(self, name, default = None):
         """(name:string, default=None) -> any
         Return a widget's value.  Returns 'default' if widget named 'name'
         does not exist.
@@ -251,7 +253,13 @@ class Form(object):
 
     # -- Form population methods ---------------------------------------
 
-    def add(self, widget_class, name, *args, **kwargs):
+    def add(
+        self,
+        widget_class,
+        name,
+        *args,
+        **kwargs,
+    ):
         if name in self._names:
             raise ValueError("form already has '%s' widget" % name)
         # add 'id' attribute if not already present
@@ -269,40 +277,100 @@ class Form(object):
 
     # convenience methods
 
-    def add_submit(self, name, value=None, **kwargs):
+    def add_submit(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(SubmitWidget, name, value, **kwargs)
 
-    def add_reset(self, name, value=None, **kwargs):
+    def add_reset(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(ResetWidget, name, value, **kwargs)
 
-    def add_hidden(self, name, value=None, **kwargs):
+    def add_hidden(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(HiddenWidget, name, value, **kwargs)
 
-    def add_string(self, name, value=None, **kwargs):
+    def add_string(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(StringWidget, name, value, **kwargs)
 
-    def add_text(self, name, value=None, **kwargs):
+    def add_text(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(TextWidget, name, value, **kwargs)
 
-    def add_password(self, name, value=None, **kwargs):
+    def add_password(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(PasswordWidget, name, value, **kwargs)
 
-    def add_checkbox(self, name, value=None, **kwargs):
+    def add_checkbox(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(CheckboxWidget, name, value, **kwargs)
 
-    def add_single_select(self, name, value=None, **kwargs):
+    def add_single_select(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(SingleSelectWidget, name, value, **kwargs)
 
-    def add_multiple_select(self, name, value=None, **kwargs):
+    def add_multiple_select(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(MultipleSelectWidget, name, value, **kwargs)
 
-    def add_radiobuttons(self, name, value=None, **kwargs):
+    def add_radiobuttons(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(RadiobuttonsWidget, name, value, **kwargs)
 
-    def add_float(self, name, value=None, **kwargs):
+    def add_float(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(FloatWidget, name, value, **kwargs)
 
-    def add_int(self, name, value=None, **kwargs):
+    def add_int(
+        self,
+        name,
+        value = None,
+        **kwargs,
+    ):
         self.add(IntWidget, name, value, **kwargs)
 
     # -- Layout (rendering) methods ------------------------------------
@@ -369,7 +437,10 @@ class Form(object):
         else:
             return self.ERROR_NOTICE
 
-    def _render_javascript(self, javascript_code):
+    def _render_javascript(
+        self,
+        javascript_code,
+    ):
         """Render javacript code for the form.  Insert code lexically
         sorted by code_id.
         """

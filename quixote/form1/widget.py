@@ -3,11 +3,18 @@ TextWidget, CheckboxWidget, etc.
 """
 
 import struct
-from types import FloatType, IntType, ListType, StringType, TupleType
+from collections.abc import MutableMapping
+from typing import cast
 
 from quixote import get_request
 from quixote.html import htmlescape, htmltag, htmltext
-from quixote.http_request import Upload
+from quixote.http_request import FieldValue, Upload
+
+FloatType = float
+IntType = int
+ListType = list
+StringType = str
+TupleType = tuple
 
 
 class FormValueError(Exception):
@@ -43,7 +50,7 @@ class Widget:
     # "string", "text", "checkbox".
     widget_type = None
 
-    def __init__(self, name, value=None):
+    def __init__(self, name, value = None):
         assert self.__class__ is not Widget, "abstract class"
         self.set_name(name)
         self.set_value(value)
@@ -90,12 +97,18 @@ class Widget:
     def get_subwidget_name(self, name):
         return "%s$%s" % (self.name, name)
 
-    def create_subwidget(self, widget_type, widget_name, value=None, **args):
-        from quixote.form.form import get_widget_class
+    def create_subwidget(
+        self,
+        widget_type,
+        widget_name,
+        value = None,
+        **args,
+    ):
+        from quixote.form1 import form
 
-        klass = get_widget_class(widget_type)
+        klass = form.get_widget_class(widget_type)
         name = self.get_subwidget_name(widget_name)
-        return klass(*(name, value), **args)
+        return cast(type[Widget], klass)(*(name, value), **args)
 
 
 # class Widget
@@ -129,7 +142,13 @@ class StringWidget(Widget):
     # This lets PasswordWidget be a trivial subclass
     html_type = "text"
 
-    def __init__(self, name, value=None, size=None, maxlength=None):
+    def __init__(
+        self,
+        name,
+        value = None,
+        size = None,
+        maxlength = None,
+    ):
         Widget.__init__(self, name, value)
         self.size = size
         self.maxlength = maxlength
@@ -195,11 +214,11 @@ class TextWidget(Widget):
     def __init__(
         self,
         name,
-        value=None,
-        cols=None,
-        rows=None,
-        wrap=None,
-        css_class=None,
+        value = None,
+        cols = None,
+        rows = None,
+        wrap = None,
+        css_class = None,
     ):
         Widget.__init__(self, name, value)
         self.cols = cols
@@ -223,7 +242,7 @@ class TextWidget(Widget):
 
     def parse(self, request):
         value = Widget.parse(self, request)
-        if value:
+        if isinstance(value, str):
             value = value.replace("\r\n", "\n")
             self.value = value
         return self.value
@@ -270,19 +289,16 @@ class SelectWidget(Widget):
         The number of options that should be presented without scrolling.
     """
 
-    # NB. 'widget_type' not set here because this is an abstract class: it's
-    # set by subclasses SingleSelectWidget and MultipleSelectWidget.
-
     def __init__(
         self,
         name,
-        value=None,
-        allowed_values=None,
-        descriptions=None,
-        options=None,
-        size=None,
-        sort=0,
-        verify_selection=1,
+        value = None,
+        allowed_values = None,
+        descriptions = None,
+        options = None,
+        size = None,
+        sort = 0,
+        verify_selection = 1,
     ):
         assert self.__class__ is not SelectWidget, "abstract class"
         self.options = []
@@ -317,7 +333,11 @@ class SelectWidget(Widget):
                 self.value = value
                 break
 
-    def _generate_keys(self, values, descriptions):
+    def _generate_keys(
+        self,
+        values,
+        descriptions,
+    ):
         """Called if no keys were provided.  Try to generate a set of keys
         that will be consistent between rendering and parsing.
         """
@@ -345,7 +365,11 @@ class SelectWidget(Widget):
             used_keys[key] = 1
         return keys
 
-    def set_options(self, options, sort=0):
+    def set_options(
+        self,
+        options,
+        sort = 0,
+    ):
         """(options: [objects:any], sort=0)
         or
           (options: [(object:any, description:any)], sort=0)
@@ -362,6 +386,7 @@ class SelectWidget(Widget):
         lexicographic order of descriptions, except that options with
         value None appear before others.
         """
+        normalized_options = []
         if options:
             first = options[0]
             values = []
@@ -380,12 +405,12 @@ class SelectWidget(Widget):
                 else:
                     raise ValueError('invalid options %r' % options)
             else:
-                values = descriptions = options
+                values = descriptions = list(options)
 
             if not keys:
                 keys = self._generate_keys(values, descriptions)
 
-            options = list(zip(values, descriptions, keys))
+            normalized_options = list(zip(values, descriptions, keys))
 
             if sort:
 
@@ -396,9 +421,9 @@ class SelectWidget(Widget):
                     else:
                         return (str(description).lower(), option)
 
-                doptions = sorted(map(make_sort_key, options))
-                options = [item[1] for item in doptions]
-        self.options = options
+                doptions = sorted(map(make_sort_key, normalized_options))
+                normalized_options = [item[1] for item in doptions]
+        self.options = normalized_options
 
     def parse_single_selection(self, parsed_key):
         for value, _description, key in self.options:
@@ -410,7 +435,12 @@ class SelectWidget(Widget):
             else:
                 return self.options[0][0]
 
-    def set_allowed_values(self, allowed_values, descriptions=None, sort=0):
+    def set_allowed_values(
+        self,
+        allowed_values,
+        descriptions = None,
+        sort = 0,
+    ):
         """(allowed_values:[any], descriptions:[any], sort:boolean=0)
 
         Set the options for this widget.  The allowed_values and descriptions
@@ -490,11 +520,11 @@ class RadiobuttonsWidget(SingleSelectWidget):
     def __init__(
         self,
         name,
-        value=None,
-        allowed_values=None,
-        descriptions=None,
-        options=None,
-        delim=None,
+        value = None,
+        allowed_values = None,
+        descriptions = None,
+        options = None,
+        delim = None,
     ):
         SingleSelectWidget.__init__(
             self, name, value, allowed_values, descriptions, options
@@ -538,7 +568,7 @@ class MultipleSelectWidget(SelectWidget):
         allowed_values = self.get_allowed_values()
         if value in allowed_values:
             self.value = [value]
-        elif type(value) in (ListType, TupleType):
+        elif isinstance(value, (list, tuple)):
             self.value = [
                 element for element in value if element in allowed_values
             ] or None
@@ -548,8 +578,10 @@ class MultipleSelectWidget(SelectWidget):
     def is_selected(self, value):
         if self.value is None:
             return value is None
-        else:
+        elif isinstance(self.value, list):
             return value in self.value
+        else:
+            return False
 
     def parse(self, request):
         parsed_keys = request.form.get(self.name)
@@ -574,7 +606,11 @@ class SubmitButtonWidget(Widget):
 
     widget_type = "submit_button"
 
-    def __init__(self, name=None, value=None):
+    def __init__(
+        self,
+        name = None,
+        value = None,
+    ):
         Widget.__init__(self, name, value)
 
     def render(self, request):
@@ -611,7 +647,8 @@ class HiddenWidget(Widget):
         self.value = value
         request = get_request()
         if request.form:
-            request.form[self.name] = value
+            form = cast(MutableMapping[str, FieldValue], request.form)
+            form[str(self.name)] = cast(FieldValue, value)
 
     def get_current_value(self):
         request = get_request()
@@ -633,11 +670,17 @@ class NumberWidget(StringWidget):
 
     # Parameterize the number type (either float or int) through
     # these class attributes:
-    type_object = None  # eg. int, float
-    type_error = None  # human-readable error message
-    type_converter = None  # eg. int(), float()
+    type_object = None
+    type_error = None
+    type_converter = None
 
-    def __init__(self, name, value=None, size=None, maxlength=None):
+    def __init__(
+        self,
+        name,
+        value = None,
+        size = None,
+        maxlength = None,
+    ):
         assert self.__class__ is not NumberWidget, "abstract class"
         assert value is None or type(value) is self.type_object, (
             "form value '%s' not a %s: got %r"
@@ -652,11 +695,13 @@ class NumberWidget(StringWidget):
     def parse(self, request):
         value = StringWidget.parse(self, request)
         if value:
+            converter = self.type_converter
+            assert converter is not None
             try:
-                self.value = self.type_converter(value)
+                self.value = converter(value)
             except ValueError:
                 raise FormValueError(self.type_error)
-        return self.value
+        return cast(int | float | None, self.value)
 
 
 class FloatWidget(NumberWidget):
@@ -729,7 +774,12 @@ class ListWidget(Widget):
     widget_type = "list"
 
     def __init__(
-        self, name, value=None, element_type=None, element_name="row", **args
+        self,
+        name,
+        value = None,
+        element_type = None,
+        element_name = "row",
+        **args,
     ):
         assert value is None or type(value) is ListType, (
             "form value '%s' not a list: got %r" % (name, value)
@@ -750,16 +800,20 @@ class ListWidget(Widget):
             self.element_type = element_type
         self.args = args
 
-        self.added_elements_widget = self.create_subwidget(
-            "hidden", "added_elements"
+        self.added_elements_widget = cast(
+            HiddenWidget,
+            self.create_subwidget("hidden", "added_elements"),
         )
 
         added_elements = int(
-            self.added_elements_widget.get_current_value() or '1'
+            str(self.added_elements_widget.get_current_value() or '1')
         )
 
-        self.add_button = self.create_subwidget(
-            "submit_button", "add_element", value="Add %s" % element_name
+        self.add_button = cast(
+            SubmitButtonWidget,
+            self.create_subwidget(
+                "submit_button", "add_element", value="Add %s" % element_name
+            ),
         )
 
         if self.add_button.is_submitted():
@@ -769,14 +823,14 @@ class ListWidget(Widget):
         self.element_widgets = []
         self.element_count = 0
 
-        if self.value is not None:
+        if isinstance(self.value, list):
             for element in self.value:
                 self.add_element(element)
 
         for _index in range(added_elements):
             self.add_element()
 
-    def add_element(self, value=None):
+    def add_element(self, value = None):
         self.element_widgets.append(
             self.create_subwidget(
                 self.element_type,
@@ -821,27 +875,37 @@ class CollapsibleListWidget(ListWidget):
 
     widget_type = "collapsible_list"
 
-    def __init__(self, name, value=None, element_name="row", **args):
+    def __init__(
+        self,
+        name,
+        value = None,
+        element_name = "row",
+        **args,
+    ):
         self.name = name
         self.element_name = element_name
-        self.deleted_elements_widget = self.create_subwidget(
-            "hidden", "deleted_elements"
+        self.deleted_elements_widget = cast(
+            HiddenWidget,
+            self.create_subwidget("hidden", "deleted_elements"),
         )
         self.element_delete_buttons = []
-        self.deleted_elements = (
+        self.deleted_elements = str(
             self.deleted_elements_widget.get_current_value() or ''
         )
         ListWidget.__init__(
             self, name, value=value, element_name=element_name, **args
         )
 
-    def add_element(self, value=None):
+    def add_element(self, value = None):
         element_widget_name = "element_%d" % self.element_count
         if self.deleted_elements.find(element_widget_name) == -1:
-            delete_button = self.create_subwidget(
-                "submit_button",
-                "delete_" + element_widget_name,
-                value="Delete %s" % self.element_name,
+            delete_button = cast(
+                SubmitButtonWidget,
+                self.create_subwidget(
+                    "submit_button",
+                    "delete_" + element_widget_name,
+                    value="Delete %s" % self.element_name,
+                ),
             )
             if delete_button.is_submitted():
                 self.element_count += 1

@@ -1,17 +1,23 @@
 """Provides the Form class and bureaucracy for registering widget classes.
 (The standard widget classes are registered automatically.)
 """
-
-from types import StringType
+from typing import cast
 
 from quixote import get_publisher, get_session, redirect
-from quixote.form1.widget import FormValueError, HiddenWidget
+from quixote.form1.widget import (
+    FormValueError,
+    HiddenWidget,
+    SubmitButtonWidget)
 from quixote.html import TemplateIO, htmltag, htmltext, nl2br, url_quote
+
+StringType = str
 
 
 class FormTokenWidget(HiddenWidget):
     def render(self, request):
-        self.value = get_session().create_form_token()
+        session = get_session()
+        assert session is not None
+        self.value = session.create_form_token()
         return HiddenWidget.render(self, request)
 
 
@@ -84,7 +90,12 @@ class Form:
 
     TOKEN_NAME = "_form_id"  # name of hidden token widget
 
-    def __init__(self, method="post", enctype=None, use_tokens=1):
+    def __init__(
+        self,
+        method = "post",
+        enctype = None,
+        use_tokens = 1,
+    ):
         if method not in ("post", "get"):
             raise ValueError(
                 "Form method must be 'post' or 'get', not %r" % method
@@ -141,7 +152,9 @@ class Form:
     # combine text and widgets in a 1-D stream of HTML, or in a 2-D web
     # page (depending on your level of abstraction).
 
-    def render(self, request, action_url):
+    def render(
+        self, request, action_url
+    ):
         # render(request : HTTPRequest,
         #           action_url : string)
         #    -> HTML text
@@ -157,7 +170,12 @@ class Form:
         return r.getvalue()
 
     def _render_start(
-        self, request, action, enctype=None, method='post', name=None
+        self,
+        request,
+        action,
+        enctype = None,
+        method = 'post',
+        name = None,
     ):
         r = TemplateIO(html=1)
         r += htmltag(
@@ -172,7 +190,7 @@ class Form:
         r += self._render_javascript(request)
         return r.getvalue()
 
-    def _render_sep(self, text, line=1):
+    def _render_sep(self, text, line = 1):
         return htmltext(
             '<tr><td colspan="3">%s<strong><big>%s</big></strong></td></tr>'
         ) % (line and htmltext('<hr>') or '', text)
@@ -191,12 +209,14 @@ class Form:
         else:
             return ''
 
-    def _render_widget_row(self, request, widget):
+    def _render_widget_row(
+        self, request, widget
+    ):
         if widget.widget_type == 'hidden':
             return ''
-        title = self.title[widget.name] or ''
+        title = htmltext('%s') % (self.title[widget.name] or '')
         if self.required.get(widget.name):
-            title = title + htmltext('&nbsp;*')
+            title += htmltext('&nbsp;*')
         r = TemplateIO(html=1)
         r += htmltext('<tr><th colspan="3" align="left">')
         r += title
@@ -216,7 +236,9 @@ class Form:
                 r += self._render_error(self.error.get(widget.name))
         return r.getvalue()
 
-    def _render_submit_buttons(self, request, ncols=3):
+    def _render_submit_buttons(
+        self, request, ncols = 3
+    ):
         r = TemplateIO(html=1)
         r += htmltext('<tr><td colspan="%d">\n') % ncols
         for button in self.submit_buttons:
@@ -309,7 +331,12 @@ class Form:
 
         return values
 
-    def action(self, request, submit, values):
+    def action(
+        self,
+        request,
+        submit,
+        values,
+    ):
         """action(request : HTTPRequest, submit : string,
                   values : { string : any }) -> string
 
@@ -347,7 +374,12 @@ class Form:
             # before calling action() ensure that there is a valid token
             # present
             token = values.get(self.TOKEN_NAME)
-            if not request.session.has_form_token(token):
+            session = get_session()
+            if (
+                not isinstance(token, str)
+                or session is None
+                or not session.has_form_token(token)
+            ):
                 if not self.error:
                     # if there are other errors then don't show the token
                     # error, the form needs to be resubmitted anyhow
@@ -357,7 +389,7 @@ class Form:
                         "review and resubmit the form."
                     )
             else:
-                request.session.remove_form_token(token)
+                session.remove_form_token(token)
 
         if self.error:
             return self.render(request, action_url)
@@ -418,9 +450,9 @@ class Form:
         widget_name,
         request,
         target,
-        mode="modifier",
-        key=None,
-        missing_error=None,
+        mode = "modifier",
+        key = None,
+        missing_error = None,
     ):
         """store_value(widget_name : string,
                        request : HTTPRequest,
@@ -474,7 +506,9 @@ class Form:
     def get_widget_value(self, widget_name):
         return self.widgets[widget_name].value
 
-    def set_widget_value(self, widget_name, value):
+    def set_widget_value(
+        self, widget_name, value
+    ):
         self.widgets[widget_name].set_value(value)
 
     # -- Form population methods ---------------------------------------
@@ -483,10 +517,10 @@ class Form:
         self,
         widget_type,
         name,
-        value=None,
-        title=None,
-        hint=None,
-        required=0,
+        value = None,
+        title = None,
+        hint = None,
+        required = 0,
         **args,
     ):
         """add_widget(widget_type : string | Widget,
@@ -520,7 +554,9 @@ class Form:
         global _widget_class
         if name in self.widgets:
             raise ValueError("form already has '%s' variable" % name)
-        new_widget = _widget_class['submit_button'](name, value)
+        new_widget = cast(
+            SubmitButtonWidget, _widget_class['submit_button'](name, value)
+        )
 
         self.widgets[name] = new_widget
         self.submit_buttons.append(new_widget)
@@ -538,7 +574,9 @@ class Form:
 _widget_class = {}
 
 
-def register_widget_class(klass, widget_type=None):
+def register_widget_class(
+    klass, widget_type = None
+):
     global _widget_class
     if widget_type is None:
         widget_type = klass.widget_type
@@ -552,9 +590,10 @@ def get_widget_class(widget_type):
         # Presumably someone passed a widget class object to
         # Widget.create_subwidget() or Form.add_widget() --
         # don't bother with the widget class registry at all.
-        return widget_type
-    else:
+        return cast(WidgetFactory, widget_type)
+    if isinstance(widget_type, str):
         try:
             return _widget_class[widget_type]
         except KeyError:
             raise ValueError("unknown widget type %r" % widget_type)
+    raise ValueError("unknown widget type %r" % widget_type)
