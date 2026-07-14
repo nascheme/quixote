@@ -2,25 +2,37 @@
 TextWidget, CheckboxWidget, etc.
 """
 
+from __future__ import annotations
+
 import struct
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 from quixote import get_request
 from quixote.html import TemplateIO, htmlescape, htmltag, htmltext, stringify
 from quixote.http_request import Upload
 
+if TYPE_CHECKING:
+    from quixote.form.form import Form
+    from quixote.http_request import HTTPRequest
 
-def subname(prefix, name):
+type Attrs = Mapping[str, Any]
+type Rendered = str | htmltext
+type Option = tuple[object, object, str]
+
+
+def subname(prefix: str, name: str) -> str:
     """Create a unique name for a sub-widget or sub-component."""
     # $ is nice because it's valid as part of a Javascript identifier
     return "%s$%s" % (prefix, name)
 
 
 def merge_attrs(
-    base,
-    overrides,
-):
+    base: Attrs | None,
+    overrides: Attrs | None,
+) -> dict[str, Any]:
     """({string: any}, {string: any}) -> {string: any}"""
-    items = []
+    items: list[tuple[str, Any]] = []
     if base:
         items.extend(base.items())
     if overrides:
@@ -36,10 +48,12 @@ def merge_attrs(
 class WidgetValueError(Exception):
     """May be raised a widget has problems parsing its value."""
 
-    def __init__(self, msg):
+    msg: object
+
+    def __init__(self, msg: object) -> None:
         self.msg = msg
 
-    def __str__(self):
+    def __str__(self) -> str:
         return stringify(self.msg)
 
 
@@ -63,18 +77,29 @@ class Widget(object):
 
     REQUIRED_ERROR = 'required'
 
+    name: str
+    value: object | None
+    error: str | None
+    title: object
+    hint: object
+    required: bool
+    render_br: bool
+    attrs: dict[str, Any]
+    _form: Form | None
+    _parsed: bool
+
     def __init__(
         self,
-        name,
-        value = None,
-        title = "",
-        hint = "",
-        required = False,
-        render_br = True,
-        form = None,
-        attrs = None,
-        **kwattrs,
-    ):
+        name: str,
+        value: object | None = None,
+        title: object = "",
+        hint: object = "",
+        required: bool = False,
+        render_br: bool = True,
+        form: Form | None = None,
+        attrs: Attrs | None = None,
+        **kwattrs: Any,
+    ) -> None:
         assert self.__class__ is not Widget, "abstract class"
         self.name = name
         self.value = value
@@ -87,52 +112,52 @@ class Widget(object):
         self._form = form
         self._parsed = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s at %x: %s>" % (
             self.__class__.__name__,
             id(self),
             self.name,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%s: %s" % (self.__class__.__name__, self.name)
 
-    def get_name(self):
+    def get_name(self) -> str:
         return self.name
 
-    def set_value(self, value):
+    def set_value(self, value: object | None) -> None:
         self.value = value
 
-    def set_error(self, error):
+    def set_error(self, error: str | None) -> None:
         self.error = error
 
-    def get_error(self, request = None):
+    def get_error(self, request: HTTPRequest | None = None) -> str | None:
         self.parse(request=request)
         return self.error
 
-    def has_error(self, request = None):
+    def has_error(self, request: HTTPRequest | None = None) -> bool:
         return bool(self.get_error(request=request))
 
-    def clear_error(self, request = None):
+    def clear_error(self, request: HTTPRequest | None = None) -> None:
         self.parse(request=request)
         self.error = None
 
-    def set_title(self, title):
+    def set_title(self, title: object) -> None:
         self.title = title
 
-    def get_title(self):
+    def get_title(self) -> object:
         return self.title
 
-    def set_hint(self, hint):
+    def set_hint(self, hint: object) -> None:
         self.hint = hint
 
-    def get_hint(self):
+    def get_hint(self) -> object:
         return self.hint
 
-    def is_required(self):
+    def is_required(self) -> bool:
         return self.required
 
-    def parse(self, request = None):
+    def parse(self, request: HTTPRequest | None = None) -> object | None:
         if not self._parsed:
             self._parsed = True
             if request is None:
@@ -158,7 +183,7 @@ class Widget(object):
                     self.set_error(self.REQUIRED_ERROR)
         return self.value
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         # subclasses may override but this is not part of the public API
         value = request.form.get(self.name)
         if isinstance(value, str) and value.strip():
@@ -166,7 +191,7 @@ class Widget(object):
         else:
             self.value = None
 
-    def render_title(self, title):
+    def render_title(self, title: object) -> Rendered:
         if title:
             if self.required:
                 title = htmlescape(title) + htmltext(
@@ -176,19 +201,19 @@ class Widget(object):
         else:
             return ''
 
-    def render_hint(self, hint):
+    def render_hint(self, hint: object) -> Rendered:
         if hint:
             return htmltext('<div class="hint">%s</div>') % hint
         else:
             return ''
 
-    def render_error(self, error):
+    def render_error(self, error: object) -> Rendered:
         if error:
             return htmltext('<div class="error">%s</div>') % error
         else:
             return ''
 
-    def render(self):
+    def render(self) -> Rendered:
         r = TemplateIO(html=True)
         classnames = '%s widget' % self.__class__.__name__
         r += htmltext('<div class="%s">') % classnames
@@ -204,7 +229,7 @@ class Widget(object):
         r += htmltext('\n')
         return r.getvalue()
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         raise NotImplementedError
 
 
@@ -235,7 +260,7 @@ class StringWidget(Widget):
     # This lets PasswordWidget be a trivial subclass
     HTML_TYPE = "text"
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         return htmltag(
             "input",
             xml_end=True,
@@ -254,7 +279,7 @@ class FileWidget(StringWidget):
 
     HTML_TYPE = "file"
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         parsed_value = request.form.get(self.name)
         if isinstance(parsed_value, Upload):
             self.value = parsed_value
@@ -280,12 +305,12 @@ class TextWidget(Widget):
       value : string
     """
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         Widget._parse(self, request)
         if isinstance(self.value, str) and self.value.find("\r\n") >= 0:
             self.value = self.value.replace("\r\n", "\n")
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         return (
             htmltag("textarea", name=self.name, **self.attrs)
             + htmlescape(self.value or "")
@@ -302,10 +327,10 @@ class CheckboxWidget(Widget):
       value : boolean
     """
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         self.value = self.name in request.form
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         return htmltag(
             "input",
             xml_end=True,
@@ -332,15 +357,18 @@ class SelectWidget(Widget):
 
     SELECTION_ERROR = "invalid value selected"
 
+    options: list[Option]
+    verify_selection: bool
+
     def __init__(
         self,
-        name,
-        value = None,
-        options = None,
-        sort = False,
-        verify_selection = True,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        options: Sequence[Any] | None = None,
+        sort: bool = False,
+        verify_selection: bool = True,
+        **kwargs: Any,
+    ) -> None:
         assert self.__class__ is not SelectWidget, "abstract class"
         Widget.__init__(self, name, value, **kwargs)
         self.options = []
@@ -352,13 +380,13 @@ class SelectWidget(Widget):
             self.set_options(options, sort)
         self.verify_selection = verify_selection
 
-    def get_allowed_values(self):
+    def get_allowed_values(self) -> list[object]:
         return [item[0] for item in self.options]
 
-    def get_descriptions(self):
+    def get_descriptions(self) -> list[object]:
         return [item[1] for item in self.options]
 
-    def set_value(self, value):
+    def set_value(self, value: object | None) -> None:
         self.value = None
         for object, _description, _key in self.options:
             if value == object:
@@ -367,14 +395,14 @@ class SelectWidget(Widget):
 
     def _generate_keys(
         self,
-        values,
-        descriptions,
-    ):
+        values: Sequence[object],
+        descriptions: Sequence[object],
+    ) -> list[str]:
         """Called if no keys were provided.  Try to generate a set of keys
         that will be consistent between rendering and parsing.
         """
         # try to use ZODB object IDs
-        keys = []
+        keys: list[str] = []
         for value in values:
             if value is None:
                 oid = ""
@@ -389,7 +417,7 @@ class SelectWidget(Widget):
             # found OID for every value
             return keys
         # can't use OIDs, try using descriptions
-        used_keys = {}
+        used_keys: dict[str, int] = {}
         keys = list(map(stringify, descriptions))
         for key in keys:
             if key in used_keys:
@@ -399,9 +427,9 @@ class SelectWidget(Widget):
 
     def set_options(
         self,
-        options,
-        sort = False,
-    ):
+        options: Sequence[Any],
+        sort: bool = False,
+    ) -> None:
         """(options: [objects:any], sort=False)
         or
           (options: [(object:any, description:any)], sort=False)
@@ -418,12 +446,12 @@ class SelectWidget(Widget):
         lexicographic order of descriptions, except that options with
         value None appear before others.
         """
-        normalized_options = []
+        normalized_options: list[Option] = []
         if options:
             first = options[0]
-            values = []
-            descriptions = []
-            keys = []
+            values: list[object] = []
+            descriptions: list[object] = []
+            keys: list[str] = []
             if isinstance(first, tuple):
                 if len(first) == 2:
                     for value, description in options:
@@ -446,7 +474,7 @@ class SelectWidget(Widget):
 
             if sort:
 
-                def make_sort_key(option):
+                def make_sort_key(option: Option) -> str:
                     value, description, key = option
                     if value is None:
                         return ''
@@ -458,9 +486,9 @@ class SelectWidget(Widget):
 
     def _parse_single_selection(
         self,
-        parsed_key,
-        default = None,
-    ):
+        parsed_key: object,
+        default: object | None = None,
+    ) -> object | None:
         for value, _description, key in self.options:
             if key == parsed_key:
                 return value
@@ -475,10 +503,10 @@ class SelectWidget(Widget):
 
     def set_allowed_values(
         self,
-        allowed_values,
-        descriptions = None,
-        sort = False,
-    ):
+        allowed_values: Sequence[object],
+        descriptions: Sequence[object] | None = None,
+        sort: bool = False,
+    ) -> None:
         """(allowed_values:[any], descriptions:[any], sort:boolean=False)
 
         Set the options for this widget.  The allowed_values and descriptions
@@ -493,10 +521,10 @@ class SelectWidget(Widget):
             assert len(descriptions) == len(allowed_values)
             self.set_options(list(zip(allowed_values, descriptions)), sort)
 
-    def is_selected(self, value):
+    def is_selected(self, value: object) -> bool:
         return value == self.value
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         tags = [htmltag("select", name=self.name, **self.attrs)]
         for object, description, key in self.options:
             if self.is_selected(object):
@@ -517,7 +545,7 @@ class SingleSelectWidget(SelectWidget):
     SELECT_TYPE = "single_select"
     MULTIPLE_SELECTION_ERROR = "cannot select multiple values"
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         parsed_key = request.form.get(self.name)
         if parsed_key:
             if isinstance(parsed_key, list):
@@ -540,15 +568,16 @@ class RadiobuttonsWidget(SingleSelectWidget):
     """
 
     SELECT_TYPE = "radiobuttons"
+    delim: str
 
     def __init__(
         self,
-        name,
-        value = None,
-        options = None,
-        delim = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        options: Sequence[Any] | None = None,
+        delim: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         SingleSelectWidget.__init__(
             self, name, value, options=options, **kwargs
         )
@@ -558,8 +587,8 @@ class RadiobuttonsWidget(SingleSelectWidget):
             self.delim = delim
         self.attrs = merge_attrs(self.attrs, {'id': None})
 
-    def render_content(self):
-        tags = []
+    def render_content(self) -> Rendered:
+        tags: list[htmltext] = []
         for object, description, key in self.options:
             if self.is_selected(object):
                 checked = 'checked'
@@ -591,16 +620,16 @@ class MultipleSelectWidget(SelectWidget):
 
     def __init__(
         self,
-        name,
-        value = None,
-        options = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        options: Sequence[Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
         SelectWidget.__init__(
             self, name, value, options=options, multiple='multiple', **kwargs
         )
 
-    def set_value(self, value):
+    def set_value(self, value: object | None) -> None:
         allowed_values = self.get_allowed_values()
         if value in allowed_values:
             self.value = [value]
@@ -611,7 +640,7 @@ class MultipleSelectWidget(SelectWidget):
         else:
             self.value = None
 
-    def is_selected(self, value):
+    def is_selected(self, value: object) -> bool:
         if self.value is None:
             return value is None
         elif isinstance(self.value, list):
@@ -619,7 +648,7 @@ class MultipleSelectWidget(SelectWidget):
         else:
             return False
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         parsed_keys = request.form.get(self.name)
         if parsed_keys:
             if isinstance(parsed_keys, list):
@@ -647,23 +676,24 @@ class ButtonWidget(Widget):
     """
 
     HTML_TYPE = "button"
+    label: object
 
     def __init__(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         Widget.__init__(self, name, value=None, **kwargs)
         self.set_label(value)
 
-    def set_label(self, label):
+    def set_label(self, label: object) -> None:
         self.label = label
 
-    def get_label(self):
+    def get_label(self) -> object:
         return self.label
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         # slightly different behavior here, we always render the
         # tag using the 'value' passed in as a parameter.  'self.value'
         # is a boolean that is true if the button's name appears
@@ -678,7 +708,7 @@ class ButtonWidget(Widget):
             **self.attrs,
         )
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         self.value = self.name in request.form
 
 
@@ -696,11 +726,11 @@ class HiddenWidget(Widget):
       value : string
     """
 
-    def set_error(self, error):
+    def set_error(self, error: str | None) -> None:
         if error is not None:
             raise TypeError('error not allowed on hidden widgets')
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         if self.value is None:
             value = None
         else:
@@ -714,7 +744,7 @@ class HiddenWidget(Widget):
             **self.attrs,
         )
 
-    def render(self):
+    def render(self) -> Rendered:
         return (
             self.render_content()
         )  # Input elements of type hidden have no decoration.
@@ -732,15 +762,15 @@ class NumberWidget(StringWidget):
 
     # Parameterize the number type (either float or int) through
     # these class attributes:
-    TYPE_OBJECT = None  # eg. int, float
-    TYPE_ERROR = None  # human-readable error message
+    TYPE_OBJECT: type[int] | type[float] | None = None  # eg. int, float
+    TYPE_ERROR: str | None = None  # human-readable error message
 
     def __init__(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: int | float | None = None,
+        **kwargs: Any,
+    ) -> None:
         assert self.__class__ is not NumberWidget, "abstract class"
         assert value is None or type(value) is self.TYPE_OBJECT, (
             "form value '%s' not a %s: got %r"
@@ -752,7 +782,7 @@ class NumberWidget(StringWidget):
         )
         StringWidget.__init__(self, name, value, **kwargs)
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         StringWidget._parse(self, request)
         type_object = self.TYPE_OBJECT
         if self.value is not None and type_object is not None:
@@ -797,16 +827,16 @@ class OptionSelectWidget(SingleSelectWidget):
 
     def __init__(
         self,
-        name,
-        value = None,
-        options = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        options: Sequence[Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
         SingleSelectWidget.__init__(
             self, name, value, options=options, onchange='submit()', **kwargs
         )
 
-    def parse(self, request = None):
+    def parse(self, request: HTTPRequest | None = None) -> object | None:
         if not self._parsed:
             if request is None:
                 request = get_request()
@@ -814,7 +844,7 @@ class OptionSelectWidget(SingleSelectWidget):
             self._parsed = True
         return self.value
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         parsed_key = request.form.get(self.name)
         if parsed_key:
             if isinstance(parsed_key, list):
@@ -824,7 +854,7 @@ class OptionSelectWidget(SingleSelectWidget):
         elif self.value is None:
             self.value = self.options[0][0]
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         return SingleSelectWidget.render_content(self) + htmltext(
             '<noscript><input type="submit" value="apply" /></noscript>'
         )
@@ -837,44 +867,47 @@ class CompositeWidget(Widget):
       _names : {name:string : Widget}
     """
 
+    widgets: list[Widget]
+    _names: dict[str, Widget]
+
     def __init__(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         Widget.__init__(self, name, value, **kwargs)
         self.widgets = []
         self._names = {}
 
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         for widget in self.widgets:
             widget.parse(request)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> object | None:
         return self._names[name].parse()
 
-    def get(self, name):
+    def get(self, name: str) -> object | None:
         widget = self._names.get(name)
         if widget:
             return widget.parse()
         return None
 
-    def get_widget(self, name):
+    def get_widget(self, name: str) -> Widget | None:
         return self._names.get(name)
 
-    def get_widgets(self):
+    def get_widgets(self) -> list[Widget]:
         return self.widgets
 
-    def clear_error(self, request = None):
+    def clear_error(self, request: HTTPRequest | None = None) -> None:
         Widget.clear_error(self, request)
         for widget in self.widgets:
             widget.clear_error(request)
 
-    def set_widget_error(self, name, error):
+    def set_widget_error(self, name: str, error: str | None) -> None:
         self._names[name].set_error(error)
 
-    def has_error(self, request = None):
+    def has_error(self, request: HTTPRequest | None = None) -> bool:
         has_error = False
         if Widget.has_error(self, request=request):
             has_error = True
@@ -885,11 +918,11 @@ class CompositeWidget(Widget):
 
     def add(
         self,
-        widget_class,
-        name,
-        *args,
-        **kwargs,
-    ):
+        widget_class: type[Widget],
+        name: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         if name in self._names:
             raise ValueError('the name %r is already used' % name)
         if self.attrs.get('disabled') and 'disabled' not in kwargs:
@@ -898,7 +931,7 @@ class CompositeWidget(Widget):
         self._names[name] = widget
         self.widgets.append(widget)
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         r = TemplateIO(html=True)
         for widget in self.get_widgets():
             r += widget.render()
@@ -915,15 +948,17 @@ class WidgetList(CompositeWidget):
       element_names : [string]
     """
 
+    element_names: list[str]
+
     def __init__(
         self,
-        name,
-        value = None,
-        element_type = StringWidget,
-        element_kwargs = None,
-        add_element_label = "Add row",
-        **kwargs,
-    ):
+        name: str,
+        value: list[object] | None = None,
+        element_type: type[Widget] = StringWidget,
+        element_kwargs: dict[str, object] | None = None,
+        add_element_label: str | htmltext = "Add row",
+        **kwargs: Any,
+    ) -> None:
         element_kwargs = element_kwargs or {}
         assert value is None or type(value) is list, (
             "value '%s' not a list: got %r" % (name, value)
@@ -960,7 +995,7 @@ class WidgetList(CompositeWidget):
         added_elements_widget = self.get_widget('added_elements')
         assert added_elements_widget is not None
 
-        def add_element(value = None):
+        def add_element(value: object | None = None) -> None:
             name = "element%d" % len(self.element_names)
             self.add(element_type, name, value=value, **element_kwargs)
             self.element_names.append(name)
@@ -982,15 +1017,15 @@ class WidgetList(CompositeWidget):
             num_added += 1
         added_elements_widget.set_value(num_added)
 
-    def _parse(self, request):
-        values = []
+    def _parse(self, request: HTTPRequest) -> None:
+        values: list[object] = []
         for name in self.element_names:
             value = self.get(name)
             if value is not None:
                 values.append(value)
         self.value = values or None
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         r = TemplateIO(html=True)
         add_element_widget = self.get_widget('add_element')
         assert add_element_widget is not None
@@ -1001,7 +1036,7 @@ class WidgetList(CompositeWidget):
         r += add_element_widget.render()
         return r.getvalue()
 
-    def render(self):
+    def render(self) -> Rendered:
         r = TemplateIO(html=True)
         r += self.render_title(self.get_title())
         add_element_widget = self.get_widget('add_element')
@@ -1025,17 +1060,19 @@ class WidgetDict(CompositeWidget):
       element_names : [string]
     """
 
+    element_names: list[str]
+
     def __init__(
         self,
-        name,
-        value = None,
-        element_key_type = StringWidget,
-        element_value_type = StringWidget,
-        element_key_kwargs = {},  # noqa: B006
-        element_value_kwargs = {},  # noqa: B006
-        add_element_label = 'Add row',
-        **kwargs,
-    ):
+        name: str,
+        value: dict[object, object] | None = None,
+        element_key_type: type[Widget] = StringWidget,
+        element_value_type: type[Widget] = StringWidget,
+        element_key_kwargs: dict[str, object] = {},  # noqa: B006
+        element_value_kwargs: dict[str, object] = {},  # noqa: B006
+        add_element_label: str | htmltext = 'Add row',
+        **kwargs: Any,
+    ) -> None:
         assert value is None or type(value) is dict, (
             'value %r not a dict: got %r' % (name, value)
         )
@@ -1088,9 +1125,9 @@ class WidgetDict(CompositeWidget):
         assert added_elements_widget is not None
 
         def add_element(
-            key = None,
-            value = None,
-        ):
+            key: object | None = None,
+            value: object | None = None,
+        ) -> None:
             name = 'element%d' % len(self.element_names)
             self.add(
                 element_key_type,
@@ -1124,8 +1161,8 @@ class WidgetDict(CompositeWidget):
             num_added += 1
         added_elements_widget.set_value(num_added)
 
-    def _parse(self, request):
-        values = {}
+    def _parse(self, request: HTTPRequest) -> None:
+        values: dict[object, object] = {}
         for name in self.element_names:
             key = self.get(name + 'key')
             value = self.get(name + 'value')
@@ -1133,7 +1170,7 @@ class WidgetDict(CompositeWidget):
                 values[key] = value
         self.value = values or None
 
-    def render_content(self):
+    def render_content(self) -> Rendered:
         r = TemplateIO(html=True)
         for name in self.element_names:
             if name in ('add_element', 'added_elements'):

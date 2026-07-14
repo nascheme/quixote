@@ -2,6 +2,10 @@
 way of building HTML forms that are composed of Widget objects.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, TypeVar
+
 from quixote import get_publisher, get_request, get_session
 from quixote.form.widget import (
     CheckboxWidget,
@@ -11,16 +15,24 @@ from quixote.form.widget import (
     MultipleSelectWidget,
     PasswordWidget,
     RadiobuttonsWidget,
+    Rendered,
     ResetWidget,
     SingleSelectWidget,
     StringWidget,
     SubmitWidget,
-    TextWidget)
+    TextWidget,
+    Widget,
+)
 from quixote.html import TemplateIO, htmltag, htmltext
+
+if TYPE_CHECKING:
+    from quixote.http_request import HTTPRequest
+
+_T = TypeVar('_T')
 
 
 class FormTokenWidget(HiddenWidget):
-    def _parse(self, request):
+    def _parse(self, request: HTTPRequest) -> None:
         token = request.form.get(self.name)
         session = get_session()
         assert session is not None
@@ -29,10 +41,10 @@ class FormTokenWidget(HiddenWidget):
         else:
             session.remove_form_token(token)
 
-    def render_error(self, error):
+    def render_error(self, error: object) -> Rendered:
         return ''
 
-    def render(self):
+    def render(self) -> Rendered:
         session = get_session()
         assert session is not None
         self.value = session.create_form_token()
@@ -59,6 +71,15 @@ class Form(object):
 
     TOKEN_NAME = "_form_id"  # name of hidden token widget
 
+    method: str
+    action: object
+    attrs: dict[str, Any]
+    widgets: list[Widget]
+    submit_widgets: list[SubmitWidget]
+    hidden_widgets: list[HiddenWidget]
+    _names: dict[str, Widget]
+    enctype: str | None
+
     JAVASCRIPT_MARKUP = htmltext(
         '<script type="text/javascript">\n<!--\n%s\n// -->\n</script>\n'
     )
@@ -81,12 +102,12 @@ class Form(object):
 
     def __init__(
         self,
-        method = "post",
-        action = None,
-        enctype = None,
-        use_tokens = True,
-        **attrs,
-    ):
+        method: str = "post",
+        action: object | None = None,
+        enctype: str | None = None,
+        use_tokens: bool = True,
+        **attrs: Any,
+    ) -> None:
         if method not in ("post", "get"):
             raise ValueError(
                 "Form method must be 'post' or 'get', not %r" % method
@@ -119,7 +140,7 @@ class Form(object):
                 # attacks and prevents a form from being submitted twice
                 self.add(FormTokenWidget, self.TOKEN_NAME, value=None)
 
-    def _get_default_action(self):
+    def _get_default_action(self) -> str:
         query = get_request().get_query()
         if query:
             return "?" + query
@@ -128,7 +149,7 @@ class Form(object):
 
     # -- Form data access methods --------------------------------------
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> object | None:
         """(name:string) -> any
         Return a widget's value.  Raises KeyError if widget named 'name'
         does not exist.
@@ -138,11 +159,11 @@ class Form(object):
         except KeyError:
             raise KeyError('no widget named %r' % name)
 
-    def __contains__(self, name):
+    def __contains__(self, name: object) -> bool:
         """Return true if the widget named 'name' is in the form."""
         return name in self._names
 
-    def get(self, name, default = None):
+    def get(self, name: str, default: _T | None = None) -> object | _T | None:
         """(name:string, default=None) -> any
         Return a widget's value.  Returns 'default' if widget named 'name'
         does not exist.
@@ -153,18 +174,18 @@ class Form(object):
         else:
             return default
 
-    def get_widget(self, name):
+    def get_widget(self, name: str) -> Widget | None:
         """(name:string) -> Widget | None
         Return the widget named 'name'.  Returns None if the widget does
         not exist.
         """
         return self._names.get(name)
 
-    def get_submit_widgets(self):
+    def get_submit_widgets(self) -> list[SubmitWidget]:
         """() -> [SubmitWidget]"""
         return self.submit_widgets
 
-    def get_all_widgets(self):
+    def get_all_widgets(self) -> list[Widget]:
         """() -> [Widget]
         Return all the widgets that have been added to the form.  Note that
         this while this list includes submit widgets and hidden widgets, it
@@ -175,7 +196,7 @@ class Form(object):
 
     # -- Form processing and error checking ----------------------------
 
-    def is_submitted(self):
+    def is_submitted(self) -> bool:
         """() -> bool
 
         Return true if a form was submitted.  If the form method is 'POST'
@@ -193,7 +214,7 @@ class Form(object):
         else:
             return bool(request.form)
 
-    def has_errors(self):
+    def has_errors(self) -> bool:
         """() -> bool
 
         Ensure that all components of the form have parsed themselves. Return
@@ -207,7 +228,7 @@ class Form(object):
                     has_errors = True
         return has_errors
 
-    def clear_errors(self):
+    def clear_errors(self) -> None:
         """Ensure that all components of the form have parsed themselves.
         Clear any errors that might have occured during parsing.
         """
@@ -215,7 +236,7 @@ class Form(object):
         for widget in self.get_all_widgets():
             widget.clear_error(request)
 
-    def force_value(self, name, value):
+    def force_value(self, name: str, value: object | None) -> None:
         """Force the value of a widget to be 'value', even if the form
         has been submitted and a different value is in the request form data.
         """
@@ -225,7 +246,7 @@ class Form(object):
         widget.clear_error()  # calls parse internally
         widget.set_value(value)
 
-    def get_submit(self):
+    def get_submit(self) -> str | bool:
         """() -> string | bool
 
         Get the name of the submit button that was used to submit the
@@ -242,7 +263,7 @@ class Form(object):
             else:
                 return False
 
-    def set_error(self, name, error):
+    def set_error(self, name: str, error: str | None) -> None:
         """(name : string, error : string)
         Set the error attribute of the widget named 'name'.
         """
@@ -255,11 +276,11 @@ class Form(object):
 
     def add(
         self,
-        widget_class,
-        name,
-        *args,
-        **kwargs,
-    ):
+        widget_class: type[Widget],
+        name: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         if name in self._names:
             raise ValueError("form already has '%s' widget" % name)
         # add 'id' attribute if not already present
@@ -279,103 +300,103 @@ class Form(object):
 
     def add_submit(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(SubmitWidget, name, value, **kwargs)
 
     def add_reset(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(ResetWidget, name, value, **kwargs)
 
     def add_hidden(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(HiddenWidget, name, value, **kwargs)
 
     def add_string(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(StringWidget, name, value, **kwargs)
 
     def add_text(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(TextWidget, name, value, **kwargs)
 
     def add_password(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(PasswordWidget, name, value, **kwargs)
 
     def add_checkbox(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(CheckboxWidget, name, value, **kwargs)
 
     def add_single_select(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(SingleSelectWidget, name, value, **kwargs)
 
     def add_multiple_select(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(MultipleSelectWidget, name, value, **kwargs)
 
     def add_radiobuttons(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: object | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(RadiobuttonsWidget, name, value, **kwargs)
 
     def add_float(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: float | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(FloatWidget, name, value, **kwargs)
 
     def add_int(
         self,
-        name,
-        value = None,
-        **kwargs,
-    ):
+        name: str,
+        value: int | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.add(IntWidget, name, value, **kwargs)
 
     # -- Layout (rendering) methods ------------------------------------
 
-    def render(self):
+    def render(self) -> Rendered:
         """() -> HTML text
         Render a form as HTML.
         """
@@ -385,7 +406,7 @@ class Form(object):
         r += self._render_finish()
         return r.getvalue()
 
-    def _render_start(self):
+    def _render_start(self) -> Rendered:
         r = TemplateIO(html=True)
         r += htmltag(
             'form',
@@ -397,7 +418,7 @@ class Form(object):
         r += self._render_hidden_widgets()
         return r.getvalue()
 
-    def _render_finish(self):
+    def _render_finish(self) -> Rendered:
         r = TemplateIO(html=True)
         r += htmltext('</form><br class="quixoteform" />')
         code = get_request().response.javascript_code
@@ -405,19 +426,19 @@ class Form(object):
             r += self._render_javascript(code)
         return r.getvalue()
 
-    def _render_widgets(self):
+    def _render_widgets(self) -> Rendered:
         r = TemplateIO(html=True)
         for widget in self.widgets:
             r += widget.render()
         return r.getvalue()
 
-    def _render_hidden_widgets(self):
+    def _render_hidden_widgets(self) -> Rendered:
         r = TemplateIO(html=True)
         for widget in self.hidden_widgets:
             r += widget.render()
         return r.getvalue()
 
-    def _render_submit_widgets(self):
+    def _render_submit_widgets(self) -> Rendered:
         r = TemplateIO(html=True)
         if self.submit_widgets:
             r += htmltext('<div class="submit">')
@@ -426,7 +447,7 @@ class Form(object):
             r += htmltext('</div><br class="submit" />')
         return r.getvalue()
 
-    def _render_error_notice(self):
+    def _render_error_notice(self) -> Rendered:
         token_widget = self.get_widget(self.TOKEN_NAME)
         if token_widget is not None and token_widget.has_error():
             # form tokens are enabled but the token data in the request
@@ -439,12 +460,12 @@ class Form(object):
 
     def _render_javascript(
         self,
-        javascript_code,
-    ):
+        javascript_code: dict[str, str],
+    ) -> Rendered:
         """Render javacript code for the form.  Insert code lexically
         sorted by code_id.
         """
-        form_code = []
+        form_code: list[str] = []
         code_ids = sorted(javascript_code.keys())
         for code_id in code_ids:
             code = javascript_code[code_id]
@@ -456,7 +477,7 @@ class Form(object):
         else:
             return ''
 
-    def _render_body(self):
+    def _render_body(self) -> Rendered:
         r = TemplateIO(html=True)
         if self.has_errors():
             r += self._render_error_notice()
