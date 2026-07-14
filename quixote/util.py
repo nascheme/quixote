@@ -323,7 +323,7 @@ class StaticDirectory(Directory):
             )
         return errors.format_page(title, body)
 
-    def _q_lookup(self, name):
+    def _q_lookup(self, name, /):
         """
         Get a file from the filesystem directory and return the StaticFile
         or StaticDirectory wrapper of it; use caching if that is in use.
@@ -515,7 +515,7 @@ class StaticBundle(Directory):
         self.paths[key] = path
         return path
 
-    def _q_traverse(self, path):
+    def _q_traverse(self, path, /):
         if len(path) == 1:
             # if hash token component missing, allow direct path, no caching
             filename = path[0]
@@ -550,7 +550,7 @@ class Redirector:
         self.location = location
         self.permanent = permanent
 
-    def _q_lookup(self, component):
+    def _q_lookup(self, component, /):
         return self
 
     def __call__(self):

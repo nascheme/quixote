@@ -48,7 +48,7 @@ class Directory(object, metaclass=DirectoryClass):
     # implicitly mapped to '_q_index'.
     _q_exports = []
 
-    def _q_translate(self, component):
+    def _q_translate(self, component, /):
         """(component : string) -> string | None
 
         Translate a path component into a Python identifier.  Returning
@@ -68,7 +68,7 @@ class Directory(object, metaclass=DirectoryClass):
             else:
                 return None
 
-    def _q_lookup(self, component):
+    def _q_lookup(self, component, /):
         """(component : string) -> object
 
         Lookup a path component and return the corresponding object (usually
@@ -77,7 +77,7 @@ class Directory(object, metaclass=DirectoryClass):
         """
         return None
 
-    def _q_traverse(self, path):
+    def _q_traverse(self, path, /):
         """(path: [string]) -> object
 
         Traverse a path and return the result.
@@ -128,7 +128,7 @@ class AccessControlled(object):
     def _q_access(self):
         pass
 
-    def _q_traverse(self, path):
+    def _q_traverse(self, path, /):
         self._q_access()
         return super(AccessControlled, self)._q_traverse(path)
 
@@ -141,10 +141,10 @@ class Resolving(object):
     component object.
     """
 
-    def _q_resolve(self, name):
+    def _q_resolve(self, name, /):
         return None
 
-    def _q_translate(self, component):
+    def _q_translate(self, component, /):
         name = super(Resolving, self)._q_translate(component)
         if name is not None and not hasattr(self, name):
             obj = self._q_resolve(name)
