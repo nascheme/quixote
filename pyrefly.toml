@@ -1,0 +1,40 @@
+python-version = "3.13.0"
+search-path = [".", "./tests", "./tools"]
+project-excludes = [
+    "**/*.ptl",
+    "build/**",
+    "quixote/form/compatibility.py",
+    "quixote/demo/__init__.py",
+]
+
+# Direct Pyrefly to respect `# mypy: ignore` and `# mypy: ignore-errors` comments
+permissive-ignores = true
+
+check-unannotated-defs = true  # check bodies of unannotated functions
+infer-return-types = "checked"  # inferred return types flow to callers
+
+# Third-party libraries without usable type info.
+replace-imports-with-any = [
+    "reportlab", "reportlab.*",
+    "qpy", "qpy.*",
+    "twill", "twill.*",
+    "qx_testlib", "qx_testlib.*",
+    "durus", "durus.*",
+    "scgi", "scgi.*",
+    "astpretty", "astpretty.*",
+]
+
+[errors]
+bad-param-name-override = false
+# increase strictness, most of these default to "warn"
+#incompatible-comparison = "error"      # comparing non-overlapping types
+#bad-override = "error"                 # override signature mismatch
+#untyped-import = "error"               # imports of modules without type info
+#redundant-condition = "error"          # always-true/false conditions
+#unnecessary-comparison = "error"       # comparison with a constant result
+#redundant-cast = "error"               # cast() to a type the value already has
+#unreachable = "error"                  # statically unreachable code
+#unnecessary-type-conversion = "error"  # redundant str()/bool()/cast() calls
+#implicit-any-parameter = "error"       # unannotated function parameters
+#implicit-any-type-argument = "error"   # bare `list` / `dict` (no type args)
+#implicit-any-empty-container = "error" # `x = []` with no annotation

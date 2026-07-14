@@ -4,7 +4,7 @@ version = "4.0a1"
 description = "A small and flexible Python Web application framework"
 readme = "README.txt"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 authors = [
     {name = "The Quixote developers", email = "nas-quixote@arctrix.com"},
 ]
@@ -25,7 +25,6 @@ Homepage = "https://github.com/nascheme/quixote"
 [dependency-groups]
 dev = [
     "pytest",
-    "black>=24.8.0",
     "ruff>=0.15.9",
     "pyrefly>=1.1.1",
 ]
