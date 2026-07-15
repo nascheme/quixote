@@ -55,8 +55,12 @@ requires = ["setuptools>=70", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["quixote*"]
 
 [[tool.setuptools.ext-modules]]
 name = "quixote.html._c_htmltext"
-sources = ["quixote/html/_c_htmltext.c"]
+sources = ["src/quixote/html/_c_htmltext.c"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

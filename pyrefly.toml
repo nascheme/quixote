@@ -1,10 +1,10 @@
 python-version = "3.13.0"
-search-path = [".", "./tests", "./tools"]
+search-path = ["./src", "./tests", "./tests/manual", "./tools"]
 project-excludes = [
     "**/*.ptl",
     "build/**",
-    "quixote/form/compatibility.py",
-    "quixote/demo/__init__.py",
+    "src/quixote/form/compatibility.py",
+    "src/quixote/demo/__init__.py",
 ]
 
 # Direct Pyrefly to respect `# mypy: ignore` and `# mypy: ignore-errors` comments
