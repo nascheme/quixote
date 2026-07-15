@@ -12,8 +12,12 @@ with the `htmltext` safe-string type, usually through PTL templates.
 - Python 3.13+, managed with `uv`; run everything through `uv run`.
 - `make` runs `check` (ruff lint) then `types` (`pyrefly`); `make format` runs
   ruff format. Keep the project fully type-annotated. Line length 78.
-- Tests: `uv run pytest -q`. PTL-based test modules need the import hook
-  installed first.
+- `make setup` runs `uv sync`: it creates/updates `.venv` with the locked dev
+  deps and an editable install of quixote (also builds the C extension). `uv
+  run` does this implicitly, so you rarely need to call it directly.
+- `make test` runs the pytest suite in `.venv` (depends on `setup`). Equivalent
+  to `uv run pytest`. PTL-based test modules need the import hook installed
+  first.
 - ASCII where it will do (`-`, not an em-dash); no emojis in code, commits, or
   comments.
 - Do not commit unless explicitly asked.

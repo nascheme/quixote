@@ -1,15 +1,16 @@
-These are tests for developers of Quixote 2.x.
+The automated test suite runs under pytest and lives beside the code it
+covers, under quixote/ (e.g. quixote/test/, quixote/html/test/,
+quixote/ptl/test/).  Run it from the top-level Quixote directory with:
 
-To run them, you will need to install 'nose' and 'twill':
+   uv run pytest -q
 
-   easy_install nose
+This directory holds manual helpers, not automated tests:
 
-   easy_install http://darcs.idyll.org/~t/projects/twill-latest.tar.gz
+   qx_testserver.py    a tiny Publisher/Directory serving "hello, world";
+                       run it directly to start a live server
+                       (python tests/qx_testserver.py, port QX_TEST_PORT).
 
-Then, in the Quixote directory, run 'python setup.py build'.  Put the
-resulting build library in your PYTHONPATH, e.g.
+   serve-via-wsgi.py   serve qx_testserver via wsgiref on port 8000.
 
-   export PYTHONPATH=/path/to/quixote/build/lib.linux-i686-2.4/
-
-Finally, run 'nosetests' in the top-level Quixote directory, i.e. the directory
-containing CHANGES.txt.
+End-to-end coverage of the WSGI adapter lives in
+quixote/test/test_wsgi.py, which drives it directly without a live server.

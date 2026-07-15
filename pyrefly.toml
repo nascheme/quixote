@@ -17,8 +17,6 @@ infer-return-types = "checked"  # inferred return types flow to callers
 replace-imports-with-any = [
     "reportlab", "reportlab.*",
     "qpy", "qpy.*",
-    "twill", "twill.*",
-    "qx_testlib", "qx_testlib.*",
     "durus", "durus.*",
     "scgi", "scgi.*",
     "astpretty", "astpretty.*",
