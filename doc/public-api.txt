@@ -550,8 +550,7 @@ The request-processing engine. Applications commonly subclass it. Constructor:
 ``Publisher(root_directory, logger=..., session_manager=..., config=...)``.
 
 Overridable hooks: ``start_request``, ``parse_request(request)``,
-``try_publish(request)`` / ``try_publish(request, path)``,
-``create_request(stdin, environ)``, ``format_publish_error(exc)``,
+``try_publish(request)``, ``format_publish_error(exc)``,
 ``filter_output(request, output)``, ``finish_successful_request``.
 
 Members reached via ``get_publisher()``: ``.log(msg)``, ``.session_manager``,
