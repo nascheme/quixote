@@ -5,13 +5,10 @@ They build a Publisher, obtain the WSGI application via
 HTTP server is started.
 """
 
-import io
 from collections.abc import Iterator
-from typing import cast
-from wsgiref.types import StartResponse
-from wsgiref.util import setup_testing_defaults
 
 import pytest
+from helpers import call
 
 import quixote
 from quixote.directory import Directory
@@ -37,27 +34,6 @@ def app() -> Iterator[QWIP]:
         yield quixote.get_wsgi_app()
     finally:
         quixote.cleanup()
-
-
-def call(
-    app: QWIP, path: str, query: str = ''
-) -> tuple[str, dict[str, str], bytes]:
-    """Drive `app` for one request; return (status, headers, body)."""
-    env = {
-        'PATH_INFO': path,
-        'SCRIPT_NAME': '',
-        'QUERY_STRING': query,
-        'wsgi.input': io.BytesIO(b''),
-    }
-    setup_testing_defaults(env)
-    captured: dict[str, object] = {}
-
-    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
-        captured['status'] = status
-        captured['headers'] = dict(headers)
-
-    body = b''.join(app(env, cast(StartResponse, start_response)))
-    return captured['status'], captured['headers'], body  # type: ignore
 
 
 class TestWSGI:
