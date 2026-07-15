@@ -1,3 +1,3 @@
 # This file is imported from __init__.py and exec'd from setup.py
 
-__version__ = '3.8b1'
+__version__ = '4.0a1'

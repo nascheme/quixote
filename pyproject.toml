@@ -1,6 +1,6 @@
 [project]
 name = "Quixote"
-version = "3.8"
+version = "4.0a1"
 description = "A small and flexible Python Web application framework"
 readme = "README.txt"
 license = "MIT"
