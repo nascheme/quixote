@@ -60,10 +60,10 @@ _T = TypeVar('_T')
 
 
 def get_content_type(environ: Mapping[str, str]) -> str | None:
-    """Return the bare media type from a WSGI/CGI environ, or None.
+    """Return the ``CONTENT_TYPE`` value before any semicolon, or None.
 
-    Strips any parameters (such as ``; charset=...``) from the
-    ``CONTENT_TYPE`` variable, returning just the media type.
+    Parameters such as ``; charset=...`` are removed, but surrounding
+    whitespace is not stripped.
     """
     ctype = environ.get("CONTENT_TYPE")
     if ctype:
@@ -121,8 +121,9 @@ def parse_query(qs: str, charset: str) -> dict[str, FieldValue]:
 
     `qs` is decoded using `charset`.  Returns a mapping of field name to
     value, where a name appearing more than once maps to a list of its
-    values.  Raises `RequestError` if `charset` is unknown or `qs` is not
-    validly encoded.
+    values.  Raises `RequestError` if `charset` is unknown or decoded
+    percent-escaped bytes are invalid for `charset`; malformed percent
+    escapes are not rejected.
     """
     fields: dict[str, FieldValue] = {}
     for chunk in qs.split('&'):
@@ -217,7 +218,7 @@ class HTTPRequest:
         `stdin` is the request body stream (may be None when there is no
         body); `environ` is the WSGI/CGI environment.  Pass ``seekable=True``
         when `stdin` already supports seeking.  Raises `RequestError` if the
-        Content-Length header is malformed.
+        Content-Length header cannot be parsed as an integer.
         """
         self.stdin = stdin
         self._stdin = None  # set after stdin is buffered to temp file
@@ -295,8 +296,14 @@ class HTTPRequest:
         Populates `form` from the URL query string and, for
         ``application/x-www-form-urlencoded`` or ``multipart/form-data``
         bodies, from the request body (uploaded files become `Upload`
-        objects).  Normally called by the publisher before traversal; safe to
+        objects).  For URL-encoded bodies, body fields replace same-named
+        query fields; multipart body fields are added to existing query
+        fields.  Normally called by the publisher before traversal; safe to
         call more than once, as the form is rebuilt each time.
+
+        Raises `RequestError` for request-body EOF, unknown or invalid
+        charsets, missing multipart boundaries, or malformed multipart part
+        headers.
         """
         self.make_body_seekable()
         # In the case of a database conflict, process_inputs() might
@@ -423,7 +430,9 @@ class HTTPRequest:
         """Return submitted form/query field `name`, or `default`.
 
         The value is a string, an `Upload` for file fields, or a list when
-        the field was submitted more than once.  Reads from `form`, which is
+        the parsed form contains multiple values for the name.  URL-encoded
+        body fields replace same-named query fields; multipart body fields
+        are added to existing query fields.  Reads from `form`, which is
         populated by `process_inputs`.
         """
         return self.form.get(name, default)
@@ -771,7 +780,12 @@ _SAFE_PAT = re.compile(r'[^\w@&+=., -]')
 
 
 def make_safe_filename(s: str) -> str:
-    """Return `s` with characters unsafe in a filename replaced by ``_``."""
+    """Return `s` with disallowed filename characters replaced by ``_``.
+
+    This replaces each character other than word characters or one of
+    ``@&+=., -``.  It does not reject names such as ``..`` or reserved
+    platform filenames; validate before using the result as a path.
+    """
     return _SAFE_PAT.sub('_', s)
 
 
@@ -781,8 +795,8 @@ class Upload:
     filesystem, *not* in memory.
 
       fp
-        an open file containing the content of the upload.  The file pointer
-        points to the beginning of the file
+        after `receive` is called, an open file containing the upload
+        content.  The file pointer points to the beginning of the file
       orig_filename
         the complete filename supplied by the user-agent in the
         request that uploaded this file.  Depending on the browser,
@@ -791,9 +805,9 @@ class Upload:
         "C:\foo\bar\upload_this" or "/foo/bar/upload_this" or
         "foo:bar:upload_this".
       base_filename
-        the base component of orig_filename, shorn of MS-DOS,
-        Mac OS, and Unix path components and with "unsafe"
-        characters neutralized (see make_safe_filename())
+        a filename derived from orig_filename by taking the suffix after the
+        last backslash, colon, or slash, in that priority, and then applying
+        make_safe_filename().  Do not treat it as a fully validated path.
       content_type
         the content type provided by the user-agent in the request
         that uploaded this file.
@@ -815,9 +829,10 @@ class Upload:
     ) -> None:
         """Build an upload for `orig_filename` with its type and charset.
 
-        Derives `base_filename` from `orig_filename` by stripping any client
-        path (Windows, Mac, or Unix style) and neutralising unsafe characters.
-        The content is empty until `receive` is called.
+        Derives `base_filename` from `orig_filename` by taking the suffix
+        after the last backslash, colon, or slash, in that priority, and
+        neutralising disallowed characters.  Mixed path styles are not fully
+        normalized.  No file object is created until `receive` is called.
         """
         if orig_filename:
             self.orig_filename = orig_filename
@@ -864,22 +879,22 @@ class Upload:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
     def read(self, n: int = -1) -> bytes:
-        """Read up to `n` bytes of the upload (all if `n` is negative)."""
+        """After `receive`, read up to `n` bytes, or all if negative."""
         return self._get_fp().read(n)
 
     def readline(self) -> bytes:
-        """Read and return one line from the upload, including the newline."""
+        """Read one upload line, including the newline if present."""
         return self._get_fp().readline()
 
     def readlines(self) -> list[bytes]:
-        """Read and return all remaining lines of the upload."""
+        """Read all remaining upload lines after `receive` has been called."""
         return self._get_fp().readlines()
 
     def __iter__(self) -> Iterator[bytes]:
         return iter(self._get_fp())
 
     def close(self) -> None:
-        """Close the underlying temporary file."""
+        """Close the underlying temporary file after `receive` is called."""
         self._get_fp().close()
 
     def get_size(self) -> int:

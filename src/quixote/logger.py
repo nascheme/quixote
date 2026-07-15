@@ -27,11 +27,13 @@ class DefaultLogger:
         is not logged.
       error_log : file
         file to which application errors (exceptions caught by Quixote,
-        as well as anything printed to stderr by application code) will
+        as well as anything printed to stdout by application code) will
         be logged.  Set to sys.stderr by default.
       error_email : string | None
-        if set then internal server errors will cause messages to be sent to
-        this address
+        if set then `log_internal_error` tries to mail internal server
+        errors to this address.  Delivery uses `quixote.sendmail` and
+        needs a process `Publisher` with usable mail settings; mail
+        setup, connection, or SMTP errors are not caught here.
     """
 
     DEFAULT_CHARSET: str | None = None  # defaults to quixote.DEFAULT_CHARSET
@@ -50,9 +52,11 @@ class DefaultLogger:
 
         `access_log` and `error_log` are filenames; a falsy `access_log`
         disables access logging, and a `None` `error_log` sends errors to
-        stderr.  When `error_email` is set, internal errors are also mailed
-        there.  Opening a logger redirects `sys.stdout` to the error log so
-        that stray prints in application code are captured.
+        stderr.  When `error_email` is set, internal errors are also
+        passed to `log_internal_error`'s mail path, which needs a process
+        `Publisher` with usable mail settings; sendmail failures propagate.
+        Opening a logger redirects `sys.stdout` to the error log so that
+        stray prints in application code are captured.
         """
         if access_log:
             self.access_log = self._open_log(access_log)
@@ -89,8 +93,10 @@ class DefaultLogger:
 
         `error_summary` is a single-line summary suitable for an email
         subject; `error_msg` is the multi-line plaintext detail (usually a
-        traceback).  The message goes to the error log, and additionally to
-        `error_email` when that is set.
+        traceback).  The message is always written to the error log.  When
+        `error_email` is set it is also passed to `quixote.sendmail`, which
+        uses the process `Publisher` for SMTP settings; configuration,
+        connection, or SMTP errors from `sendmail` are not caught here.
         """
         self.log("exception caught")
         self.error_log.write(error_msg)

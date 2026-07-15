@@ -88,13 +88,16 @@ class BaseSessionManager:
     """Base class for session managers, one per Quixote process.
 
     A session manager creates sessions, loads and stores them, and reads and
-    writes the session cookie.  The publisher drives it through three hooks
-    called on every request -- `start_request`, `finish_successful_request`,
-    and `finish_failed_request`.  Applications that need persistence subclass
-    this (or `SessionManager`) and plug in a `SessionStore`; the default
-    setup keeps sessions in memory only.  This base class supplies the
-    machinery those hooks rely on (`get_session`, `maintain_session`, cookie
-    handling); a minimal manager need only implement the three hooks.
+    writes the session cookie.  After request parsing succeeds, the publisher
+    calls `start_request`; later it calls `finish_successful_request` for a
+    completed or `PublishError`-interrupted request, and
+    `finish_failed_request` for an unexpected exception.
+
+    This base implementation supplies those hooks and delegates storage to a
+    `SessionStore`.  Use it with a concrete store, or override the mapping
+    methods that load, save, delete, and iterate sessions.  `SessionManager`
+    is the built-in mapping-backed subclass and accepts `session_mapping`, not
+    a `SessionStore`.
     """
 
     ACCESS_TIME_RESOLUTION = 1
@@ -112,8 +115,9 @@ class BaseSessionManager:
 
         `session_class` is instantiated by `new_session` to create sessions
         (defaults to `Session`); pass an application subclass to store custom
-        state.  `session_store` supplies persistence (defaults to a
-        non-persistent, in-memory store).
+        state.  `session_store` must be a concrete `SessionStore` when this
+        base storage path is used.  If omitted, the class-level abstract store
+        remains in place, and its storage methods raise `NotImplementedError`.
         """
         self.session_class = session_class or Session
         if session_store is not None:
@@ -318,8 +322,10 @@ class BaseSessionManager:
         """Set the session cookie in the response to `session_id`.
 
         Extra keyword attributes are passed through to the cookie (e.g.
-        ``max_age``).  Returns the cookie name.  Uses the ``session_cookie_*``
-        configuration for name, path, domain, secure, and httponly.
+        ``max_age``).  Do not pass ``path`` or ``domain`` here; those are
+        supplied by `set_session_cookie` and would be duplicate keywords.
+        Configured true ``secure`` and ``httponly`` values override caller
+        values.  Returns the cookie name.
         """
         return set_session_cookie(session_id, **attrs)
 
@@ -380,16 +386,17 @@ class NullSessionManager(BaseSessionManager):
 
 class SessionManager(BaseSessionManager):
     """
-    This is a session manager that uses a dictionary to store sessions.
-    Session objects are instances of Session (or a custom subclass for your
-    application).  SessionManager is also responsible for creating and
-    destroying sessions, for generating and interpreting session cookies, and
-    for session persistence (if any -- this implementation is not persistent).
+    This is a mapping-backed session manager.  Session objects are instances
+    of Session (or a custom subclass for your application).  SessionManager is
+    also responsible for creating and destroying sessions, for generating and
+    interpreting session cookies, and for session persistence (if any -- the
+    default mapping is not persistent).
 
-    Most applications can just use this class directly; sessions will
-    be kept in memory-based dictionaries, and will be lost when the
-    Quixote process dies.  Alternatively an application can subclass
-    BaseSessionManager to implement specific behaviour, such as persistence.
+    Most applications can just use this class directly; sessions will be kept
+    in an in-memory dictionary and lost when the Quixote process dies.
+    Alternatively an application can supply another mutable mapping, including
+    one backed by a persistence mechanism, or subclass BaseSessionManager for
+    different storage behaviour.
 
     Instance attributes:
       session_class : class
@@ -408,7 +415,7 @@ class SessionManager(BaseSessionManager):
         session_class: type[Session] | None = None,
         session_mapping: MutableMapping[str, Session] | None = None,
     ) -> None:
-        """Create a session manager backed by a dict of sessions.
+        """Create a session manager backed by a mutable mapping.
 
         There is one session manager per publisher (one per process).
         `session_class` is instantiated by `new_session` (defaults to
@@ -557,13 +564,15 @@ class Session:
     """Per-user state that persists across requests within one session.
 
     A session is notionally a (user, host, browser) triple.  Obtain the
-    current one with `quixote.get_session()`; the session manager creates
-    it on demand and drops a session cookie once it holds useful data.
-    Applications commonly subclass `Session` to add their own attributes
-    (and override `has_info` / `is_dirty` so the extra state is persisted).
+    current one with `quixote.get_session()`; the session manager creates it
+    on demand and drops a session cookie once `has_info()` is true.
+    Applications commonly subclass `Session` to add their own attributes.
+    Custom state that should keep a session must be included in `has_info()`;
+    storage that needs explicit rewrites of existing sessions may also need
+    `is_dirty()`.
 
-    The only built-in application-facing state is the `user` attribute (set
-    it via `set_user`).  This class also provides the anti-CSRF token helpers
+    The only built-in application-facing state is the `user` attribute (set it
+    via `set_user`).  This class also provides the anti-CSRF token helpers
     `get_csrf_token` and `valid_csrf_token`.
 
     Instance attributes:
@@ -607,9 +616,10 @@ class Session:
     def __init__(self, id: str | None) -> None:
         """Create a session with the given id (None until first saved).
 
-        Called by the session manager, not by applications.  Records the
-        requester's remote address and creation time.  A subclass that adds
-        state should call ``super().__init__(id)`` first.
+        Called by the session manager, not by applications.  Requires an
+        active request; otherwise `current_request()` raises `RuntimeError`.
+        Records the requester's remote address and creation time.  A subclass
+        that adds state should call ``super().__init__(id)`` first.
         """
         self.id = id
         self.user = None
@@ -630,23 +640,23 @@ class Session:
     def has_info(self) -> bool:
         """() -> boolean
 
-        Return true if this session contains any information that must
-        be saved.
+        Return true if this session contains any information that must be
+        saved.  The default implementation counts a truthy user value,
+        outstanding form tokens, or a CSRF token as information.
         """
         return bool(self.user or self._form_tokens or self._csrf_token)
 
     def is_dirty(self) -> bool:
         """() -> boolean
 
-        Return true if this session has changed since it was last saved
-        such that it needs to be saved again.
+        Return true if this session has changed since it was last saved and
+        must be written again by the session manager's storage mechanism.
 
-        Default implementation always returns false since the default
-        storage mechanism is an in-memory dictionary, and you don't have
-        to put the same object into the same slot of a dictionary twice.
-        If sessions are stored to, eg., files in a directory or slots in
-        a hash file, is_dirty() should probably be an alias or wrapper
-        for has_info().  See doc/session-mgmt.txt.
+        The default implementation always returns false because the built-in
+        `SessionManager` keeps the session object in a mapping.  Subclasses
+        that add custom state should include it in `has_info()` so non-empty
+        sessions are kept; override `is_dirty()` only for storage mechanisms
+        that need modified existing sessions to be explicitly rewritten.
         """
         return False
 
@@ -659,7 +669,9 @@ class Session:
         """Write a human-readable summary of the session for debugging.
 
         Writes to `file` (default stdout): the id, user, remote address,
-        creation/access times, and outstanding form tokens.
+        creation/access times, and outstanding form tokens.  If `header` is
+        true, write the session-ID prefix.  `deep` is accepted for
+        compatibility and currently has no effect.
         """
         if file is None:
             file = sys.stdout
@@ -689,13 +701,14 @@ class Session:
         """Set the object identifying the session's user.
 
         The value is application-defined (a username, a user id, or a user
-        object).  Override to add type-checking.  Once a session has a user
-        it holds useful info and will be persisted.
+        object).  Override to add type-checking.  The default `has_info()`
+        treats only truthy user values as information; values such as `0`,
+        `False`, and ``""`` do not by themselves keep the session.
         """
         self.user = user
 
     def get_user(self) -> object | None:
-        """Return the session's user object, or None if not signed in."""
+        """Return the stored user object, or None if no user is stored."""
         return self.user
 
     def get_remote_address(self) -> str | None:
@@ -795,7 +808,15 @@ class Session:
 
 
 def set_session_cookie(session_id: str, **attrs: object | None) -> str:
-    """Create a cookie in the HTTP response for 'session_id'."""
+    """Create a cookie in the HTTP response for 'session_id'.
+
+    Extra attributes are passed to `HTTPResponse.set_cookie`.  The cookie
+    name and domain are taken from configuration; path comes from
+    configuration or the current request's ``SCRIPT_NAME``.  Passing ``path``
+    or ``domain`` in `attrs` raises `TypeError` because those keywords are
+    already supplied.  Configured true ``secure`` and ``httponly`` values
+    override caller-supplied values.
+    """
     config = current_publisher().config
     name = config.session_cookie_name
     if config.session_cookie_path:

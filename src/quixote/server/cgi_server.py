@@ -18,12 +18,13 @@ CreatePublisher = Callable[[], Publisher]
 
 
 def run(create_publisher: CreatePublisher) -> None:
-    """Serve a single CGI request and exit.
+    """Serve a single CGI request.
 
     `create_publisher` is a zero-argument factory returning a `Publisher`.
     The request is read from stdin and the CGI environment, and the response
-    is written to stdout; the process handles exactly one request, as the CGI
-    model requires.
+    is written to stdout.  An `IOError` while writing the response is logged
+    and suppressed, so this function may return after a failed or partial
+    write.
     """
     if sys.platform == "win32":
         # on Windows, stdin and stdout are in text mode by default

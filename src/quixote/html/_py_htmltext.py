@@ -32,12 +32,6 @@ def _escape_string(s: object) -> str:
 if TYPE_CHECKING:
 
     def stringify(value: object = '') -> str:
-        """Coerce `value` to a plain `str` (an alias for the builtin ``str``).
-
-        For an `htmltext` argument this returns its underlying markup string.
-        Provided for backwards compatibility and readability; new code can use
-        ``str`` directly.
-        """
         return str(value)
 else:
     stringify = str
@@ -51,11 +45,13 @@ class htmltext(object):
     `format`, and `join` operations below) escapes plain `str` operands but
     passes `htmltext` through untouched, so mixing the two produces correct,
     minimally-escaped output.  Only wrap markup you know is safe; never wrap
-    unescaped user input.  Use `htmlescape` to turn untrusted text into
-    `htmltext`.
+    unescaped user input.  Use `htmlescape` only for HTML text and ordinary
+    double-quoted attribute values.
 
-    The HTML-special characters escaped in plain-str operands are ``&``,
-    ``<``, ``>``, and ``"``.
+    Plain-str escaping replaces ``&``, ``<``, ``>``, and ``"``.  It does not
+    escape single quotes, whitespace, or URL/JavaScript/CSS syntax; use
+    context-specific escaping in single-quoted or unquoted attributes and in
+    non-HTML-text contexts.
 
     >>> from quixote.html import htmltext
     >>> htmltext('<b>safe</b>')          # already-safe markup, left as-is
@@ -109,10 +105,17 @@ class htmltext(object):
             return htmltext(self.s % _wraparg(args))
 
     def format(self, *args: object, **kwargs: object) -> htmltext:
-        """Like ``str.format`` but escape any plain-str arguments.
+        """Format trusted markup with escaped arguments.
 
-        The template itself (``self``) is trusted markup; each substituted
-        value is escaped unless it is already `htmltext`.
+        Plain `str` arguments are escaped before formatting, and `htmltext`
+        arguments pass through unchanged.  Other objects are wrapped for
+        simple string conversion and item lookup.  Integers and floats are
+        passed through unchanged to preserve numeric formatting.  A ``{:c}``
+        format can therefore emit markup characters.
+
+        This method is not fully equivalent to ``str.format``: wrapped objects
+        do not support normal attribute fields such as ``{0.name}``, and
+        non-empty format specs for wrapped non-numeric objects may fail.
         """
         wrapped_args = list(map(_wraparg, args))
         wrapped_kwargs = {
@@ -231,12 +234,13 @@ def _wraparg(arg: object) -> str | int | float | _QuoteWrapper:
 
 
 def htmlescape(s: object) -> htmltext:
-    """Escape untrusted text and return it as `htmltext`.
+    """Escape text for an HTML text context and return it as `htmltext`.
 
-    Coerce `s` to a string and escape the HTML markup characters ``&``,
-    ``<``, ``>``, and ``"``.  An argument that is already `htmltext` is
-    returned unchanged, so calling `htmlescape` twice does not double-escape.
-    This is the safe way to turn user-supplied data into `htmltext`.
+    Coerce `s` to a string and escape ``&``, ``<``, ``>``, and ``"``.  An
+    argument that is already `htmltext` is returned unchanged, so calling
+    `htmlescape` twice does not double-escape.  The result is also suitable
+    for ordinary double-quoted attribute values, but not for single-quoted or
+    unquoted attributes, URLs, JavaScript, CSS, or other non-HTML contexts.
 
     >>> from quixote.html import htmlescape
     >>> print(htmlescape('a < b & c'))
@@ -263,7 +267,8 @@ class TemplateIO(object):
     Pass ``html=True`` for HTML mode, in which each fragment is run through
     `htmlescape` on `getvalue` so plain-str fragments are escaped and
     `htmltext` fragments are preserved; the default plain mode simply
-    stringifies each fragment.
+    stringifies each fragment.  Values of ``None`` are ignored by both append
+    forms; they are not stringified even in plain mode.
     """
 
     __slots__ = ['html', 'data']

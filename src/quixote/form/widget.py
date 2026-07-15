@@ -62,23 +62,25 @@ class WidgetValueError(Exception):
 
 
 class Widget(object):
-    """Abstract base for form widgets -- one HTML control plus its value.
+    """Abstract base for form widgets: a logical field or group.
 
-    A widget owns a form field: its `name`, its current `value`, and any
-    validation `error`.  Its life cycle has two halves.  On the way in,
-    `parse` reads the submitted value out of the request, coerces it to the
-    widget's Python type, and records an error if it is invalid or a required
-    field is missing (parsing happens once and is cached).  On the way out,
-    `render` produces the HTML: title, the control itself (`render_content`,
-    supplied by each concrete subclass), hint, and error message.
+    A widget owns a form field or field group: its `name`, its current
+    `value`, and any validation `error`.  Its life cycle has two halves.  On
+    the way in, `parse` reads the submitted value out of the request, coerces
+    it to the widget's Python type, and records an error if it is invalid or
+    if a required parse leaves the value as None (parsing happens once and is
+    cached).  On the way out, `render` produces the HTML: title, content
+    (`render_content`, supplied by each concrete subclass), hint, and error
+    message.
 
     Widgets are usually created through `Form.add` rather than directly.
-    Read attributes directly, but set them through the ``set_*`` methods so
-    parsing state stays consistent.
+    Read attributes directly, and use the ``set_*`` methods for programmatic
+    updates.  A value set before parsing is an initial value and may be
+    replaced by submitted input.
 
     Instance attributes:
       name : string
-        HTML control name; unique within its form.
+        HTML field name; unique within its form.
       value : any
         the widget's value -- the parsed submission, or the initial value.
       error : string | None
@@ -88,7 +90,8 @@ class Widget(object):
       hint : any
         help text shown near the control.
       required : bool
-        if true, an empty submission is flagged as an error.
+        if true, a submitted parse whose value is None is flagged as an
+        error.
       attrs : {string: any}
         extra attributes for the rendered HTML tag.
     """
@@ -141,11 +144,15 @@ class Widget(object):
         return "%s: %s" % (self.__class__.__name__, self.name)
 
     def get_name(self) -> str:
-        """Return the widget's HTML control name."""
+        """Return the widget's HTML field name."""
         return self.name
 
     def set_value(self, value: object | None) -> None:
-        """Set the widget's value, overriding any submitted value."""
+        """Set the widget's current value.
+
+        If the widget has not parsed yet, a later parse of a submitted form
+        may replace this value from request data.
+        """
         self.value = value
 
     def set_error(self, error: str | None) -> None:
@@ -186,17 +193,17 @@ class Widget(object):
         return self.hint
 
     def is_required(self) -> bool:
-        """Return true if an empty submission is treated as an error."""
+        """Return true if a submitted None value is treated as an error."""
         return self.required
 
     def parse(self, request: HTTPRequest | None = None) -> object | None:
         """Parse the submitted value from the request and return it.
 
         Reads the raw field, coerces it to the widget's type, and sets an
-        error for an invalid value or a missing required field.  Runs at most
-        once per widget (the result is cached); does nothing and returns the
-        initial value when the form was not submitted.  `request` defaults to
-        the current request.
+        error for an invalid value or for a required widget whose parsed value
+        is None.  Runs at most once per widget (the result is cached); does
+        nothing and returns the initial value when the form was not submitted.
+        `request` defaults to the current request.
         """
         if not self._parsed:
             self._parsed = True
@@ -724,17 +731,21 @@ class MultipleSelectWidget(SelectWidget):
 
 
 class ButtonWidget(Widget):
-    """Base class for button controls (``<input type="button">``).
+    """Base class for button-like input controls.
 
-    The constructor's `value` argument is the button label.  After parsing,
-    the widget's `value` is a boolean: true when this button's name appears in
-    the submission, i.e. when this button was clicked.
+    The constructor's `value` argument is the button label.  When parsing a
+    submitted form, the widget's `value` is true iff this widget's field name
+    appears in the request form, and false otherwise.  If the form was not
+    submitted, parsing leaves `value` as None.  This reports field-name
+    presence in a submitted request, not general click detection; browsers do
+    not normally submit ordinary or reset buttons when clicked.
 
     Instance attributes:
       label : any
         the text shown on the button.
-      value : bool
-        true if the button was clicked.
+      value : bool | None
+        true if this button's field name was submitted, false if a submitted
+        request omitted it, or None before submission.
     """
 
     HTML_TYPE = "button"
@@ -777,15 +788,15 @@ class ButtonWidget(Widget):
 class SubmitWidget(ButtonWidget):
     """Submit button (``<input type="submit">``).
 
-    Its parsed value is true when this button submitted the form; `Form` uses
-    the submit widgets to answer `Form.get_submit`.
+    Its parsed value is true when a submitted request contains this button's
+    field name; `Form` uses the submit widgets to answer `Form.get_submit`.
     """
 
     HTML_TYPE = "submit"
 
 
 class ResetWidget(ButtonWidget):
-    """Reset button (``<input type="reset">``) clearing the form."""
+    """Reset button (``<input type="reset">``) for restoring defaults."""
 
     HTML_TYPE = "reset"
 
@@ -794,7 +805,8 @@ class HiddenWidget(Widget):
     """Hidden field (``<input type="hidden">``) carrying a string value.
 
     Renders with no title, hint, or error decoration and cannot hold an
-    error.  Used to pass state through a form round-trip.
+    error.  Hidden values are visible to and controlled by clients; treat
+    parsed values as untrusted input and do not store secrets in them.
 
     Instance attributes:
       value : string
@@ -831,10 +843,12 @@ class HiddenWidget(Widget):
 
 
 class NumberWidget(StringWidget):
-    """Abstract text input that parses to a number.
+    """Abstract text input that attempts to parse to a number.
 
     Subclasses set `TYPE_OBJECT` (``int`` or ``float``) and `TYPE_ERROR` (the
-    message shown for non-numeric input).  See `IntWidget` and `FloatWidget`.
+    message shown for non-numeric input).  On successful conversion, `value`
+    is an instance of `TYPE_OBJECT`.  If conversion fails, `value` remains the
+    submitted string and `error` is set to `TYPE_ERROR`.
     """
 
     # Parameterize the number type (either float or int) through
@@ -870,10 +884,13 @@ class NumberWidget(StringWidget):
 
 
 class FloatWidget(NumberWidget):
-    """Text input whose value parses to a ``float`` (error if not numeric).
+    """Text input whose value parses to a ``float``.
+
+    Invalid non-empty input sets an error and remains available as the
+    submitted string.
 
     Instance attributes:
-      value : float
+      value : float | string | None
     """
 
     TYPE_OBJECT = float
@@ -881,10 +898,13 @@ class FloatWidget(NumberWidget):
 
 
 class IntWidget(NumberWidget):
-    """Text input whose value parses to an ``int`` (error if not an integer).
+    """Text input whose value parses to an ``int``.
+
+    Invalid non-empty input sets an error and remains available as the
+    submitted string.
 
     Instance attributes:
-      value : int
+      value : int | string | None
     """
 
     TYPE_OBJECT = int

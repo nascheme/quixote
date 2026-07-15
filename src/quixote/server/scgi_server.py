@@ -68,8 +68,16 @@ def run(
     """Run an SCGI server that publishes a Quixote application.
 
     `create_publisher` is a zero-argument factory returning a `Publisher`.
-    The server listens on `host`/`port` for SCGI requests (typically from a
-    front-end web server) and forks up to `max_children` worker processes.
+    The server listens on `host`/`port` for SCGI requests, typically from a
+    front-end web server.  If `script_name` is not None, each request's
+    incoming `SCRIPT_NAME` must start with it; the prefix becomes the new
+    `SCRIPT_NAME`, and the remaining suffix is prepended to `PATH_INFO`.
+    A mismatch raises `AssertionError`.
+
+    Without session affinity, the server forks up to `max_children` worker
+    processes.  With session affinity, requests with the same session
+    identifier are sent to the same worker, and the worker count is not capped
+    by `max_children`.
     """
 
     def create_handler(parent_fd: int) -> QuixoteHandler:

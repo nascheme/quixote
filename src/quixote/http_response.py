@@ -238,9 +238,9 @@ class HTTPResponse:
         """Set the HTTP status code, and optionally its reason phrase.
 
         `status` must be an integer in the range 100 .. 599.  If `reason` is
-        omitted the standard reason phrase for `status` is used; for a
-        non-standard code the generic phrase for its group is used (e.g. for
-        493 the reason for 400 is used).
+        omitted and `status` is in `status_reasons`, that phrase is used;
+        otherwise the generic phrase for its group is used (e.g. for 493 the
+        reason for 400 is used).
         """
         if not isinstance(status, int):
             raise TypeError("status must be an integer")
@@ -263,9 +263,10 @@ class HTTPResponse:
     def set_header(self, name: str, value: str) -> None:
         """Set response header `name` to `value`, replacing any previous.
 
-        Header names are treated case-insensitively.  Does not apply to the
-        Status or Set-Cookie headers, which are generated separately (use
-        `set_status` and `set_cookie`).
+        Header names are treated case-insensitively.  Prefer `set_status` for
+        Status and `set_cookie` for Set-Cookie: setting those names here
+        stores general headers that may duplicate the separately generated
+        ones.
         """
         self.headers[name.lower()] = value
 
@@ -274,7 +275,12 @@ class HTTPResponse:
         name: str,
         default: _T | None = None,
     ) -> str | _T | None:
-        """Return response header `name`, or `default` if it is not set."""
+        """Return stored general header `name`, or `default` if absent.
+
+        This looks only in `headers`.  Generated Status and Set-Cookie values
+        are not included, and computed defaults such as Content-Type are not
+        visible until `generate_headers` has run.
+        """
         return self.headers.get(name.lower(), default)
 
     def set_expires(
@@ -289,8 +295,8 @@ class HTTPResponse:
         The lifetime is the sum of `seconds`, `minutes`, `hours`, and `days`,
         so both ``set_expires(3600)`` and ``set_expires(hours=1)`` mean one
         hour; this controls the Expires and Cache-Control headers.  Pass
-        ``seconds=None`` to suppress those headers entirely and leave caching
-        to the client.
+        ``seconds=None`` to disable automatic generation of those headers;
+        existing or manually set headers are left unchanged.
         """
         if seconds is None:
             self.cache = None  # don't generate 'Expires' header
@@ -349,7 +355,8 @@ class HTTPResponse:
         `body` may be any value (it is stringified and encoded with the
         response charset), already-encoded ``bytes``, or a `Stream` for
         incremental output.  If `compress` is true the body may be gzip
-        compressed, unless its content type is one that is already compressed.
+        compressed, unless its content type is in Quixote's gzip-exclusion
+        list.
         """
         if not isinstance(body, Stream):
             if not isinstance(body, bytes):
@@ -469,7 +476,12 @@ class HTTPResponse:
             return len(body)
 
     def enable_transfer_chunked(self) -> None:
-        """Allow response to be sent as "Transfer-Encoding: chunked" """
+        """Allow `generate_headers` to select chunked transfer encoding.
+
+        Selection happens only when content length is unknown.  Call this
+        before `generate_headers`; body chunking is used only if that header
+        is present when `generate_body_chunks` is called.
+        """
         self._allow_chunked = True
 
     def _gen_cookie_headers(self) -> Headers:
@@ -615,8 +627,9 @@ class HTTPResponse:
     def generate_body_chunks(self) -> Iterator[bytes]:
         """Yield the encoded response body as a sequence of byte chunks.
 
-        Applies chunked transfer encoding when it has been enabled.  Called by
-        server adapters, not by applications.
+        Applies chunked transfer encoding only when the Transfer-Encoding
+        header is currently ``chunked``.  Called by server adapters, not by
+        applications.
         """
         stream = self._generate_encoded_body()
         if self.headers.get('transfer-encoding') == 'chunked':

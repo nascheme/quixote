@@ -15,7 +15,9 @@ and branches on whether it was submitted without errors::
 
 When form tokens are enabled (see the ``FORM_TOKENS`` config setting), a
 hidden token widget is added automatically to guard against cross-site
-request forgery and double submission.
+request forgery and double submission.  Tokens require a current session
+that persists between rendering and submission, and are checked only when
+widgets are parsed, normally by calling `has_errors`.
 """
 
 from __future__ import annotations
@@ -50,12 +52,13 @@ _T = TypeVar('_T')
 class FormTokenWidget(HiddenWidget):
     """Hidden widget carrying a per-form anti-CSRF token.
 
-    Added automatically by `Form` when form tokens are enabled.  On render it
-    creates a fresh token in the session; on parse it checks the submitted
-    token against the session and consumes it, so a given form can only be
-    submitted once.  A missing or unknown token produces a (non-displayed)
-    error that `Form._render_error_notice` turns into the "invalid form"
-    notice.
+    Added automatically by `Form` when form tokens are enabled.  Rendering
+    and parsing require a current session; without one, `current_session`
+    raises `RuntimeError`.  Rendering creates a fresh token in the session;
+    parsing checks the submitted token against the session and consumes it,
+    so a given form can only be submitted once.  A missing or unknown token
+    produces a non-displayed error that `Form._render_error_notice` turns
+    into the "invalid form" notice.
     """
 
     def _parse(self, request: HTTPRequest) -> None:
@@ -147,12 +150,14 @@ class Form(object):
     ) -> None:
         """Create an empty form.
 
-        `method` is "post" or "get".  `action` is the submission URL and
-        defaults to the current query string.  `enctype` must be set to
-        "multipart/form-data" when the form contains a file upload.  When
-        `use_tokens` is true and the method is "post", a `FormTokenWidget` is
-        added automatically if the ``FORM_TOKENS`` config setting is enabled.
-        Remaining keyword arguments become attributes of the ``<form>`` tag.
+        `method` must be "post" or "get".  A falsy `action` defaults to the
+        current query string.  `enctype` must be None,
+        "application/x-www-form-urlencoded", or "multipart/form-data".  Use
+        "multipart/form-data" when the form contains a file upload.  Invalid
+        methods or encodings raise ValueError.  When `use_tokens` is true and
+        the method is "post", a `FormTokenWidget` is added automatically if
+        the ``FORM_TOKENS`` config setting is enabled.  Remaining keyword
+        arguments become attributes of the ``<form>`` tag.
         """
         if method not in ("post", "get"):
             raise ValueError(
@@ -245,12 +250,13 @@ class Form(object):
     # -- Form processing and error checking ----------------------------
 
     def is_submitted(self) -> bool:
-        """Return true if this form was submitted in the current request.
+        """Return true if the current request matches this form's method.
 
-        A "post" form counts as submitted only when the request method is
-        actually POST.  A "get" form counts as submitted whenever the request
-        carries any form data.  Note this does not check for errors -- combine
-        with `has_errors` before acting on the input.
+        Any POST request submits every "post" form on the page; any request
+        with form data submits every "get" form.  Widget names are not
+        checked, so distinguish multiple forms by their fields or submit
+        buttons.  This does not check for errors -- combine with `has_errors`
+        before acting on the input.
         """
         request = current_request()
         if self.method == 'post':
@@ -313,12 +319,14 @@ class Form(object):
                 return False
 
     def set_error(self, name: str, error: str | None) -> None:
-        """Set an error message on the named widget.
+        """Set or clear an error message on the named widget.
 
         Use this for validation that cannot be expressed on the widget itself,
-        e.g. checking one field against another.  A widget with an error is
-        rendered with its message and makes `has_errors` return true.  Raises
-        KeyError if there is no widget named `name`.
+        e.g. checking one field against another.  For widgets that can hold
+        errors, pass None to clear the error.  A submitted form with a widget
+        error makes `has_errors` return true.  Raises KeyError if there is no
+        widget named `name`; setting a non-None error on a `HiddenWidget`
+        raises TypeError.
         """
         widget = self._names.get(name)
         if not widget:
@@ -336,12 +344,14 @@ class Form(object):
     ) -> None:
         """Add a widget of `widget_class` to the form under `name`.
 
-        `name` must be unique within the form and becomes the widget's HTML
-        name and default ``id``.  Extra positional and keyword arguments are
-        passed to the widget constructor (``value``, ``title``, ``hint``,
-        ``required``, ``options``, and so on).  The convenience ``add_*``
-        methods wrap this for the common widget types.  Raises ValueError if
-        `name` is already in use.
+        `name` must be unique within the form and is passed as the top-level
+        widget name and, unless ``id`` is supplied, as the default ``id``.
+        Concrete widgets may transform child control names or ignore the id.
+        Extra positional and keyword arguments are passed to the widget
+        constructor (``value``, ``title``, ``hint``, ``required``,
+        ``options``, and so on).  The convenience ``add_*`` methods wrap this
+        for the common widget types.  Raises ValueError if `name` is already
+        in use.
         """
         if name in self._names:
             raise ValueError("form already has '%s' widget" % name)
@@ -384,7 +394,11 @@ class Form(object):
         value: object | None = None,
         **kwargs: Any,
     ) -> None:
-        """Add a hidden field carrying `value` through the round-trip."""
+        """Add a hidden field initialized to `value`.
+
+        The value is serialized into HTML.  On submission, the parsed value
+        comes from the request as an untrusted string or None.
+        """
         self.add(HiddenWidget, name, value, **kwargs)
 
     def add_string(
@@ -431,7 +445,7 @@ class Form(object):
     ) -> None:
         """Add a single-selection dropdown (`SingleSelectWidget`).
 
-        Pass ``options=`` to supply the choices.
+        Requires a non-empty ``options=`` sequence of choices.
         """
         self.add(SingleSelectWidget, name, value, **kwargs)
 
@@ -443,7 +457,7 @@ class Form(object):
     ) -> None:
         """Add a multiple-selection list (`MultipleSelectWidget`).
 
-        Pass ``options=`` to supply the choices.
+        Requires a non-empty ``options=`` sequence of choices.
         """
         self.add(MultipleSelectWidget, name, value, **kwargs)
 
@@ -455,7 +469,7 @@ class Form(object):
     ) -> None:
         """Add a radio-button group (`RadiobuttonsWidget`).
 
-        Pass ``options=`` to supply the choices.
+        Requires a non-empty ``options=`` sequence of choices.
         """
         self.add(RadiobuttonsWidget, name, value, **kwargs)
 

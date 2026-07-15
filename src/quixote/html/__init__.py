@@ -84,10 +84,13 @@ def htmltag(
     """Build an HTML start tag with escaped attribute values.
 
     Each keyword argument becomes an attribute; its value is escaped with
-    `htmlescape`, so plain-str values are safe to pass directly.  An attribute
-    whose value is None is omitted.  Pass ``css_class`` for the ``class``
-    attribute (a reserved word in Python), or use ``**{'class': ...}``.
-    Set ``xml_end=True`` to emit a self-closing tag (``<br />``) instead of an
+    `htmlescape`, so plain-str values cannot break double-quoted attribute
+    syntax.  This does not validate URL schemes, JavaScript, CSS, or other
+    attribute-specific meanings.  An attribute whose value is None is omitted.
+    An attribute whose value is `ValuelessAttr` is emitted as
+    ``name="name"``.  Pass ``css_class`` for the ``class`` attribute (a
+    reserved word in Python), or use ``**{'class': ...}``.  Set
+    ``xml_end=True`` to emit a self-closing tag (``<br />``) instead of an
     open tag.  Returns `htmltext`.
 
     >>> from quixote.html import htmltag
@@ -121,8 +124,10 @@ def href(
 ) -> htmltext:
     """Build a complete ``<a>`` anchor element.
 
-    `url` becomes the ``href`` and `text` the link body; both are escaped, as
-    are `title` and any extra attributes.  Returns `htmltext`.
+    `url` becomes the ``href`` and is HTML-escaped, but is not URL-quoted or
+    scheme-validated; callers must pass an already valid/quoted URL.  `text`
+    becomes the link body and is HTML-escaped, as are `title` and any extra
+    attributes.  Returns `htmltext`.
 
     >>> from quixote.html import href
     >>> print(href('/a?x=1&y=2', 'go'))
@@ -141,8 +146,10 @@ def href(
 def url_with_query(path: object, **attrs: object) -> htmltext:
     """Build a URL from `path` and a query string of the keyword arguments.
 
-    Both keys and values are URL-quoted, then the ``key=value`` pairs (sorted
-    by key) are joined with ``&`` and appended to `path`.  The result is
+    `path` is URL-quoted first, so pass a bare path; existing ``?``, ``#``,
+    ``=``, and ``&`` characters in it are percent-encoded rather than treated
+    as URL delimiters.  Keys and values are URL-quoted, then the ``key=value``
+    pairs (sorted by key) are joined with ``&`` and appended.  The result is
     `htmltext`, so the ``&`` separators are safe to embed in an attribute.
 
     >>> from quixote.html import url_with_query
@@ -162,9 +169,10 @@ def url_with_query(path: object, **attrs: object) -> htmltext:
 
 
 def nl2br(value: object) -> htmltext:
-    """Escape `value` and insert ``<br />`` tags before newline characters.
+    """Escape `value` and insert ``<br />`` tags before LF characters.
 
-    Returns `htmltext` with the original newlines preserved after each break.
+    Returns `htmltext` with the original LF characters preserved after each
+    break.  Lone CR characters are unchanged.
     """
     text = htmlescape(value)
     return htmltext(text.s.replace('\n', '<br />\n'))
@@ -175,9 +183,9 @@ def url_quote(value: object | None, fallback: str | None = None) -> str:
 
     Returns a plain `str`.  If `value` is None, `fallback` is returned
     unquoted when supplied, otherwise a ValueError is raised.  Note the result
-    is URL-quoted, not HTML-escaped: when placing it in an attribute value,
-    also escape it (for example via `htmltext`/`htmlescape`) so ``&`` in the
-    query string is not read as an entity.
+    is URL-quoted, not HTML-escaped: when placing a URL in an attribute value,
+    HTML-escape it with `htmlescape` or an escaping `htmltext` formatting
+    operation so ``&`` in a query string is not read as an entity.
     """
     if value is None:
         if fallback is None:
@@ -254,11 +262,13 @@ _ETAGO_PAT = re.compile(r'</')
 
 
 def js_escape(s: object) -> htmltext:
-    r"""Escape Javascript code to be embedded in HTML.
+    r"""Escape ETAGO sequences in JavaScript embedded in HTML.
 
-    When embedding Javascript code inside a <script> tag, the ETAGO
+    When embedding JavaScript code inside a <script> tag, the ETAGO
     (i.e. the two character sequence "</") must be escaped to avoid
-    premature ending of the script element.
+    premature ending of the script element.  This function only replaces
+    literal "</" with "<\/"; it is not a general JavaScript string or code
+    escaper and must not be used to interpolate arbitrary data.
 
     >>> from quixote.html import js_escape
     >>> print(js_escape('</script>'))

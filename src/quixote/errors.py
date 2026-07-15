@@ -25,12 +25,13 @@ class PublishError(Exception):
     public_msg should be a user-readable message that reveals no
     inner workings of your application; it will always be shown.
 
-    private_msg will only be shown if the config option DISPLAY_EXCEPTIONS is
-    true; Quixote uses this to give you more detail about why the error
-    occurred.  You might want to use it for similar, application-specific
-    information.  (DISPLAY_EXCEPTIONS should always be false in a production
-    environment, since these details about the inner workings of your
-    application could conceivably be useful to attackers.)
+    private_msg carries developer-facing detail and is stored as given.
+    During normal publishing, Quixote clears it before rendering when
+    DISPLAY_EXCEPTIONS is false.  Direct `format` calls include any
+    private_msg still present, so do not expose formatted errors unless the
+    publisher has applied that policy.  (DISPLAY_EXCEPTIONS should always be
+    false in a production environment, since these details about the inner
+    workings of your application could conceivably be useful to attackers.)
 
     The formatting done by the Quixote versions of these exceptions is
     very simple.  Applications will probably wish to raise application
@@ -54,10 +55,10 @@ class PublishError(Exception):
     ) -> None:
         """Create the error with an optional public and private message.
 
-        public_msg is always shown to the client, so it must not leak
-        internal detail.  private_msg is shown only when the
-        DISPLAY_EXCEPTIONS config option is true, and carries
-        developer-facing detail (it is cleared otherwise).
+        public_msg is shown by the default renderer, so it must not leak
+        internal detail.  private_msg is developer-facing detail stored as
+        given; the publisher clears it before rendering when
+        DISPLAY_EXCEPTIONS is false.
         """
         self.public_msg = public_msg
         self.private_msg = (
@@ -84,9 +85,9 @@ class TraversalError(PublishError):
     """
     Rendered as HTTP 404.  Raised when a client attempts to access a
     resource that does not exist or is otherwise unavailable to them (eg. a
-    name not listed in a directory's _q_exports list).  Application
-    `Directory._q_lookup` and `_q_traverse` overrides raise this for unknown
-    path components.
+    name neither listed in a directory's _q_exports nor dynamically resolved).
+    Application `Directory._q_lookup` and `_q_traverse` overrides raise this
+    for unknown path components.
 
     path should be the path to the requested resource; if not
     supplied, the current request object will be fetched and its
@@ -109,7 +110,8 @@ class TraversalError(PublishError):
     ) -> None:
         """Like `PublishError.__init__`, but also records the requested path.
 
-        path defaults to the current request's path when not given.
+        path defaults to the current request's path when not given, which
+        requires an active request and raises `RuntimeError` otherwise.
         """
         PublishError.__init__(self, public_msg, private_msg)
         if path is None:
@@ -191,7 +193,11 @@ class MethodNotAllowedError(PublishError):
         self.public_msg = self.private_msg = None
 
     def format(self) -> Rendered:
-        """Set the ``Allow`` header and render the list of allowed methods."""
+        """Set the ``Allow`` header and render the allowed methods.
+
+        Requires an active request; otherwise `current_response` raises
+        `RuntimeError`.
+        """
         import quixote
 
         allowed_methods = ', '.join(self.allowed_methods)
@@ -272,8 +278,8 @@ def format_publish_error(exc: PublishError) -> Rendered:
     """Render a `PublishError` as a complete error page.
 
     Combines the exception's title, description, and `format` output.  This
-    is the default renderer the publisher uses; applications can wrap or
-    replace it to give error pages a consistent look.
+    is the default used by `Publisher.format_publish_error`; applications
+    should override that method to customize error pages.
     """
     return format_error_page(
         title='Error: %s' % exc.title,
