@@ -65,6 +65,12 @@ def run(
     max_children: int = 5,
     session_affinity: bool = False,
 ) -> None:
+    """Run an SCGI server that publishes a Quixote application.
+
+    `create_publisher` is a zero-argument factory returning a `Publisher`.
+    The server listens on `host`/`port` for SCGI requests (typically from a
+    front-end web server) and forks up to `max_children` worker processes.
+    """
     def create_handler(parent_fd: int) -> QuixoteHandler:
         return QuixoteHandler(parent_fd, create_publisher, script_name)
 

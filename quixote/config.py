@@ -183,6 +183,13 @@ class Config:
     mail_debug_addr: str | None
 
     def __init__(self, **kwargs: object) -> None:
+        """Build a config seeded with the module defaults.
+
+        Every keyword overrides one configuration variable and must name a
+        known lowercase attribute (see `config_vars`); an unknown name raises
+        `ValueError`.  Variables not passed keep the default value defined at
+        the top of this module.
+        """
         self.set_from_dict(globals())  # set defaults
         for name, value in kwargs.items():
             if name not in self.config_vars:
@@ -190,6 +197,14 @@ class Config:
             setattr(self, name, value)
 
     def set_from_dict(self, config_vars: Mapping[str, object]) -> None:
+        """Apply the UPPERCASE entries of `config_vars` to this instance.
+
+        Only keys that are all-uppercase are considered; each is lowercased to
+        form the attribute name (e.g. ``ERROR_LOG`` sets `error_log`), so a
+        module namespace can be passed straight in.  Non-uppercase keys are
+        ignored; an uppercase key with no matching variable raises
+        `ValueError`.
+        """
         for name, value in config_vars.items():
             if name.isupper():
                 name = name.lower()

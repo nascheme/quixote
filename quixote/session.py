@@ -85,8 +85,16 @@ class SessionStore:
 
 
 class BaseSessionManager:
-    """This base class contains the essential methods that a Quixote
-    session manager must implement.
+    """Base class for session managers, one per Quixote process.
+
+    A session manager creates sessions, loads and stores them, and reads and
+    writes the session cookie.  The publisher drives it through three hooks
+    called on every request -- `start_request`, `finish_successful_request`,
+    and `finish_failed_request`.  Applications that need persistence subclass
+    this (or `SessionManager`) and plug in a `SessionStore`; the default
+    setup keeps sessions in memory only.  This base class supplies the
+    machinery those hooks rely on (`get_session`, `maintain_session`, cookie
+    handling); a minimal manager need only implement the three hooks.
     """
 
     ACCESS_TIME_RESOLUTION = 1
@@ -100,6 +108,13 @@ class BaseSessionManager:
         session_class: type[Session] | None = None,
         session_store: SessionStore | None = None,
     ) -> None:
+        """Create a session manager.
+
+        `session_class` is instantiated by `new_session` to create sessions
+        (defaults to `Session`); pass an application subclass to store custom
+        state.  `session_store` supplies persistence (defaults to a
+        non-persistent, in-memory store).
+        """
         self.session_class = session_class or Session
         if session_store is not None:
             self.store = session_store
@@ -151,10 +166,9 @@ class BaseSessionManager:
         session_id: str | None,
         default: _T | None = None,
     ) -> Session | _T | None:
-        """(session_id) -> Session|None
+        """Return the session identified by `session_id`.
 
-        Return the session object identified by 'session_id'.  Return None if
-        there is no such session.
+        Returns `default` (None by default) if there is no such session.
         """
         session = self.store.load_session(session_id)
         if session is None:
@@ -301,6 +315,12 @@ class BaseSessionManager:
         session_id: str,
         **attrs: object | None,
     ) -> str:
+        """Set the session cookie in the response to `session_id`.
+
+        Extra keyword attributes are passed through to the cookie (e.g.
+        ``max_age``).  Returns the cookie name.  Uses the ``session_cookie_*``
+        configuration for name, path, domain, secure, and httponly.
+        """
         return set_session_cookie(session_id, **attrs)
 
     def revoke_session_cookie(self) -> None:
@@ -388,13 +408,12 @@ class SessionManager(BaseSessionManager):
         session_class: type[Session] | None = None,
         session_mapping: MutableMapping[str, Session] | None = None,
     ) -> None:
-        """(session_class : class = Session, session_mapping : mapping = None)
+        """Create a session manager backed by a dict of sessions.
 
-        Create a new session manager.  There should be one session
-        manager per publisher, ie. one per process
-
-        session_class is used by the new_session() method -- it returns
-        an instance of session_class.
+        There is one session manager per publisher (one per process).
+        `session_class` is instantiated by `new_session` (defaults to
+        `Session`).  `session_mapping` supplies the backing mapping; the
+        default is a plain in-memory dict, so sessions are lost on shutdown.
         """
         BaseSessionManager.__init__(self, session_class=session_class)
         self.sessions = {}
@@ -417,10 +436,9 @@ class SessionManager(BaseSessionManager):
         session_id: str | None,
         default: _T | None = None,
     ) -> Session | _T | None:
-        """(session_id : string, default : any = None) -> Session
+        """Return the session identified by `session_id`.
 
-        Return the session object identified by 'session_id', or None if
-        no such session.
+        Returns `default` (None by default) if there is no such session.
         """
         if session_id is None:
             return default
@@ -475,6 +493,7 @@ class SessionManager(BaseSessionManager):
         return self.sessions[session_id]
 
     def has_session(self, session_id: str) -> bool:
+        """Return true if a session with `session_id` exists."""
         return session_id in self.sessions
 
     def keys(self) -> list[str]:
@@ -535,10 +554,17 @@ class SessionManager(BaseSessionManager):
 
 
 class Session:
-    """
-    Holds information about the current session.  The only information
-    that is likely to be useful to applications is the 'user' attribute,
-    which applications can use as they please.
+    """Per-user state that persists across requests within one session.
+
+    A session is notionally a (user, host, browser) triple.  Obtain the
+    current one with `quixote.get_session()`; the session manager creates
+    it on demand and drops a session cookie once it holds useful data.
+    Applications commonly subclass `Session` to add their own attributes
+    (and override `has_info` / `is_dirty` so the extra state is persisted).
+
+    The only built-in application-facing state is the `user` attribute (set
+    it via `set_user`).  This class also provides the anti-CSRF token helpers
+    `get_csrf_token` and `valid_csrf_token`.
 
     Instance attributes:
       id : string
@@ -579,6 +605,12 @@ class Session:
     _csrf_token: str | None
 
     def __init__(self, id: str | None) -> None:
+        """Create a session with the given id (None until first saved).
+
+        Called by the session manager, not by applications.  Records the
+        requester's remote address and creation time.  A subclass that adds
+        state should call ``super().__init__(id)`` first.
+        """
         self.id = id
         self.user = None
         self._remote_address = get_request().get_environ("REMOTE_ADDR")
@@ -624,6 +656,11 @@ class Session:
         header: bool = True,
         deep: bool = True,
     ) -> None:
+        """Write a human-readable summary of the session for debugging.
+
+        Writes to `file` (default stdout): the id, user, remote address,
+        creation/access times, and outstanding form tokens.
+        """
         if file is None:
             file = sys.stdout
         time_fmt = "%Y-%m-%d %H:%M:%S"
@@ -649,9 +686,16 @@ class Session:
     # -- Simple accessors and modifiers --------------------------------
 
     def set_user(self, user: object | None) -> None:
+        """Set the object identifying the session's user.
+
+        The value is application-defined (a username, a user id, or a user
+        object).  Override to add type-checking.  Once a session has a user
+        it holds useful info and will be persisted.
+        """
         self.user = user
 
     def get_user(self) -> object | None:
+        """Return the session's user object, or None if not signed in."""
         return self.user
 
     def get_remote_address(self) -> str | None:

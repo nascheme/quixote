@@ -1,6 +1,12 @@
-"""quixote.errors
+"""Exception classes for aborting a request with an error page.
 
-Exception classes used by Quixote
+Raising any `PublishError` subclass during publishing aborts the current
+request: the publisher catches it, sends the exception's `status_code`, and
+renders an error page from its `format` method.  The concrete subclasses map
+to HTTP statuses -- `TraversalError` (404), `QueryError` (400),
+`RequestError` (400), `AccessError` (403), `MethodNotAllowedError` (405) --
+and applications raise them directly.  Subclass `PublishError` for custom
+errors that need their own status code, title, or formatting.
 """
 
 from collections.abc import Sequence
@@ -46,6 +52,13 @@ class PublishError(Exception):
     def __init__(
         self, public_msg: str | None = None, private_msg: str | None = None
     ) -> None:
+        """Create the error with an optional public and private message.
+
+        public_msg is always shown to the client, so it must not leak
+        internal detail.  private_msg is shown only when the
+        DISPLAY_EXCEPTIONS config option is true, and carries
+        developer-facing detail (it is cleared otherwise).
+        """
         self.public_msg = public_msg
         self.private_msg = (
             private_msg  # cleared if DISPLAY_EXCEPTIONS is false
@@ -55,6 +68,10 @@ class PublishError(Exception):
         return self.private_msg or self.public_msg or "???"
 
     def format(self) -> Rendered:
+        """Return the HTML fragment shown in the error page body.
+
+        Override in a subclass to change how the error is presented.
+        """
         msg = htmlescape(self.title)
         if self.public_msg:
             msg = msg + ": " + self.public_msg
@@ -65,9 +82,11 @@ class PublishError(Exception):
 
 class TraversalError(PublishError):
     """
-    Raised when a client attempts to access a resource that does not
-    exist or is otherwise unavailable to them (eg. a Python function
-    not listed in its module's _q_exports list).
+    Rendered as HTTP 404.  Raised when a client attempts to access a
+    resource that does not exist or is otherwise unavailable to them (eg. a
+    name not listed in a directory's _q_exports list).  Application
+    `Directory._q_lookup` and `_q_traverse` overrides raise this for unknown
+    path components.
 
     path should be the path to the requested resource; if not
     supplied, the current request object will be fetched and its
@@ -88,6 +107,10 @@ class TraversalError(PublishError):
         private_msg: str | None = None,
         path: str | None = None,
     ) -> None:
+        """Like `PublishError.__init__`, but also records the requested path.
+
+        path defaults to the current request's path when not given.
+        """
         PublishError.__init__(self, public_msg, private_msg)
         if path is None:
             import quixote
@@ -96,6 +119,7 @@ class TraversalError(PublishError):
         self.path = path
 
     def format(self) -> Rendered:
+        """Include the requested path in the rendered message."""
         msg = htmlescape(self.title) + ": " + self.path
         if self.public_msg:
             msg = msg + ": " + self.public_msg
@@ -106,10 +130,11 @@ class TraversalError(PublishError):
 
 class RequestError(PublishError):
     """
-    Raised when Quixote is unable to parse an HTTP request (or its CGI
-    representation).  This is a lower-level error than QueryError -- it
-    either means that Quixote is not smart enough to handle the request
-    being passed to it, or the user-agent is broken and/or malicious.
+    Rendered as HTTP 400.  Raised when Quixote is unable to parse an HTTP
+    request (or its CGI representation).  This is a lower-level error than
+    QueryError -- it either means that Quixote is not smart enough to handle
+    the request being passed to it, or the user-agent is broken and/or
+    malicious.
     """
 
     status_code = 400
@@ -118,10 +143,10 @@ class RequestError(PublishError):
 
 
 class QueryError(PublishError):
-    """Should be raised if bad data was provided in the query part of a
-    URL or in the content of a POST request.  What constitutes bad data is
-    solely application dependent (eg: letters in a form field when the
-    application expects a number).
+    """Rendered as HTTP 400.  Should be raised if bad data was provided in the
+    query part of a URL or in the content of a POST request.  What constitutes
+    bad data is solely application dependent (eg: letters in a form field when
+    the application expects a number).
     """
 
     status_code = 400
@@ -133,9 +158,9 @@ class QueryError(PublishError):
 
 
 class AccessError(PublishError):
-    """Should be raised if the client does not have access to the
-    requested resource.  Usually applications will raise this error from
-    an _q_access method.
+    """Rendered as HTTP 403.  Should be raised if the client does not have
+    access to the requested resource.  Usually applications will raise this
+    error from an _q_access method or a _q_traverse override.
     """
 
     status_code = 403
@@ -147,6 +172,12 @@ class AccessError(PublishError):
 
 
 class MethodNotAllowedError(PublishError):
+    """Rendered as HTTP 405.  Raised when the request's HTTP method is not
+    permitted for the resource, e.g. a POST to a read-only endpoint.  Raise it
+    with the methods that are allowed; `format` reports them and sets the
+    required ``Allow`` response header.
+    """
+
     status_code = 405
     title = "Method not allowed"
     description = (
@@ -155,10 +186,12 @@ class MethodNotAllowedError(PublishError):
     )
 
     def __init__(self, allowed_methods: Sequence[str]) -> None:
+        """Record the HTTP methods permitted for this resource."""
         self.allowed_methods = allowed_methods
         self.public_msg = self.private_msg = None
 
     def format(self) -> Rendered:
+        """Set the ``Allow`` header and render the list of allowed methods."""
         import quixote
 
         allowed_methods = ', '.join(self.allowed_methods)
@@ -209,6 +242,11 @@ ERROR_BODY = htmltext('''
 def format_error_page(
     title: object, description: object, details: object
 ) -> Rendered:
+    """Render a titled error page with a description and detail paragraph.
+
+    Wraps the body in `format_page`; used to build both PublishError pages
+    and the internal-error page.
+    """
     body = ERROR_BODY % dict(description=description, details=details)
     return format_page(title=title, body=body)
 
@@ -231,9 +269,11 @@ INTERNAL_ERROR_MESSAGE = format_error_page(
 
 
 def format_publish_error(exc: PublishError) -> Rendered:
-    """(exc : PublishError) -> string
+    """Render a `PublishError` as a complete error page.
 
-    Format a PublishError exception as a web page.
+    Combines the exception's title, description, and `format` output.  This
+    is the default renderer the publisher uses; applications can wrap or
+    replace it to give error pages a consistent look.
     """
     return format_error_page(
         title='Error: %s' % exc.title,

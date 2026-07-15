@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""CGI server adapter.
+
+Publishes a Quixote application as a CGI script: one process per request,
+reading from stdin and the CGI environment.  Use `run` from a driver script.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,13 @@ CreatePublisher = Callable[[], Publisher]
 
 
 def run(create_publisher: CreatePublisher) -> None:
+    """Serve a single CGI request and exit.
+
+    `create_publisher` is a zero-argument factory returning a `Publisher`.
+    The request is read from stdin and the CGI environment, and the response
+    is written to stdout; the process handles exactly one request, as the CGI
+    model requires.
+    """
     if sys.platform == "win32":
         # on Windows, stdin and stdout are in text mode by default
         import msvcrt

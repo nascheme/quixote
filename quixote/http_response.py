@@ -97,10 +97,14 @@ _T = TypeVar('_T')
 
 
 class BytesWriter(Protocol):
+    """A sink that server adapters write the encoded response bytes to."""
+
     def write(self, data: bytes) -> object: ...
 
 
 class FlushableBytesWriter(BytesWriter, Protocol):
+    """A `BytesWriter` that can also be flushed, for unbuffered responses."""
+
     def flush(self) -> object: ...
 
 
@@ -109,13 +113,14 @@ def _LOWU32(i: int) -> int:
 
 
 class HTTPResponse:
-    """
-    An object representation of an HTTP response.
+    """An HTTP response: status, headers, cookies, and body.
 
-    The Response type encapsulates all possible responses to HTTP
-    requests.  Responses are normally created by the Quixote publisher
-    or by the HTTPRequest class (every request must have a response,
-    after all).
+    Encapsulates everything sent back for a request.  A response is normally
+    created by the publisher or by `HTTPRequest` (every request has one); the
+    current instance is returned by `quixote.get_response()`.  Applications
+    typically call `set_content_type`, `set_header`, `set_cookie`, and
+    `set_status` on it, and let the publisher supply the body from the
+    traversal result.
 
     Instance attributes:
       content_type : string
@@ -182,8 +187,10 @@ class HTTPResponse:
         content_type: str | None = None,
         charset: str | None = None,
     ) -> None:
-        """
-        Creates a new HTTP response.
+        """Create a response with the given status, body, type, and charset.
+
+        All arguments are optional; the defaults produce an empty ``200 OK``
+        ``text/html`` response whose body the publisher fills in later.
         """
         self.content_type = content_type or self.DEFAULT_CONTENT_TYPE
         self.charset = (
@@ -208,13 +215,12 @@ class HTTPResponse:
         content_type: str,
         charset: str | None = None,
     ) -> None:
-        """(content_type : string, charset : string = None)
+        """Set the response content type to the MIME type `content_type`.
 
-        Set the content type of the response to the MIME type specified by
-        'content_type'.  If 'charset' is not provided and the content_type is
-        text/* then the charset attribute remains unchanged, otherwise the
-        charset attribute is set to None and the charset parameter will not
-        be included as part of the Content-Type header.
+        If `charset` is omitted and `content_type` is ``text/*`` the current
+        charset is kept; otherwise the charset is set to `charset` (or None
+        for non-text types, so no ``charset`` parameter is emitted in the
+        Content-Type header).
         """
         content_type = content_type.lower()
         if charset is not None or not content_type.startswith('text/'):
@@ -222,20 +228,19 @@ class HTTPResponse:
         self.content_type = content_type
 
     def set_charset(self, charset: str | None) -> None:
+        """Set the response character encoding (None to send none)."""
         if not charset:
             self.charset = None
         else:
             self.charset = charset.lower()
 
     def set_status(self, status: int, reason: object | None = None) -> None:
-        """set_status(status : int, reason : string = None)
+        """Set the HTTP status code, and optionally its reason phrase.
 
-        Sets the HTTP status code of the response.  'status' must be an
-        integer in the range 100 .. 599.  'reason' must be a string; if
-        not supplied, the default reason phrase for 'status' will be
-        used.  If 'status' is a non-standard status code, the generic
-        reason phrase for its group of status codes will be used; eg.
-        if status == 493, the reason for status 400 will be used.
+        `status` must be an integer in the range 100 .. 599.  If `reason` is
+        omitted the standard reason phrase for `status` is used; for a
+        non-standard code the generic phrase for its group is used (e.g. for
+        493 the reason for 400 is used).
         """
         if not isinstance(status, int):
             raise TypeError("status must be an integer")
@@ -256,10 +261,11 @@ class HTTPResponse:
         self.reason_phrase = reason_phrase
 
     def set_header(self, name: str, value: str) -> None:
-        """set_header(name : string, value : string)
+        """Set response header `name` to `value`, replacing any previous.
 
-        Sets an HTTP return header "name" with value "value", clearing
-        the previous value set for the header, if one exists.
+        Header names are treated case-insensitively.  Does not apply to the
+        Status or Set-Cookie headers, which are generated separately (use
+        `set_status` and `set_cookie`).
         """
         self.headers[name.lower()] = value
 
@@ -268,11 +274,7 @@ class HTTPResponse:
         name: str,
         default: _T | None = None,
     ) -> str | _T | None:
-        """get_header(name : string, default=None) -> value : string
-
-        Gets an HTTP return header "name".  If none exists then 'default' is
-        returned.
-        """
+        """Return response header `name`, or `default` if it is not set."""
         return self.headers.get(name.lower(), default)
 
     def set_expires(
@@ -282,6 +284,14 @@ class HTTPResponse:
         hours: int = 0,
         days: int = 0,
     ) -> None:
+        """Set how long the response may be cached.
+
+        The lifetime is the sum of `seconds`, `minutes`, `hours`, and `days`,
+        so both ``set_expires(3600)`` and ``set_expires(hours=1)`` mean one
+        hour; this controls the Expires and Cache-Control headers.  Pass
+        ``seconds=None`` to suppress those headers entirely and leave caching
+        to the client.
+        """
         if seconds is None:
             self.cache = None  # don't generate 'Expires' header
         else:
@@ -334,10 +344,12 @@ class HTTPResponse:
         yield co.flush() + crc
 
     def set_body(self, body: object | Stream, compress: bool = False) -> None:
-        """(body : any, compress : bool = False)
+        """Set the response body to `body`.
 
-        Sets the response body equal to the argument 'body'.  If 'compress'
-        is true then the body may be compressed.
+        `body` may be any value (it is stringified and encoded with the
+        response charset), already-encoded ``bytes``, or a `Stream` for
+        incremental output.  If `compress` is true the body may be gzip
+        compressed, unless its content type is one that is already compressed.
         """
         if not isinstance(body, Stream):
             if not isinstance(body, bytes):
@@ -413,7 +425,13 @@ class HTTPResponse:
             self.javascript_code[code_id] = code
 
     def redirect(self, location: str, permanent: bool | int = False) -> str:
-        """Cause a redirection without raising an error"""
+        """Turn this response into a redirect to `location`.
+
+        Sets a 302 status (301 if `permanent`) and the Location header, and
+        returns a short plain-text body.  `location` must be an absolute URL
+        including the server name.  Most code calls `quixote.redirect`
+        instead, which also accepts relative URLs.
+        """
         if not isinstance(location, str):
             raise TypeError("location must be a string (got %r)" % location)
         # Ensure that location is a full URL
@@ -429,15 +447,19 @@ class HTTPResponse:
         return "Your browser should have redirected you to %s" % location
 
     def get_status_code(self) -> int:
+        """Return the HTTP status code (an integer, e.g. 200)."""
         return self.status_code
 
     def get_reason_phrase(self) -> str:
+        """Return the reason phrase accompanying the status code."""
         return self.reason_phrase
 
     def get_content_type(self) -> str:
+        """Return the response media type (without any charset parameter)."""
         return self.content_type
 
     def get_content_length(self) -> int | None:
+        """Return the body length in bytes, or None if it is not yet known."""
         body = self.body
         if body is None:
             return None
@@ -479,9 +501,11 @@ class HTTPResponse:
         return cookie_headers
 
     def generate_headers(self) -> Headers:
-        """generate_headers() -> [(name:string, value:string)]
+        """Return the ``(name, value)`` header pairs to send in the response.
 
-        Generate a list of headers to be returned as part of the response.
+        Fills in computed headers (Date, Content-Type, Content-Length, cache
+        directives, Set-Cookie) as needed.  Called by server adapters, not by
+        applications.
         """
         # Date header
         now = time.time()
@@ -589,6 +613,11 @@ class HTTPResponse:
         yield b'0\r\n\r\n'
 
     def generate_body_chunks(self) -> Iterator[bytes]:
+        """Yield the encoded response body as a sequence of byte chunks.
+
+        Applies chunked transfer encoding when it has been enabled.  Called by
+        server adapters, not by applications.
+        """
         stream = self._generate_encoded_body()
         if self.headers.get('transfer-encoding') == 'chunked':
             return self._generate_transfer_chunked(stream)
@@ -601,16 +630,13 @@ class HTTPResponse:
         include_status: bool = True,
         include_body: bool = True,
     ) -> None:
-        """(output:file, include_status:bool=True, include_body:bool=True)
+        """Write the response headers and (by default) body to `output`.
 
-        Write the HTTP response headers and, by default, body to 'output'.
-        This is not a complete HTTP response, as it doesn't start with a
-        response status line as specified by RFC 2616.  By default, it
-        does start with a "Status" header as described by the CGI spec.
-        It is expected that this response is parsed by the web server and
-        turned into a complete HTTP response. If include_body is False,
-        only the headers are written to 'output'. This is used to support
-        HTTP HEAD requests.
+        This is not a complete HTTP response: it has no RFC 2616 status line,
+        but by default begins with a CGI-style "Status" header for the web
+        server to parse.  Set `include_status` false to omit that header, and
+        `include_body` false to write headers only (for HEAD requests).
+        Called by server adapters, not by applications.
         """
         flusher = (
             cast(FlushableBytesWriter, output)

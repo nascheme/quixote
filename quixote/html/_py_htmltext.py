@@ -32,16 +32,38 @@ def _escape_string(s: object) -> str:
 if TYPE_CHECKING:
 
     def stringify(value: object = '') -> str:
+        """Coerce `value` to a plain `str` (an alias for the builtin ``str``).
+
+        For an `htmltext` argument this returns its underlying markup string.
+        Provided for backwards compatibility and readability; new code can use
+        ``str`` directly.
+        """
         return str(value)
 else:
     stringify = str
 
 
 class htmltext(object):
-    """The htmltext string-like type.
+    """A string-like type marking text that is already safe HTML markup.
 
-    This type serves as a tag signifying that HTML special characters do not
-    need to be escaped using entities.
+    Wrapping a value in `htmltext` asserts that it is trusted markup and must
+    not be escaped again.  Templating (PTL, `TemplateIO`, and the `%`, `+`,
+    `format`, and `join` operations below) escapes plain `str` operands but
+    passes `htmltext` through untouched, so mixing the two produces correct,
+    minimally-escaped output.  Only wrap markup you know is safe; never wrap
+    unescaped user input.  Use `htmlescape` to turn untrusted text into
+    `htmltext`.
+
+    The HTML-special characters escaped in plain-str operands are ``&``,
+    ``<``, ``>``, and ``"``.
+
+    >>> from quixote.html import htmltext
+    >>> htmltext('<b>safe</b>')          # already-safe markup, left as-is
+    <htmltext '<b>safe</b>'>
+    >>> print(htmltext('<b>') + '<i>')   # a plain str operand is escaped
+    <b>&lt;i&gt;
+    >>> print(htmltext('%s') % '<i>')    # %-formatting escapes the argument
+    &lt;i&gt;
     """
 
     __slots__ = ['s']
@@ -87,6 +109,11 @@ class htmltext(object):
             return htmltext(self.s % _wraparg(args))
 
     def format(self, *args: object, **kwargs: object) -> htmltext:
+        """Like ``str.format`` but escape any plain-str arguments.
+
+        The template itself (``self``) is trusted markup; each substituted
+        value is escaped unless it is already `htmltext`.
+        """
         wrapped_args = list(map(_wraparg, args))
         wrapped_kwargs = {
             key: _wraparg(value) for key, value in kwargs.items()
@@ -111,6 +138,13 @@ class htmltext(object):
         return htmltext(self.s * n)
 
     def join(self, items: Iterable[object]) -> htmltext:
+        """Join `items` with this separator, escaping plain-str items.
+
+        Like ``str.join``, but `htmltext` items pass through unescaped while
+        plain `str` items are escaped.  The common idiom
+        ``htmltext('').join(parts)`` concatenates a list of rendered fragments
+        safely.  Items must be `str` or `htmltext`.
+        """
         quoted_items: list[str] = []
         for item in items:
             if isinstance(item, htmltext):
@@ -197,11 +231,16 @@ def _wraparg(arg: object) -> str | int | float | _QuoteWrapper:
 
 
 def htmlescape(s: object) -> htmltext:
-    """htmlescape(s) -> htmltext
+    """Escape untrusted text and return it as `htmltext`.
 
-    Return an 'htmltext' object using the argument.  If the argument is not
-    already a 'htmltext' object then the HTML markup characters \", <, >,
-    and & are first escaped.
+    Coerce `s` to a string and escape the HTML markup characters ``&``,
+    ``<``, ``>``, and ``"``.  An argument that is already `htmltext` is
+    returned unchanged, so calling `htmlescape` twice does not double-escape.
+    This is the safe way to turn user-supplied data into `htmltext`.
+
+    >>> from quixote.html import htmlescape
+    >>> print(htmlescape('a < b & c'))
+    a &lt; b &amp; c
     """
     if isinstance(s, htmltext):
         return s
@@ -216,7 +255,16 @@ def htmlescape(s: object) -> htmltext:
 
 
 class TemplateIO(object):
-    """Collect output for PTL scripts."""
+    """Accumulate output fragments and join them into a single result.
+
+    A `TemplateIO` collects values appended with ``+=`` (or by calling it) and
+    concatenates them on `getvalue`.  It backs the ``@ptl_html`` templating
+    mechanism but can also be used directly to build output imperatively.
+    Pass ``html=True`` for HTML mode, in which each fragment is run through
+    `htmlescape` on `getvalue` so plain-str fragments are escaped and
+    `htmltext` fragments are preserved; the default plain mode simply
+    stringifies each fragment.
+    """
 
     __slots__ = ['html', 'data']
 
@@ -247,6 +295,11 @@ class TemplateIO(object):
         return str(self.getvalue())
 
     def getvalue(self) -> htmltext | str:
+        """Return the accumulated output.
+
+        In HTML mode this is an `htmltext` of the escaped-and-joined
+        fragments; otherwise a plain `str` of the stringified fragments.
+        """
         if self.html:
             return htmltext('').join(map(htmlescape, self.data))
         else:

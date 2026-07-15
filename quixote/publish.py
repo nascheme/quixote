@@ -1,4 +1,17 @@
-"""Logic for publishing modules and objects on the Web."""
+"""The publisher: turning HTTP requests into responses.
+
+The `Publisher` drives every request.  It creates an `HTTPRequest`, hands
+the URL path to the application's root `Directory` for traversal, turns the
+returned page content into an `HTTPResponse`, and handles any `PublishError`
+or unexpected exception along the way.
+
+A process has exactly one `Publisher`, created at startup by a server
+adapter (see `quixote.server`).  Application code rarely touches it
+directly; instead it uses the module-level helpers -- `get_request`,
+`get_response`, `get_session`, `get_user`, `get_field` / `get_param`,
+`get_path`, `get_cookie`, and `redirect` -- which act on the request
+currently being processed.
+"""
 
 from __future__ import annotations
 
@@ -32,34 +45,35 @@ _T = TypeVar('_T')
 
 
 class Publisher:
-    """
-    The core of Quixote and of any Quixote application.  This class is
-    responsible for converting each HTTP request into a traversal of the
-    application's directory tree and, ultimately, a call of a Python
-    function/method/callable object.
+    """Converts each HTTP request into a directory traversal and a response.
 
-    Each invocation of a driver script should have one Publisher
-    instance that lives for as long as the driver script itself.  Eg. if
-    your driver script is plain CGI, each Publisher instance will handle
-    exactly one HTTP request; if you have a FastCGI driver, then each
-    Publisher will handle every HTTP request handed to that driver
-    script process.
+    The `Publisher` is the core of any Quixote application: for each
+    request it walks the application's `Directory` tree to find a callable
+    endpoint, calls it, and packages the result as an `HTTPResponse`.
+
+    A process has exactly one `Publisher`; constructing a second one raises
+    `RuntimeError`.  A server adapter creates it at startup and calls
+    `process` (or `process_request`) per request.  Retrieve it anywhere with
+    `get_publisher`.
+
+    Applications commonly subclass `Publisher` to override request-lifecycle
+    hooks -- `start_request`, `parse_request`, `try_publish`,
+    `filter_output`, `format_publish_error`, `finish_successful_request` --
+    and pass the subclass to their server adapter.
 
     Instance attributes:
       root_directory : Directory
-        the root directory that will be searched for objects to fulfill
-        each request.  This can be any object with a _q_traverse method
-        that acts like Directory._q_traverse.
+        the root searched to fulfill each request; any object with a
+        `_q_traverse` method that behaves like `Directory._q_traverse`.
       logger : DefaultLogger
-        controls access log and error log behavior
-      session_manager : NullSessionManager
-         keeps track of sessions
+        controls access-log and error-log behaviour.
+      session_manager : BaseSessionManager
+        keeps track of sessions (a `NullSessionManager` if none is supplied).
       config : Config
-        holds all configuration info for this application.  If the
-        application doesn't provide values then default values
-        from the quixote.config module are used.
-      _request : HTTPRequest
-        the HTTP request currently being processed.
+        all configuration for this application; unset values fall back to the
+        defaults in `quixote.config`.
+      _request : HTTPRequest | None
+        the request currently being processed, or None between requests.
     """
 
     is_thread_safe: bool = False
@@ -78,6 +92,17 @@ class Publisher:
         config: Config | None = None,
         **kwargs: object,
     ) -> None:
+        """Create the process's single Publisher.
+
+        `root_directory` is the top of the application's `Directory` tree and
+        must have a `_q_traverse` method (else `TypeError`).  If `logger` or
+        `session_manager` are omitted, a `DefaultLogger` and a
+        `NullSessionManager` are used.  Configuration comes either from a
+        `Config` passed as `config` or from keyword arguments used to build
+        one -- supplying both raises `ValueError`.  Constructing a second
+        Publisher in the same process raises `RuntimeError`; call `cleanup`
+        first to release the existing one.
+        """
         global _publisher
         if config is None:
             self.config = Config(**kwargs)
@@ -122,9 +147,11 @@ class Publisher:
         self,
         session_manager: BaseSessionManager,
     ) -> None:
+        """Replace the session manager after construction."""
         self.session_manager = session_manager
 
     def log(self, msg: str) -> None:
+        """Write `msg` to the application's error log via the logger."""
         self.logger.log(msg)
 
     def parse_request(self, request: HTTPRequest) -> None:
@@ -144,7 +171,11 @@ class Publisher:
         self._request = None
 
     def get_request(self) -> HTTPRequest:
-        """Return the current request object."""
+        """Return the request currently being processed.
+
+        Raises `RuntimeError` if called outside a request (between requests
+        `_request` is None).
+        """
         request = self._request
         if request is None:
             raise RuntimeError('no active request')
@@ -155,6 +186,11 @@ class Publisher:
         self.session_manager.finish_successful_request()
 
     def format_publish_error(self, exc: PublishError) -> Rendered:
+        """Render an interrupted request's `PublishError` into page content.
+
+        Override to customise error pages (branding, logging, content type).
+        The default defers to `quixote.errors.format_publish_error`.
+        """
         return format_publish_error(exc)
 
     def finish_interrupted_request(self, exc: PublishError) -> Rendered:
@@ -330,14 +366,24 @@ def _require_publisher() -> Publisher:
 
 
 def get_publisher() -> Publisher:
+    """Return the process's `Publisher`, or raise `RuntimeError` if none.
+
+    There is no active publisher until a server adapter constructs one.
+    """
     return _require_publisher()
 
 
 def get_request() -> HTTPRequest:
+    """Return the `HTTPRequest` currently being processed.
+
+    Raises `RuntimeError` if there is no active publisher or request, so it is
+    only valid to call while handling a request.
+    """
     return _require_publisher().get_request()
 
 
 def get_response() -> HTTPResponse:
+    """Return the `HTTPResponse` for the request currently being processed."""
     return get_request().response
 
 
@@ -345,9 +391,11 @@ def get_field(
     name: str,
     default: _T | None = None,
 ) -> FieldValue | _T | None:
-    """Return the query parameter or form field named 'name'.  If
-    it doesn't exist then return 'default'.  If a query parameter
-    is appears multiple times, a list of values is returned.
+    """Return the query parameter or form field named `name`.
+
+    Returns `default` if it is not present.  If the parameter appears more
+    than once, the full list of values is returned; use `get_param` instead
+    to get a single value.
     """
     return get_request().get_field(name, default)
 
@@ -356,9 +404,11 @@ def get_param(
     name: str,
     default: _T | None = None,
 ) -> FieldItem | _T | None:
-    """Return the query parameter or form field named 'name'.  If
-    it doesn't exist then return 'default'.  If a query parameter
-    is appears multiple times, return the last value specified.
+    """Return a single value for the query parameter or form field `name`.
+
+    Returns `default` if it is not present.  If the parameter appears more
+    than once, the last value is returned; use `get_field` instead to get
+    the whole list.
     """
     value = get_request().get_field(name, default)
     if isinstance(value, list):
@@ -373,22 +423,32 @@ def get_cookie(
     name: str | None,
     default: _T | None = None,
 ) -> str | _T | None:
+    """Return the value of request cookie `name`, or `default` if unset.
+
+    A `name` of None also returns `default`.
+    """
     if name is None:
         return default
     return get_request().get_cookie(name, default)
 
 
 def get_path(n: int = 0) -> str:
+    """Return the request's URL path, dropping the last `n` components.
+
+    ``get_path(0)`` is the full path; ``get_path(1)`` drops the final
+    component, and so on.  See `HTTPRequest.get_path`.
+    """
     return get_request().get_path(n)
 
 
 def redirect(location: object, permanent: bool | int = False) -> str:
-    """(location : string, permanent : boolean = false) -> string
+    """Redirect the current response to `location` and return a fallback page.
 
-    Create a redirection response.  If the location is relative, then it
-    will automatically be made absolute.  The return value is an HTML
-    document indicating the new URL (useful if the client browser does
-    not honor the redirect).
+    A relative `location` is resolved against the current request URL.  Sets
+    the response status to 302, or 301 when `permanent` is true.  The returned
+    string is a small HTML document naming the new URL, shown by clients that
+    do not follow the redirect; typical usage is ``return redirect(...)`` from
+    an exported method.
     """
     request = get_request()
     absolute_location = urllib.parse.urljoin(request.get_url(), str(location))
@@ -396,18 +456,30 @@ def redirect(location: object, permanent: bool | int = False) -> str:
 
 
 def get_session() -> Session | None:
+    """Return the current request's `Session`, or None if there is none.
+
+    Whether a session exists depends on the publisher's session manager; with
+    the default `NullSessionManager` this returns None.
+    """
     from quixote.session import Session
 
     return cast(Session | None, get_request().session)
 
 
 def get_session_manager() -> BaseSessionManager:
+    """Return the active publisher's session manager."""
     from quixote.session import BaseSessionManager
 
     return cast(BaseSessionManager, _require_publisher().session_manager)
 
 
 def get_user() -> object | None:
+    """Return the user object stored on the current session, or None.
+
+    This is whatever the application stored via `Session.set_user`; Quixote
+    itself attaches no meaning to it.  Returns None if there is no session or
+    no user has been set.
+    """
     session = get_session()
     if session is None:
         return None
@@ -416,11 +488,21 @@ def get_user() -> object | None:
 
 
 def get_wsgi_app() -> QWIP:
+    """Return a WSGI application wrapping the active publisher.
+
+    Use this to serve the application from any WSGI server; see
+    `quixote.wsgi`.
+    """
     from quixote.wsgi import QWIP
 
     return QWIP(_require_publisher())
 
 
 def cleanup() -> None:
+    """Discard the process's `Publisher` so a new one can be created.
+
+    Mainly useful in tests and teardown; after this, the `get_*` helpers raise
+    `RuntimeError` until another `Publisher` is constructed.
+    """
     global _publisher
     _publisher = None

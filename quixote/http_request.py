@@ -60,6 +60,11 @@ _T = TypeVar('_T')
 
 
 def get_content_type(environ: Mapping[str, str]) -> str | None:
+    """Return the bare media type from a WSGI/CGI environ, or None.
+
+    Strips any parameters (such as ``; charset=...``) from the
+    ``CONTENT_TYPE`` variable, returning just the media type.
+    """
     ctype = environ.get("CONTENT_TYPE")
     if ctype:
         return ctype.split(";")[0]
@@ -112,9 +117,12 @@ def parse_content_disposition(
 
 
 def parse_query(qs: str, charset: str) -> dict[str, FieldValue]:
-    """(qs: string) -> {key:string, string|[string]}
+    """Parse a URL-encoded query string into a field dictionary.
 
-    Parse a query given as a string argument and return a dictionary.
+    `qs` is decoded using `charset`.  Returns a mapping of field name to
+    value, where a name appearing more than once maps to a list of its
+    values.  Raises `RequestError` if `charset` is unknown or `qs` is not
+    validly encoded.
     """
     fields: dict[str, FieldValue] = {}
     for chunk in qs.split('&'):
@@ -155,29 +163,33 @@ def _add_field_value(
 
 
 class HTTPRequest:
-    """
-    Model a single HTTP request and all associated data: environment
-    variables, form variables, cookies, etc.
+    """A single HTTP request and all its associated data.
 
-    To access environment variables associated with the request, use
-    get_environ(): eg. request.get_environ('SERVER_PORT', 80).
+    Wraps the WSGI/CGI environment, the parsed form variables, and the
+    request cookies.  During request handling the current instance is
+    returned by `quixote.get_request()`; applications rarely construct one
+    directly.
 
-    To access form variables, use get_field(), eg.
-    request.get_field("name").
+    Common accessors: `get_field` (or the `form` attribute) for form and
+    query variables, `get_cookie` for cookies, `get_header` for request
+    headers, `get_environ` for raw CGI environment variables, and `get_url` /
+    `get_path` / `get_server` to inspect the requested URL.
 
-    To access cookies, use get_cookie().
-
-    Various bits and pieces of the requested URL can be accessed with
-    get_url(), get_path(), get_server()
-
-    The HTTPResponse object corresponding to this request is available
-    in the 'response' attribute.  This is rarely needed: eg. to send an
-    error response, you should raise one of the exceptions in errors.py;
-    to send a redirect, you should use the quixote.redirect() function,
-    which lets you specify relative URLs.  However, if you need to tweak
-    the response object in other ways, you can do so via 'response'.
-    Just keep in mind that Quixote discards the original response object
-    when handling an exception.
+    Notable instance attributes:
+      form
+        dict mapping submitted field names to values (see `get_field`).
+      environ
+        the raw WSGI/CGI environment mapping.
+      session
+        the session associated with this request, or None.
+      response
+        the `HTTPResponse` paired with this request.  Rarely touched
+        directly: raise one of the exceptions in `quixote.errors` to send an
+        error response, or call `quixote.redirect` to redirect (both let you
+        avoid manipulating the response).  Note that Quixote discards the
+        original response object when handling an exception.
+      scheme
+        the request scheme, "http" or "https".
     """
 
     DEFAULT_CHARSET = None  # defaults to quixote.DEFAULT_CHARSET
@@ -200,6 +212,13 @@ class HTTPRequest:
         environ: Environ,
         seekable: bool = False,
     ) -> None:
+        """Build a request from its body stream and WSGI/CGI environment.
+
+        `stdin` is the request body stream (may be None when there is no
+        body); `environ` is the WSGI/CGI environment.  Pass ``seekable=True``
+        when `stdin` already supports seeking.  Raises `RequestError` if the
+        Content-Length header is malformed.
+        """
         self.stdin = stdin
         self._stdin = None  # set after stdin is buffered to temp file
         self.body_is_seekable = seekable
@@ -271,6 +290,14 @@ class HTTPRequest:
         self.body_is_seekable = True
 
     def process_inputs(self) -> None:
+        """Parse the query string and request body into the `form` dict.
+
+        Populates `form` from the URL query string and, for
+        ``application/x-www-form-urlencoded`` or ``multipart/form-data``
+        bodies, from the request body (uploaded files become `Upload`
+        objects).  Normally called by the publisher before traversal; safe to
+        call more than once, as the form is rebuilt each time.
+        """
         self.make_body_seekable()
         # In the case of a database conflict, process_inputs() might
         # be called more than once.  In this case, there is no need
@@ -361,13 +388,11 @@ class HTTPRequest:
         name: str,
         default: _T | None = None,
     ) -> str | _T | None:
-        """get_header(name : string, default : string = None) -> string
+        """Return the named request header, or `default` if it is absent.
 
-        Return the named HTTP header, or an optional default argument
-        (or None) if the header is not found.  Note that both original
-        and CGI-ified header names are recognized, e.g. 'Content-Type',
-        'CONTENT_TYPE' and 'HTTP_CONTENT_TYPE' should all return the
-        Content-Type header, if available.
+        Both the original and CGI-ified spellings are accepted, e.g.
+        'Content-Type', 'CONTENT_TYPE', and 'HTTP_CONTENT_TYPE' all return the
+        Content-Type header.
         """
         environ = self.environ
         name = name.replace("-", "_").upper()
@@ -383,9 +408,11 @@ class HTTPRequest:
         cookie_name: str,
         default: _T | None = None,
     ) -> str | _T | None:
+        """Return the value of request cookie `cookie_name`, or `default`."""
         return self.cookies.get(cookie_name, default)
 
     def get_cookies(self) -> Cookies:
+        """Return the dict of all cookies sent with this request."""
         return self.cookies
 
     def get_field(
@@ -393,19 +420,28 @@ class HTTPRequest:
         name: str,
         default: _T | None = None,
     ) -> FieldValue | _T | None:
+        """Return submitted form/query field `name`, or `default`.
+
+        The value is a string, an `Upload` for file fields, or a list when
+        the field was submitted more than once.  Reads from `form`, which is
+        populated by `process_inputs`.
+        """
         return self.form.get(name, default)
 
     def get_fields(self) -> dict[str, FieldValue]:
+        """Return the `form` dict of all submitted fields."""
         return self.form
 
     def get_method(self) -> str:
-        """Returns the HTTP method for this request"""
+        """Return the HTTP request method, e.g. "GET" or "POST"."""
         return self.environ.get('REQUEST_METHOD', 'GET')
 
     def formiter(self) -> ItemsView[str, FieldValue]:
+        """Return an items view over the submitted `form` fields."""
         return self.form.items()
 
     def get_scheme(self) -> str:
+        """Return the request scheme, "http" or "https"."""
         return self.scheme
 
     # The following environment variables are useful for reconstructing
@@ -437,10 +473,10 @@ class HTTPRequest:
             return server_name + ":" + server_port
 
     def get_path(self, n: int = 0) -> str:
-        """get_path(n : int = 0) -> string
+        """Return the path of the current request, chopping off 'n' path
+        components from the right.
 
-        Return the path of the current request, chopping off 'n' path
-        components from the right.  Eg. if the path is "/bar/baz/qux",
+        Eg. if the path is "/bar/baz/qux",
         n=0 would return "/bar/baz/qux" and n=2 would return "/bar".
         Note that the query string, if any, is not included.
 
@@ -475,10 +511,7 @@ class HTTPRequest:
                 assert 0, "Unexpected value for n (%s)" % n
 
     def get_query(self) -> str:
-        """() -> string
-
-        Return the query component of the URL.
-        """
+        """Return the query component of the request URL (after the "?")."""
         return self.environ.get('QUERY_STRING', '')
 
     def get_path_query(self) -> str:
@@ -512,11 +545,10 @@ class HTTPRequest:
         key: str,
         default: _T | None = None,
     ) -> str | _T | None:
-        """get_environ(key : string) -> string
+        """Return CGI environment variable `key`, or `default` if unset.
 
-        Fetch a CGI environment variable from the request environment.
-        See http://hoohoo.ncsa.uiuc.edu/cgi/env.html
-        for the variables specified by the CGI standard.
+        See the CGI specification for the standard variable names, e.g.
+        ``REMOTE_ADDR``, ``SERVER_PORT``, ``PATH_INFO``.
         """
         return self.environ.get(key, default)
 
@@ -569,6 +601,10 @@ class HTTPRequest:
         return found
 
     def dump(self) -> str:
+        """Return a human-readable dump of the form, cookies, and environ.
+
+        Intended for debugging.
+        """
         result: list[str] = []
         row = '%-15s %s'
 
@@ -710,6 +746,11 @@ _COOKIE_RE = re.compile(
 
 
 def parse_cookies(text: str) -> Cookies:
+    """Parse a Cookie request header into a name-to-value dictionary.
+
+    Per-cookie attributes (names beginning with ``$``, such as ``$Path``) are
+    discarded.  This parser is deliberately more liberal than RFC 2109.
+    """
     result: Cookies = {}
     for m in _COOKIE_RE.finditer(text):
         name = m.group('name')
@@ -730,6 +771,7 @@ _SAFE_PAT = re.compile(r'[^\w@&+=., -]')
 
 
 def make_safe_filename(s: str) -> str:
+    """Return `s` with characters unsafe in a filename replaced by ``_``."""
     return _SAFE_PAT.sub('_', s)
 
 
@@ -771,6 +813,12 @@ class Upload:
         content_type: str | None = None,
         charset: str | None = None,
     ) -> None:
+        """Build an upload for `orig_filename` with its type and charset.
+
+        Derives `base_filename` from `orig_filename` by stripping any client
+        path (Windows, Mac, or Unix style) and neutralising unsafe characters.
+        The content is empty until `receive` is called.
+        """
         if orig_filename:
             self.orig_filename = orig_filename
             bspos = orig_filename.rfind("\\")
@@ -794,6 +842,11 @@ class Upload:
         self.fp = None
 
     def receive(self, lines: Iterable[bytes]) -> None:
+        """Store the upload's content, read from `lines`, in a temp file.
+
+        The content is written to a `TemporaryFile` and `fp` is left
+        positioned at the start, ready to read.
+        """
         self.fp = tempfile.TemporaryFile("w+b")
         for line in lines:
             self.fp.write(line)
@@ -811,18 +864,22 @@ class Upload:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
     def read(self, n: int = -1) -> bytes:
+        """Read up to `n` bytes of the upload (all if `n` is negative)."""
         return self._get_fp().read(n)
 
     def readline(self) -> bytes:
+        """Read and return one line from the upload, including the newline."""
         return self._get_fp().readline()
 
     def readlines(self) -> list[bytes]:
+        """Read and return all remaining lines of the upload."""
         return self._get_fp().readlines()
 
     def __iter__(self) -> Iterator[bytes]:
         return iter(self._get_fp())
 
     def close(self) -> None:
+        """Close the underlying temporary file."""
         self._get_fp().close()
 
     def get_size(self) -> int:

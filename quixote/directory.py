@@ -1,4 +1,21 @@
-"""Logic for traversing directory objects and generating output."""
+"""URL-to-object traversal.
+
+Quixote maps a request URL onto Python objects by walking a tree of
+`Directory` instances.  The publisher splits the URL path into components
+(for example ``/sources/42/modify`` becomes ``['sources', '42', 'modify']``)
+and hands them to the root directory's `Directory._q_traverse` method, which
+consumes one component per level until it reaches a callable endpoint.
+
+Applications build this tree by subclassing `Directory`.  Each subclass
+declares which names it is willing to serve in its `Directory._q_exports`
+list and provides methods (or sub-`Directory` instances) for those names.
+See `Directory` for the full protocol.
+
+This module also provides two mix-ins that customise traversal --
+`AccessControlled` (run an access check before descending) and `Resolving`
+(resolve exported names lazily) -- and the `export` / `subdir` decorators,
+an alternative to listing names in `_q_exports` by hand.
+"""
 
 from __future__ import annotations
 
@@ -58,20 +75,55 @@ class DirectoryClass(type):
 
 
 class Directory(object, metaclass=DirectoryClass):
-    """
-    Instance attributes: none
+    """Base class for objects that map URL path components to Python objects.
+
+    An application is a tree of `Directory` instances.  To publish content,
+    subclass `Directory`, list the names you want to serve in `_q_exports`,
+    and provide an attribute (method, sub-directory, or string) for each.
+
+    Name resolution.  For a path component the traversal first calls
+    `_q_translate`; if that returns a name the matching instance attribute is
+    used, otherwise `_q_lookup` is called for dynamic resolution.  The
+    resolved object is then either descended into (if more path components
+    remain and it has its own ``_q_traverse``), called (if it is the final
+    component and callable), or returned as-is.
+
+    Protocol members a subclass typically provides:
+
+    * ``_q_exports`` -- the whitelist of servable names (see below).
+    * ``_q_index`` -- method serving the directory itself, i.e. the trailing
+      ``/`` URL (the empty component ``''`` maps here).  Not defined on the
+      base class; a subclass that appears at a URL endpoint must supply it.
+    * ``_q_lookup(self, component)`` -- resolve names not listed statically in
+      ``_q_exports`` (database ids, filenames, and so on).
+    * ``_q_traverse(self, path)`` -- override to wrap traversal with
+      cross-cutting behaviour (auth, logging, method checks); delegate to
+      ``super()._q_traverse(path)`` for the default walk.
+
+    Exported attributes may be plain methods (returning page content), nested
+    `Directory` instances or properties returning them (traversal continues
+    into them), or strings.  Only names reachable through `_q_exports` or
+    `_q_lookup` are accessible; everything else is hidden from the URL space.
+
+    Instance attributes: none.
     """
 
     # A list containing strings or 2-tuples of strings that map external
-    # names to internal names.  Note that the empty string will be
-    # implicitly mapped to '_q_index'.
+    # names to internal names.  A bare string exports an attribute under its
+    # own name.  A ``(external, internal)`` tuple exports an attribute under a
+    # different URL name, which is needed when the URL component is not a
+    # valid Python identifier, e.g. ``('robots.txt', 'robots_txt')``.  The
+    # empty string is implicitly mapped to the ``_q_index`` method.
     _q_exports: list[ExportItem] = []
 
     def _q_translate(self, component: str, /) -> str | None:
-        """(component : string) -> string | None
+        """Map a URL path component to an exported attribute name.
 
-        Translate a path component into a Python identifier.  Returning
-        None signifies that the component does not exist.
+        Return the instance attribute name that serves `component`, or None
+        if the component is not statically exported (in which case traversal
+        falls back to `_q_lookup`).  The empty component maps to
+        ``'_q_index'``; a tuple entry in `_q_exports` maps its external name
+        to its internal attribute name.
         """
         if component in self._q_exports:
             if component == '':
@@ -86,18 +138,32 @@ class Directory(object, metaclass=DirectoryClass):
             return None
 
     def _q_lookup(self, component: str, /) -> object | None:
-        """(component : string) -> object
+        """Dynamically resolve a path component not listed in `_q_exports`.
 
-        Lookup a path component and return the corresponding object (usually
-        a Directory, a method or a string).  Returning None signals that the
-        component does not exist.
+        Override this to serve names that are not known statically, such as
+        database ids or filenames.  Return the object for `component` (usually
+        a `Directory`, a callable, or a string), or None if it does not exist,
+        which the traversal turns into a `TraversalError`
+        (HTTP 404).  Many overrides instead raise `TraversalError` directly
+        with a descriptive message.  The default implementation resolves
+        nothing.
         """
         return None
 
     def _q_traverse(self, path: list[str], /) -> object:
-        """(path: [string]) -> object
+        """Resolve `path` against this directory and return the result.
 
-        Traverse a path and return the result.
+        `path` is the list of remaining URL components.  This consumes the
+        first component (via `_q_translate` then `_q_lookup`) and then either
+        recurses into the resolved object's ``_q_traverse`` when more
+        components remain, calls it when it is the final component and
+        callable, or returns it directly.  Raises
+        `TraversalError` when a component cannot be resolved or
+        a non-final component is not itself traversable.
+
+        Override to inject behaviour that must run for every request handled
+        below this directory (access control, session setup, method checks),
+        delegating the actual walk to ``super()._q_traverse(path)``.
         """
         assert len(path) > 0
         component = path[0]
@@ -124,6 +190,14 @@ class Directory(object, metaclass=DirectoryClass):
             return obj
 
     def __call__(self) -> object:
+        """Handle a request that ends at the directory with no trailing slash.
+
+        When a directory is the final path component but the URL omits the
+        trailing ``/``, the directory itself is called.  If it has an index
+        (``''`` is in `_q_exports`) and the request carries no form data, this
+        redirects to the slash-terminated URL so relative links resolve
+        correctly; otherwise it raises `TraversalError`.
+        """
         if '' in self._q_exports and not quixote.get_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
@@ -162,6 +236,14 @@ class Resolving(object):
     """
 
     def _q_resolve(self, name: str, /) -> object | None:
+        """Lazily produce the object for exported `name`.
+
+        Called the first time an exported name is traversed but is not yet an
+        instance attribute; the returned object is cached as an attribute for
+        subsequent requests.  Use this to defer constructing expensive
+        sub-directories until they are actually requested.  Return None if the
+        name cannot be resolved.
+        """
         return None
 
     def _q_translate(self, component: str, /) -> str | None:

@@ -1,13 +1,17 @@
-"""quixote.util
+"""Assorted helpers, mainly for serving static files.
 
-Contains various useful functions and classes:
+Static content.  Place one of these in a `Directory` to serve files:
 
-  xmlrpc(request, func) : Processes the body of an XML-RPC request, and calls
-                          'func' with the method name and parameters.
-  StaticFile            : Wraps a file from a filesystem as a
-                          Quixote resource.
-  StaticDirectory       : Wraps a directory containing static files as
-                          a Quixote directory.
+  * `StaticFile` -- serve a single file from the filesystem.
+  * `StaticDirectory` -- serve a whole filesystem tree.
+  * `StaticBundle` -- serve CSS/JS/image assets with content-hash URLs
+    (via `StaticBundle.make_path`) so they can be cached indefinitely.
+  * `FileStream` -- a `Stream` over an open file, for streaming a download
+    without loading it all into memory.
+
+Other helpers include `xmlrpc` (dispatch an XML-RPC request body),
+`get_directory_path` (the current traversal stack, for breadcrumbs),
+`safe_str_cmp` (constant-time compare), and `randbytes`.
 
 StaticFile and StaticDirectory were contributed by Hamish Lawson.
 See doc/static-files.txt for examples of their use.
@@ -99,6 +103,12 @@ def safe_str_cmp(a: str | bytes, b: str | bytes) -> bool:
 
 
 def import_object(name: str) -> object:
+    """Import and return the object named by a dotted `name`.
+
+    `name` is a module path optionally followed by an attribute, e.g.
+    ``'quixote.publish.Publisher'`` or ``'mypackage.mymodule'``.  Used to
+    resolve string references from configuration to the object itself.
+    """
     i = name.rfind('.')
     if i != -1:
         module_name = name[:i]
@@ -114,11 +124,12 @@ def xmlrpc(
     request: HTTPRequest,
     func: Callable[[str, tuple[object, ...]], object],
 ) -> str:
-    """xmlrpc(request:Request, func:callable) : string
+    """Dispatch an XML-RPC request body and return the XML-RPC response.
 
-    Processes the body of an XML-RPC request, and calls 'func' with
-    two arguments, a string containing the method name and a tuple of
-    parameters.
+    Reads the POST body of `request`, decodes the method call, and invokes
+    `func(method_name, params)`.  The return value (or a raised
+    `xmlrpc.client.Fault`, or any other exception) is encoded as an XML-RPC
+    response.  Rejects non-POST requests with a 405.
     """
 
     # Get contents of POST body
@@ -157,12 +168,21 @@ def xmlrpc(
 
 
 class FileStream(Stream):
+    """A response `Stream` that yields an open file in chunks.
+
+    Return one from a controller (optionally wrapped by the response body
+    machinery) to stream a download straight from a file object without
+    reading it fully into memory.  Pass `size` when the length is known so a
+    Content-Length header can be set.
+    """
+
     CHUNK_SIZE = 20000
 
     fp: IO[bytes]
     length: int | None
 
     def __init__(self, fp: IO[bytes], size: int | None = None) -> None:
+        """Wrap the open binary file `fp`, of `size` bytes if known."""
         self.fp = fp
         self.length = size
 
@@ -176,13 +196,17 @@ class FileStream(Stream):
         return chunk
 
     def close(self) -> None:
+        """Close the underlying file object once the stream is exhausted."""
         if hasattr(self.fp, 'close'):
             self.fp.close()
 
 
 class StaticFile:
-    """
-    Wrapper for a static file on the filesystem.
+    """Serve a single file from the filesystem as a Quixote resource.
+
+    Assign an instance to an exported name in a `Directory` (or return one
+    from `_q_lookup`); calling it serves the file, handling Content-Type,
+    optional caching via an Expires header, and If-Modified-Since.
     """
 
     path: FilePath
@@ -199,19 +223,14 @@ class StaticFile:
         encoding: str | None = None,
         cache_time: int | None = None,
     ) -> None:
-        """StaticFile(path:string, follow_symlinks:bool)
+        """Wrap the file at absolute `path`.
 
-        Initialize instance with the absolute path to the file.  If
-        'follow_symlinks' is true, symbolic links will be followed.
-        'mime_type' specifies the MIME type, and 'encoding' the
-        encoding; if omitted, the MIME type will be guessed,
-        defaulting to text/plain.
-
-        Optional cache_time parameter indicates the number of
-        seconds a response is considered to be valid, and will
-        be used to set the Expires header in the response when
-        quixote gets to that part.  If the value is None then
-        the Expires header will not be set.
+        `path` must be absolute (a relative path raises `ValueError`).  If
+        `follow_symlinks` is true, a symlinked path is served rather than
+        rejected.  `mime_type` and `encoding` override the values guessed
+        from the filename (the MIME type defaults to text/plain).
+        `cache_time`, if given, is the number of seconds the response stays
+        valid and sets the Expires header; None leaves Expires unset.
         """
 
         # Check that the supplied path is absolute and (if a symbolic
@@ -229,11 +248,19 @@ class StaticFile:
         self.follow_symlinks = follow_symlinks
 
     def get_data(self) -> bytes:
+        """Read and return the file's raw bytes."""
         with open(self.path, 'rb') as fp:
             data = fp.read()
         return data
 
     def __call__(self) -> StaticResult:
+        """Serve the file as the response body.
+
+        Sets Content-Type and caching headers and returns a `FileStream` for
+        the file, or an empty body with status 304 when the client's
+        If-Modified-Since matches.  Raises `TraversalError` (404) if the path
+        is missing, is not a regular file, or is a disallowed symlink.
+        """
         if not self.follow_symlinks and os.path.islink(self.path):
             raise errors.TraversalError(
                 private_msg="Path %r is a symlink" % self.path
@@ -276,9 +303,12 @@ class StaticFile:
 
 
 class StaticDirectory(Directory):
-    """
-    Wrap a filesystem directory containing static files as a Quixote
-    directory.
+    """Serve a filesystem directory tree as a Quixote `Directory`.
+
+    Each request component names a file (served via `file_class`, a
+    `StaticFile` by default) or a subdirectory (served by another
+    `StaticDirectory`).  Optionally lists directory contents, serves index
+    files, follows symlinks, and caches wrapped files in memory.
     """
 
     _q_exports = ['']
@@ -304,21 +334,16 @@ class StaticDirectory(Directory):
         file_class: type[StaticFile] | None = None,
         index_filenames: Sequence[str] | None = None,
     ) -> None:
-        """(path:string, use_cache:bool, list_directory:bool,
-            follow_symlinks:bool, cache_time:int,
-            file_class=None, index_filenames:[string])
+        """Serve the tree rooted at absolute `path`.
 
-        Initialize instance with the absolute path to the file.
-        If 'use_cache' is true, StaticFile instances will be cached in memory.
-        If 'list_directory' is true, users can request a directory listing.
-        If 'follow_symlinks' is true, symbolic links will be followed.
-
-        Optional parameter cache_time allows setting of Expires header in
-        response object (see note for StaticFile for more detail).
-
-        Optional parameter 'index_filenames' specifies a list of
-        filenames to be used as index files in the directory. First
-        file found searching left to right is returned.
+        `path` must be absolute (a relative path raises `ValueError`).  If
+        `use_cache` is true, wrapped files are cached in memory.  If
+        `list_directory` is true, a request for the directory returns an HTML
+        listing.  If `follow_symlinks` is true, symlinks are followed.
+        `cache_time` sets the Expires header on served files (see
+        `StaticFile`).  `file_class` overrides the wrapper used for files.
+        `index_filenames` names index files to serve for the directory
+        itself, tried left to right.
         """
 
         # Check that the supplied path is absolute
@@ -442,15 +467,23 @@ class MemoryFile:
         encoding: str | None = None,
         cache_time: int | None = None,
     ) -> None:
+        """Hold `data` as a file with the given MIME type and encoding.
+
+        `mime_type` defaults to text/plain and `encoding` to the Quixote
+        default charset.  `cache_time`, if given, sets the Expires header
+        when the file is served.
+        """
         self.data = data
         self.mime_type = mime_type or 'text/plain'
         self.encoding = encoding or quixote.DEFAULT_CHARSET
         self.cache_time = cache_time
 
     def get_data(self) -> bytes:
+        """Return the file's content as UTF-8 encoded bytes."""
         return self.data.encode('utf-8')
 
     def __call__(self) -> str:
+        """Serve the in-memory data as the response body."""
         response = quixote.get_response()
         response.set_content_type(self.mime_type, self.encoding)
         if self.cache_time:
@@ -634,9 +667,10 @@ class StaticBundle(Directory):
 
 
 class Redirector:
-    """
-    A simple class that can be used from inside _q_lookup() to redirect
-    requests.
+    """A traversable object that redirects every request to a fixed URL.
+
+    Return one from `_q_lookup` (or export it) to redirect a URL and all
+    paths beneath it to `location`.
     """
 
     _q_exports: list[str] = []
@@ -645,13 +679,16 @@ class Redirector:
     permanent: bool
 
     def __init__(self, location: str, permanent: bool = False) -> None:
+        """Redirect to `location`; a permanent redirect uses HTTP 301."""
         self.location = location
         self.permanent = permanent
 
     def _q_lookup(self, component: str, /) -> Redirector:
+        """Swallow any further path components, still redirecting."""
         return self
 
     def __call__(self) -> object:
+        """Issue the redirect to `location`."""
         return quixote.redirect(self.location, self.permanent)
 
 

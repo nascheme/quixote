@@ -46,7 +46,11 @@ def merge_attrs(
 
 
 class WidgetValueError(Exception):
-    """May be raised a widget has problems parsing its value."""
+    """Raised by a widget's parse step to reject an invalid value.
+
+    Raise this from a ``_parse`` override to signal bad input; the widget
+    catches it and turns its message into the widget's displayed error.
+    """
 
     msg: object
 
@@ -58,21 +62,35 @@ class WidgetValueError(Exception):
 
 
 class Widget(object):
-    """Abstract base class for web widgets.
+    """Abstract base for form widgets -- one HTML control plus its value.
+
+    A widget owns a form field: its `name`, its current `value`, and any
+    validation `error`.  Its life cycle has two halves.  On the way in,
+    `parse` reads the submitted value out of the request, coerces it to the
+    widget's Python type, and records an error if it is invalid or a required
+    field is missing (parsing happens once and is cached).  On the way out,
+    `render` produces the HTML: title, the control itself (`render_content`,
+    supplied by each concrete subclass), hint, and error message.
+
+    Widgets are usually created through `Form.add` rather than directly.
+    Read attributes directly, but set them through the ``set_*`` methods so
+    parsing state stays consistent.
 
     Instance attributes:
       name : string
+        HTML control name; unique within its form.
       value : any
-      error : string
-      title : string
-      hint : string
+        the widget's value -- the parsed submission, or the initial value.
+      error : string | None
+        validation error message, or None.
+      title : any
+        label shown above the control.
+      hint : any
+        help text shown near the control.
       required : bool
+        if true, an empty submission is flagged as an error.
       attrs : {string: any}
-      _parsed : bool
-      _form : Form
-
-    Feel free to access these directly; to set them, use the 'set_*()'
-    modifier methods.
+        extra attributes for the rendered HTML tag.
     """
 
     REQUIRED_ERROR = 'required'
@@ -123,41 +141,63 @@ class Widget(object):
         return "%s: %s" % (self.__class__.__name__, self.name)
 
     def get_name(self) -> str:
+        """Return the widget's HTML control name."""
         return self.name
 
     def set_value(self, value: object | None) -> None:
+        """Set the widget's value, overriding any submitted value."""
         self.value = value
 
     def set_error(self, error: str | None) -> None:
+        """Set (or clear, with None) the widget's validation error."""
         self.error = error
 
     def get_error(self, request: HTTPRequest | None = None) -> str | None:
+        """Parse the widget and return its error message, or None.
+
+        Triggers parsing (so validation runs) before returning the error.
+        """
         self.parse(request=request)
         return self.error
 
     def has_error(self, request: HTTPRequest | None = None) -> bool:
+        """Return true if the widget has a validation error (parses first)."""
         return bool(self.get_error(request=request))
 
     def clear_error(self, request: HTTPRequest | None = None) -> None:
+        """Parse the widget, then discard any error it produced."""
         self.parse(request=request)
         self.error = None
 
     def set_title(self, title: object) -> None:
+        """Set the label shown above the control."""
         self.title = title
 
     def get_title(self) -> object:
+        """Return the widget's title (label)."""
         return self.title
 
     def set_hint(self, hint: object) -> None:
+        """Set the help text shown near the control."""
         self.hint = hint
 
     def get_hint(self) -> object:
+        """Return the widget's hint (help text)."""
         return self.hint
 
     def is_required(self) -> bool:
+        """Return true if an empty submission is treated as an error."""
         return self.required
 
     def parse(self, request: HTTPRequest | None = None) -> object | None:
+        """Parse the submitted value from the request and return it.
+
+        Reads the raw field, coerces it to the widget's type, and sets an
+        error for an invalid value or a missing required field.  Runs at most
+        once per widget (the result is cached); does nothing and returns the
+        initial value when the form was not submitted.  `request` defaults to
+        the current request.
+        """
         if not self._parsed:
             self._parsed = True
             if request is None:
@@ -192,6 +232,7 @@ class Widget(object):
             self.value = None
 
     def render_title(self, title: object) -> Rendered:
+        """Render the title block, marking required fields with a ``*``."""
         if title:
             if self.required:
                 title = htmlescape(title) + htmltext(
@@ -202,18 +243,26 @@ class Widget(object):
             return ''
 
     def render_hint(self, hint: object) -> Rendered:
+        """Render the hint block, or empty text when there is no hint."""
         if hint:
             return htmltext('<div class="hint">%s</div>') % hint
         else:
             return ''
 
     def render_error(self, error: object) -> Rendered:
+        """Render the error block, or empty text when there is no error."""
         if error:
             return htmltext('<div class="error">%s</div>') % error
         else:
             return ''
 
     def render(self) -> Rendered:
+        """Render the complete widget: title, control, hint, and error.
+
+        Wraps `render_content` (the control itself) with the surrounding
+        title, hint, and error markup.  Subclasses usually override
+        `render_content` rather than this method.
+        """
         r = TemplateIO(html=True)
         classnames = '%s widget' % self.__class__.__name__
         r += htmltext('<div class="%s">') % classnames
@@ -230,6 +279,12 @@ class Widget(object):
         return r.getvalue()
 
     def render_content(self) -> Rendered:
+        """Render just the HTML control for this widget.
+
+        Abstract -- each concrete widget subclass implements this to emit its
+        input, select, textarea, and so on.  `render` wraps the result with
+        the title, hint, and error decoration.
+        """
         raise NotImplementedError
 
 
@@ -540,7 +595,7 @@ class SelectWidget(Widget):
 
 
 class SingleSelectWidget(SelectWidget):
-    """Widget for single selection."""
+    """Dropdown for one choice (``<select>``); value is the chosen option."""
 
     SELECT_TYPE = "single_select"
     MULTIPLE_SELECTION_ERROR = "cannot select multiple values"
@@ -669,10 +724,17 @@ class MultipleSelectWidget(SelectWidget):
 
 
 class ButtonWidget(Widget):
-    """
+    """Base class for button controls (``<input type="button">``).
+
+    The constructor's `value` argument is the button label.  After parsing,
+    the widget's `value` is a boolean: true when this button's name appears in
+    the submission, i.e. when this button was clicked.
+
     Instance attributes:
-      label : string
-      value : boolean
+      label : any
+        the text shown on the button.
+      value : bool
+        true if the button was clicked.
     """
 
     HTML_TYPE = "button"
@@ -713,20 +775,33 @@ class ButtonWidget(Widget):
 
 
 class SubmitWidget(ButtonWidget):
+    """Submit button (``<input type="submit">``).
+
+    Its parsed value is true when this button submitted the form; `Form` uses
+    the submit widgets to answer `Form.get_submit`.
+    """
+
     HTML_TYPE = "submit"
 
 
 class ResetWidget(ButtonWidget):
+    """Reset button (``<input type="reset">``) clearing the form."""
+
     HTML_TYPE = "reset"
 
 
 class HiddenWidget(Widget):
-    """
+    """Hidden field (``<input type="hidden">``) carrying a string value.
+
+    Renders with no title, hint, or error decoration and cannot hold an
+    error.  Used to pass state through a form round-trip.
+
     Instance attributes:
       value : string
     """
 
     def set_error(self, error: str | None) -> None:
+        """Hidden widgets cannot hold an error (raises TypeError)."""
         if error is not None:
             raise TypeError('error not allowed on hidden widgets')
 
@@ -756,8 +831,10 @@ class HiddenWidget(Widget):
 
 
 class NumberWidget(StringWidget):
-    """
-    Instance attributes: none
+    """Abstract text input that parses to a number.
+
+    Subclasses set `TYPE_OBJECT` (``int`` or ``float``) and `TYPE_ERROR` (the
+    message shown for non-numeric input).  See `IntWidget` and `FloatWidget`.
     """
 
     # Parameterize the number type (either float or int) through
@@ -793,7 +870,8 @@ class NumberWidget(StringWidget):
 
 
 class FloatWidget(NumberWidget):
-    """
+    """Text input whose value parses to a ``float`` (error if not numeric).
+
     Instance attributes:
       value : float
     """
@@ -803,7 +881,8 @@ class FloatWidget(NumberWidget):
 
 
 class IntWidget(NumberWidget):
-    """
+    """Text input whose value parses to an ``int`` (error if not an integer).
+
     Instance attributes:
       value : int
     """
@@ -861,10 +940,18 @@ class OptionSelectWidget(SingleSelectWidget):
 
 
 class CompositeWidget(Widget):
-    """
+    """A widget built from named sub-widgets, parsed and rendered together.
+
+    Add children with `add` (as with `Form`); each child's HTML name is
+    prefixed so it stays unique.  Parsing parses all children, and
+    `has_error` is true if the composite or any child has an error.  Reach
+    children with ``widget[name]`` / `get` for values or `get_widget` for the
+    widget objects.  `WidgetList` and `WidgetDict` are variable-length
+    subclasses.
+
     Instance attributes:
       widgets : [Widget]
-      _names : {name:string : Widget}
+        the child widgets, in render order.
     """
 
     widgets: list[Widget]
@@ -888,15 +975,18 @@ class CompositeWidget(Widget):
         return self._names[name].parse()
 
     def get(self, name: str) -> object | None:
+        """Return the parsed value of the named child widget, or None."""
         widget = self._names.get(name)
         if widget:
             return widget.parse()
         return None
 
     def get_widget(self, name: str) -> Widget | None:
+        """Return the named child widget, or None if it does not exist."""
         return self._names.get(name)
 
     def get_widgets(self) -> list[Widget]:
+        """Return the child widgets in render order."""
         return self.widgets
 
     def clear_error(self, request: HTTPRequest | None = None) -> None:
@@ -923,6 +1013,11 @@ class CompositeWidget(Widget):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        """Add a child widget under `name` (name is prefixed to stay unique).
+
+        Same calling convention as `Form.add`.  Raises ValueError if `name` is
+        already used within this composite.
+        """
         if name in self._names:
             raise ValueError('the name %r is already used' % name)
         if self.attrs.get('disabled') and 'disabled' not in kwargs:

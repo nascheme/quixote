@@ -57,13 +57,12 @@ class RFC822Mailbox:
     def __init__(self, mailbox: MailboxTuple, /) -> None: ...
 
     def __init__(self, *args: object) -> None:
-        """RFC822Mailbox(addr_spec : string, name : string)
-           RFC822Mailbox(addr_spec : string)
-           RFC822Mailbox((addr_spec : string, name : string))
-           RFC822Mailbox((addr_spec : string))
+        """Create a mailbox from an address and optional real name.
 
-        Create a new RFC822Mailbox instance.  The variety of call
-        signatures is purely for your convenience.
+        For convenience the address and name may be passed as two positional
+        arguments, as a single ``(addr_spec, real_name)`` tuple, or as just an
+        `addr_spec` (string or 1-tuple) with no name.  Raises `TypeError` for
+        any other number of arguments.
         """
         if len(args) == 1 and type(args[0]) is tuple:
             args = args[0]
@@ -91,6 +90,12 @@ class RFC822Mailbox:
         return "<%s at %x: %s>" % (self.__class__.__name__, id(self), self)
 
     def format(self) -> str:
+        """Return the RFC 822 mailbox string, quoting the real name.
+
+        With a real name this yields ``Real Name <addr@host>`` (the name
+        quoted as the grammar requires); without one it yields the bare
+        address.
+        """
         if self.real_name:
             return email.utils.formataddr((self.real_name, self.addr_spec))
         else:

@@ -1,5 +1,9 @@
-# Inherit activation sockets from systemd, see systemd man page for
-# sd_listen_fds().
+"""Socket-activation support for systemd.
+
+Helpers for inheriting listening sockets passed by systemd via the
+socket-activation protocol; see the systemd sd_listen_fds() man page.
+"""
+
 from __future__ import annotations
 
 import os

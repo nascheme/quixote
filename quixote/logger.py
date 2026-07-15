@@ -46,6 +46,14 @@ class DefaultLogger:
         error_log: str | None = None,
         error_email: str | None = None,
     ) -> None:
+        """Open the log files named by the arguments.
+
+        `access_log` and `error_log` are filenames; a falsy `access_log`
+        disables access logging, and a `None` `error_log` sends errors to
+        stderr.  When `error_email` is set, internal errors are also mailed
+        there.  Opening a logger redirects `sys.stdout` to the error log so
+        that stray prints in application code are captured.
+        """
         if access_log:
             self.access_log = self._open_log(access_log)
         else:
@@ -77,11 +85,12 @@ class DefaultLogger:
         self.error_log.write("[%s] %s%s" % (timestamp, msg, os.linesep))
 
     def log_internal_error(self, error_summary: str, error_msg: str) -> None:
-        """(error_summary: str, error_msg: str)
+        """Log an uncaught application error, and mail it if configured.
 
-        error_summary is a single line summary of the internal error, suitable
-        for an email subject.  error_msg is a multi-line plaintext message
-        describing the error in detail.
+        `error_summary` is a single-line summary suitable for an email
+        subject; `error_msg` is the multi-line plaintext detail (usually a
+        traceback).  The message goes to the error log, and additionally to
+        `error_email` when that is set.
         """
         self.log("exception caught")
         self.error_log.write(error_msg)

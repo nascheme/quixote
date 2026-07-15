@@ -81,7 +81,23 @@ def htmltag(
     css_class: str | None = None,
     **attrs: object,
 ) -> htmltext:
-    """Create a HTML tag."""
+    """Build an HTML start tag with escaped attribute values.
+
+    Each keyword argument becomes an attribute; its value is escaped with
+    `htmlescape`, so plain-str values are safe to pass directly.  An attribute
+    whose value is None is omitted.  Pass ``css_class`` for the ``class``
+    attribute (a reserved word in Python), or use ``**{'class': ...}``.
+    Set ``xml_end=True`` to emit a self-closing tag (``<br />``) instead of an
+    open tag.  Returns `htmltext`.
+
+    >>> from quixote.html import htmltag
+    >>> print(htmltag('br', xml_end=True))
+    <br />
+    >>> print(htmltag('div', css_class='box', id='x'))
+    <div id="x" class="box">
+    >>> print(htmltag('input', type='text', value='a&b'))
+    <input type="text" value="a&amp;b">
+    """
     r = ["<%s" % tag]
     if css_class is not None:
         attrs['class'] = css_class
@@ -103,6 +119,15 @@ def href(
     title: object | None = None,
     **attrs: object,
 ) -> htmltext:
+    """Build a complete ``<a>`` anchor element.
+
+    `url` becomes the ``href`` and `text` the link body; both are escaped, as
+    are `title` and any extra attributes.  Returns `htmltext`.
+
+    >>> from quixote.html import href
+    >>> print(href('/a?x=1&y=2', 'go'))
+    <a href="/a?x=1&amp;y=2">go</a>
+    """
     return (
         htmltag(
             "a",
@@ -114,6 +139,16 @@ def href(
 
 
 def url_with_query(path: object, **attrs: object) -> htmltext:
+    """Build a URL from `path` and a query string of the keyword arguments.
+
+    Both keys and values are URL-quoted, then the ``key=value`` pairs (sorted
+    by key) are joined with ``&`` and appended to `path`.  The result is
+    `htmltext`, so the ``&`` separators are safe to embed in an attribute.
+
+    >>> from quixote.html import url_with_query
+    >>> print(url_with_query('/search', q='a b', p='1'))
+    /search?p=1&amp;q=a%20b
+    """
     result = htmltext(url_quote(path))
     if attrs:
         attrs = dict(sorted(attrs.items()))
@@ -127,21 +162,22 @@ def url_with_query(path: object, **attrs: object) -> htmltext:
 
 
 def nl2br(value: object) -> htmltext:
-    """nl2br(value : any) -> htmltext
+    """Escape `value` and insert ``<br />`` tags before newline characters.
 
-    Insert <br /> tags before newline characters.
+    Returns `htmltext` with the original newlines preserved after each break.
     """
     text = htmlescape(value)
     return htmltext(text.s.replace('\n', '<br />\n'))
 
 
 def url_quote(value: object | None, fallback: str | None = None) -> str:
-    """url_quote(value : any [, fallback : string]) -> string
+    """Quote `value` for safe inclusion in a URL (see ``urllib.parse.quote``).
 
-    Quotes 'value' for use in a URL; see urllib.quote().  If value is None,
-    then the behavior depends on the fallback argument.  If it is not
-    supplied then an error is raised.  Otherwise, the fallback value is
-    returned unquoted.
+    Returns a plain `str`.  If `value` is None, `fallback` is returned
+    unquoted when supplied, otherwise a ValueError is raised.  Note the result
+    is URL-quoted, not HTML-escaped: when placing it in an attribute value,
+    also escape it (for example via `htmltext`/`htmlescape`) so ``&`` in the
+    query string is not read as an entity.
     """
     if value is None:
         if fallback is None:
@@ -218,11 +254,15 @@ _ETAGO_PAT = re.compile(r'</')
 
 
 def js_escape(s: object) -> htmltext:
-    """Escape Javascript code to be embedded in HTML.
+    r"""Escape Javascript code to be embedded in HTML.
 
     When embedding Javascript code inside a <script> tag, the ETAGO
     (i.e. the two character sequence "</") must be escaped to avoid
     premature ending of the script element.
+
+    >>> from quixote.html import js_escape
+    >>> print(js_escape('</script>'))
+    <\/script>
     """
     # assume the sequence occurs inside a string, use backslash escape
     s = stringify(s)
@@ -230,4 +270,5 @@ def js_escape(s: object) -> htmltext:
 
 
 def htmltemplate() -> TemplateIO:
+    """Return a new `TemplateIO` in HTML mode."""
     return TemplateIO(html=True)

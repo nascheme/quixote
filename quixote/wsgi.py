@@ -31,6 +31,12 @@ class QWIP:
     publisher: Publisher
 
     def __init__(self, publisher: Publisher) -> None:
+        """Wrap `publisher` as a WSGI application.
+
+        The resulting object is a WSGI callable that drives `publisher` for
+        each request.  Applications normally obtain one via
+        `quixote.get_wsgi_app()` rather than constructing it directly.
+        """
         self.publisher = publisher
 
     def __call__(
