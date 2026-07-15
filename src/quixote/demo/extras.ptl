@@ -1,5 +1,5 @@
 import os
-from quixote import get_response
+from quixote import current_response
 from quixote.ptl import ptl_html
 from quixote.directory import Directory, Resolving
 from quixote.util import StaticDirectory, StaticBundle
@@ -59,7 +59,7 @@ class ExtraDirectory(Resolving, Directory):
             for i in range(30):
                 yield 'line %d\n' % i
 
-        get_response().set_content_type('text/plain')
+        current_response().set_content_type('text/plain')
         return Stream(gen_content())
 
     import quixote

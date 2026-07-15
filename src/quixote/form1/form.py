@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
-from quixote import get_publisher, get_session, redirect
+from quixote import current_publisher, current_session, get_session, redirect
 from quixote.form1.widget import (
     FormValueError,
     HiddenWidget,
@@ -29,8 +29,7 @@ type WidgetType = str | type[Widget] | WidgetFactory
 
 class FormTokenWidget(HiddenWidget):
     def render(self, request: HTTPRequest) -> Rendered:
-        session = get_session()
-        assert session is not None
+        session = current_session()
         self.value = session.create_form_token()
         return HiddenWidget.render(self, request)
 
@@ -158,7 +157,7 @@ class Form:
         self.title = {}
         self.required = {}
 
-        config = get_publisher().config
+        config = current_publisher().config
         if self.method == "post" and use_tokens and config.form_tokens:
             # unique token for each form, this prevents many cross-site
             # attacks and prevents a form from being submitted twice

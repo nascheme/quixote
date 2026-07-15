@@ -8,7 +8,7 @@ import struct
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from quixote import get_request
+from quixote import current_request
 from quixote.html import TemplateIO, htmlescape, htmltag, htmltext, stringify
 from quixote.http_request import Upload
 
@@ -201,7 +201,7 @@ class Widget(object):
         if not self._parsed:
             self._parsed = True
             if request is None:
-                request = get_request()
+                request = current_request()
             if self._form is not None:
                 # use the form to determine if form data was submitted.  It
                 # is possible that there is a query string, the request method
@@ -918,7 +918,7 @@ class OptionSelectWidget(SingleSelectWidget):
     def parse(self, request: HTTPRequest | None = None) -> object | None:
         if not self._parsed:
             if request is None:
-                request = get_request()
+                request = current_request()
             self._parse(request)
             self._parsed = True
         return self.value

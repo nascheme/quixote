@@ -2,7 +2,7 @@
 class (useful for transitioning existing forms).
 '''
 
-from quixote import get_path, get_request, redirect
+from quixote import current_request, get_path, redirect
 from quixote.form import (
     CheckboxWidget,
     FileWidget,
@@ -79,7 +79,7 @@ class Form(_Form):
 
     def get_action_url(self):
         action_url = url_quote(get_path())
-        query = get_request().get_query()
+        query = current_request().get_query()
         if query:
             action_url += "?" + query
         return action_url

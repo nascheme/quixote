@@ -13,7 +13,7 @@ import types
 import warnings
 from typing import Any
 
-from quixote import errors, get_request, redirect
+from quixote import current_request, errors, redirect
 from quixote.config import Config
 from quixote.directory import Directory
 from quixote.html import htmltext
@@ -66,7 +66,7 @@ class RootDirectory(Directory):
         # Initialize the publisher's namespace_stack
         del self.namespace_stack[:]
 
-        request = get_request()
+        request = current_request()
 
         # Traverse package to a (hopefully-) callable object
         obj = _traverse_url(

@@ -25,11 +25,11 @@ from time import localtime, strftime, time
 from typing import TextIO, TypeVar, cast
 
 from quixote import (
+    current_publisher,
+    current_request,
+    current_response,
     get_cookie,
     get_param,
-    get_publisher,
-    get_request,
-    get_response,
     get_session,
 )
 from quixote.config import Config
@@ -130,14 +130,14 @@ class BaseSessionManager:
         """
         self.store.transaction_start()
         session = self.get_session()
-        get_request().session = session
+        current_request().session = session
         session.start_request()
 
     def finish_successful_request(self) -> None:
         """Called near the end of each successful request.  Not called if
         there were any errors processing the request.
         """
-        session = cast(Session | None, get_session())
+        session = get_session()
         if session is not None:
             self.maintain_session(session)
         self.commit_changes(session)
@@ -146,7 +146,7 @@ class BaseSessionManager:
         """Called near the end of a failed request (i.e. a exception that was
         not a PublisherError was raised.
         """
-        self.abort_changes(cast(Session | None, get_session()))
+        self.abort_changes(get_session())
 
     # Methods used to add/update/delete and find sessions.  For sessions
     # stored in databases, these methods must transfer data to and from
@@ -239,7 +239,7 @@ class BaseSessionManager:
         on the user.  Those are both the responsibility of
         maintain_session(), called at the end of a request.
         """
-        config = get_publisher().config
+        config = current_publisher().config
         id = self._get_session_id(config)
         session = self.get(id)
         if session is None:
@@ -332,7 +332,7 @@ class BaseSessionManager:
         """
         cookie_name = self.set_session_cookie("", max_age=0)
         if get_cookie(cookie_name) is not None:
-            del get_request().cookies[cookie_name]
+            del current_request().cookies[cookie_name]
 
     def expire_session(self) -> None:
         """
@@ -341,7 +341,7 @@ class BaseSessionManager:
         manager and from the current request.
         """
         self.revoke_session_cookie()
-        request = get_request()
+        request = current_request()
         session = cast(Session, request.session)
         try:
             del self[session.id]
@@ -543,7 +543,7 @@ class SessionManager(BaseSessionManager):
         default), we just check for the existence of the session cookie
         and don't inspect its content at all.
         """
-        config = get_publisher().config
+        config = current_publisher().config
         id = get_cookie(config.session_cookie_name)
         if id is None:
             return False
@@ -613,7 +613,7 @@ class Session:
         """
         self.id = id
         self.user = None
-        self._remote_address = get_request().get_environ("REMOTE_ADDR")
+        self._remote_address = current_request().get_environ("REMOTE_ADDR")
         self._creation_time = self._access_time = time()
         self._form_tokens = []  # queue
         self._csrf_token = None
@@ -681,7 +681,7 @@ class Session:
         callable object found by URL traversal.
         """
         if self.user is not None:
-            get_request().environ['REMOTE_USER'] = str(self.user)
+            current_request().environ['REMOTE_USER'] = str(self.user)
 
     # -- Simple accessors and modifiers --------------------------------
 
@@ -786,7 +786,7 @@ class Session:
         'name' is not provided, then CSRF_TOKEN_NAME is used as the
         name.
         """
-        if get_request().get_method() != 'POST':
+        if current_request().get_method() != 'POST':
             return False
         value = get_param(name or CSRF_TOKEN_NAME, None)
         if not isinstance(value, str):
@@ -796,12 +796,12 @@ class Session:
 
 def set_session_cookie(session_id: str, **attrs: object | None) -> str:
     """Create a cookie in the HTTP response for 'session_id'."""
-    config = get_publisher().config
+    config = current_publisher().config
     name = config.session_cookie_name
     if config.session_cookie_path:
         path = config.session_cookie_path
     else:
-        path = cast(str, get_request().get_environ('SCRIPT_NAME', ''))
+        path = cast(str, current_request().get_environ('SCRIPT_NAME', ''))
         if not path.endswith('/'):
             path += '/'
     domain = config.session_cookie_domain
@@ -810,7 +810,7 @@ def set_session_cookie(session_id: str, **attrs: object | None) -> str:
         attrs['secure'] = 1
     if config.session_cookie_httponly:
         attrs['httponly'] = 1
-    get_response().set_cookie(
+    current_response().set_cookie(
         name, session_id, domain=domain, path=path, **attrs
     )
     return name

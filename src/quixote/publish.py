@@ -11,6 +11,13 @@ directly; instead it uses the module-level helpers -- `get_request`,
 `get_response`, `get_session`, `get_user`, `get_field` / `get_param`,
 `get_path`, `get_cookie`, and `redirect` -- which act on the request
 currently being processed.
+
+The `get_*` helpers return None when the thing asked for does not exist
+(no publisher, no active request, no session, no user).  Each has a
+`current_*` counterpart -- `current_publisher`, `current_request`,
+`current_response`, `current_session`, `current_user`,
+`current_session_manager` -- that raises `RuntimeError` instead, for
+call sites that know a request is active.
 """
 
 from __future__ import annotations
@@ -170,16 +177,14 @@ class Publisher:
         """Unset the current request object."""
         self._request = None
 
-    def get_request(self) -> HTTPRequest:
-        """Return the request currently being processed.
+    def get_request(self) -> HTTPRequest | None:
+        """Return the request currently being processed, or None.
 
-        Raises `RuntimeError` if called outside a request (between requests
-        `_request` is None).
+        Between requests there is no active request and None is returned.
+        Use the module-level `current_request` to get a request that is
+        guaranteed to be non-None.
         """
-        request = self._request
-        if request is None:
-            raise RuntimeError('no active request')
-        return request
+        return self._request
 
     def finish_successful_request(self) -> None:
         """Called at the end of a successful request."""
@@ -202,7 +207,7 @@ class Publisher:
         """
         if not self.config.display_exceptions and exc.private_msg:
             exc.private_msg = None  # hide it
-        request = get_request()
+        request = current_request()
         request.response = HTTPResponse(status=exc.status_code)
         output = self.format_publish_error(exc)
         self.session_manager.finish_successful_request()
@@ -216,7 +221,7 @@ class Publisher:
         request.
         """
         # build new response to be safe
-        request = get_request()
+        request = current_request()
         original_response = request.response
         request.response = HTTPResponse()
         # self.log("caught an error (%s), reporting it." %
@@ -358,33 +363,71 @@ class Publisher:
 _publisher: Publisher | None = None
 
 
-def _require_publisher() -> Publisher:
+def get_publisher() -> Publisher | None:
+    """Return the process's `Publisher`, or None if none exists yet.
+
+    There is no publisher until a server adapter constructs one.  Use
+    `current_publisher` to get a publisher that is guaranteed to be
+    non-None.
+    """
+    return _publisher
+
+
+def current_publisher() -> Publisher:
+    """Return the process's `Publisher`, or raise `RuntimeError` if none.
+
+    Like `get_publisher` but never returns None, so it is convenient when
+    a publisher is known to exist (e.g. while handling a request).
+    """
     publisher = _publisher
     if publisher is None:
         raise RuntimeError('no active publisher')
     return publisher
 
 
-def get_publisher() -> Publisher:
-    """Return the process's `Publisher`, or raise `RuntimeError` if none.
+def get_request() -> HTTPRequest | None:
+    """Return the `HTTPRequest` currently being processed, or None.
 
-    There is no active publisher until a server adapter constructs one.
+    None is returned if no request is being processed (e.g. between
+    requests, or in a process with no publisher).  Use `current_request`
+    to get a request that is guaranteed to be non-None.
     """
-    return _require_publisher()
+    if _publisher is None:
+        return None
+    return _publisher.get_request()
 
 
-def get_request() -> HTTPRequest:
+def current_request() -> HTTPRequest:
     """Return the `HTTPRequest` currently being processed.
 
-    Raises `RuntimeError` if there is no active publisher or request, so it is
-    only valid to call while handling a request.
+    Like `get_request` but raises `RuntimeError` instead of returning None,
+    so it is only valid to call while handling a request.
     """
-    return _require_publisher().get_request()
+    request = get_request()
+    if request is None:
+        raise RuntimeError('no active request')
+    return request
 
 
-def get_response() -> HTTPResponse:
-    """Return the `HTTPResponse` for the request currently being processed."""
-    return get_request().response
+def get_response() -> HTTPResponse | None:
+    """Return the `HTTPResponse` for the current request, or None.
+
+    None is returned if no request is being processed.  Use
+    `current_response` to get a response that is guaranteed to be non-None.
+    """
+    request = get_request()
+    if request is None:
+        return None
+    return request.response
+
+
+def current_response() -> HTTPResponse:
+    """Return the `HTTPResponse` for the request currently being processed.
+
+    Like `get_response` but raises `RuntimeError` instead of returning None,
+    so it is only valid to call while handling a request.
+    """
+    return current_request().response
 
 
 def get_field(
@@ -395,9 +438,10 @@ def get_field(
 
     Returns `default` if it is not present.  If the parameter appears more
     than once, the full list of values is returned; use `get_param` instead
-    to get a single value.
+    to get a single value.  Raises `RuntimeError` if there is no active
+    request.
     """
-    return get_request().get_field(name, default)
+    return current_request().get_field(name, default)
 
 
 def get_param(
@@ -408,9 +452,9 @@ def get_param(
 
     Returns `default` if it is not present.  If the parameter appears more
     than once, the last value is returned; use `get_field` instead to get
-    the whole list.
+    the whole list.  Raises `RuntimeError` if there is no active request.
     """
-    value = get_request().get_field(name, default)
+    value = current_request().get_field(name, default)
     if isinstance(value, list):
         if value:
             return value[-1]
@@ -425,20 +469,22 @@ def get_cookie(
 ) -> str | _T | None:
     """Return the value of request cookie `name`, or `default` if unset.
 
-    A `name` of None also returns `default`.
+    A `name` of None also returns `default`.  Raises `RuntimeError` if
+    there is no active request.
     """
     if name is None:
         return default
-    return get_request().get_cookie(name, default)
+    return current_request().get_cookie(name, default)
 
 
 def get_path(n: int = 0) -> str:
     """Return the request's URL path, dropping the last `n` components.
 
     ``get_path(0)`` is the full path; ``get_path(1)`` drops the final
-    component, and so on.  See `HTTPRequest.get_path`.
+    component, and so on.  See `HTTPRequest.get_path`.  Raises
+    `RuntimeError` if there is no active request.
     """
-    return get_request().get_path(n)
+    return current_request().get_path(n)
 
 
 def redirect(location: object, permanent: bool | int = False) -> str:
@@ -448,9 +494,9 @@ def redirect(location: object, permanent: bool | int = False) -> str:
     the response status to 302, or 301 when `permanent` is true.  The returned
     string is a small HTML document naming the new URL, shown by clients that
     do not follow the redirect; typical usage is ``return redirect(...)`` from
-    an exported method.
+    an exported method.  Raises `RuntimeError` if there is no active request.
     """
-    request = get_request()
+    request = current_request()
     absolute_location = urllib.parse.urljoin(request.get_url(), str(location))
     return request.response.redirect(absolute_location, permanent)
 
@@ -459,26 +505,57 @@ def get_session() -> Session | None:
     """Return the current request's `Session`, or None if there is none.
 
     Whether a session exists depends on the publisher's session manager; with
-    the default `NullSessionManager` this returns None.
+    the default `NullSessionManager` this returns None.  None is also
+    returned if there is no active request.
     """
     from quixote.session import Session
 
-    return cast(Session | None, get_request().session)
+    request = get_request()
+    if request is None:
+        return None
+    return cast(Session | None, request.session)
 
 
-def get_session_manager() -> BaseSessionManager:
-    """Return the active publisher's session manager."""
+def current_session() -> Session:
+    """Return the current request's `Session`.
+
+    Like `get_session` but raises `RuntimeError` instead of returning None.
+    Only valid while handling a request, with a session manager that creates
+    sessions (not the default `NullSessionManager`).
+    """
+    session = get_session()
+    if session is None:
+        raise RuntimeError('no session for the active request')
+    return session
+
+
+def get_session_manager() -> BaseSessionManager | None:
+    """Return the publisher's session manager, or None if no publisher."""
     from quixote.session import BaseSessionManager
 
-    return cast(BaseSessionManager, _require_publisher().session_manager)
+    publisher = get_publisher()
+    if publisher is None:
+        return None
+    return cast(BaseSessionManager, publisher.session_manager)
+
+
+def current_session_manager() -> BaseSessionManager:
+    """Return the publisher's session manager.
+
+    Like `get_session_manager` but raises `RuntimeError` instead of
+    returning None when there is no publisher.
+    """
+    from quixote.session import BaseSessionManager
+
+    return cast(BaseSessionManager, current_publisher().session_manager)
 
 
 def get_user() -> object | None:
     """Return the user object stored on the current session, or None.
 
     This is whatever the application stored via `Session.set_user`; Quixote
-    itself attaches no meaning to it.  Returns None if there is no session or
-    no user has been set.
+    itself attaches no meaning to it.  Returns None if there is no active
+    request, no session, or no user has been set.
     """
     session = get_session()
     if session is None:
@@ -487,22 +564,36 @@ def get_user() -> object | None:
         return session.user
 
 
+def current_user() -> object:
+    """Return the user object stored on the current session.
+
+    Like `get_user` but raises `RuntimeError` instead of returning None, so
+    it is only valid while handling a request from a logged-in user (i.e.
+    after the application has called `Session.set_user`).
+    """
+    user = get_user()
+    if user is None:
+        raise RuntimeError('no user set on the active session')
+    return user
+
+
 def get_wsgi_app() -> QWIP:
     """Return a WSGI application wrapping the active publisher.
 
     Use this to serve the application from any WSGI server; see
-    `quixote.wsgi`.
+    `quixote.wsgi`.  Raises `RuntimeError` if there is no publisher.
     """
     from quixote.wsgi import QWIP
 
-    return QWIP(_require_publisher())
+    return QWIP(current_publisher())
 
 
 def cleanup() -> None:
     """Discard the process's `Publisher` so a new one can be created.
 
-    Mainly useful in tests and teardown; after this, the `get_*` helpers raise
-    `RuntimeError` until another `Publisher` is constructed.
+    Mainly useful in tests and teardown; after this, the `get_*` helpers
+    return None and the `current_*` helpers raise `RuntimeError` until
+    another `Publisher` is constructed.
     """
     global _publisher
     _publisher = None

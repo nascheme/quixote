@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from quixote import get_publisher, get_request, get_session
+from quixote import current_publisher, current_request, current_session
 from quixote.form.widget import (
     CheckboxWidget,
     FloatWidget,
@@ -60,8 +60,7 @@ class FormTokenWidget(HiddenWidget):
 
     def _parse(self, request: HTTPRequest) -> None:
         token = request.form.get(self.name)
-        session = get_session()
-        assert session is not None
+        session = current_session()
         if not isinstance(token, str) or not session.has_form_token(token):
             self.error = 'invalid'  # this error does not get displayed
         else:
@@ -71,8 +70,7 @@ class FormTokenWidget(HiddenWidget):
         return ''
 
     def render(self) -> Rendered:
-        session = get_session()
-        assert session is not None
+        session = current_session()
         self.value = session.create_form_token()
         return HiddenWidget.render(self)
 
@@ -182,14 +180,14 @@ class Form(object):
         self.enctype = enctype
 
         if use_tokens and self.method == "post":
-            config = get_publisher().config
+            config = current_publisher().config
             if config.form_tokens:
                 # unique token for each form, this prevents many cross-site
                 # attacks and prevents a form from being submitted twice
                 self.add(FormTokenWidget, self.TOKEN_NAME, value=None)
 
     def _get_default_action(self) -> str:
-        query = get_request().get_query()
+        query = current_request().get_query()
         if query:
             return "?" + query
         else:
@@ -254,7 +252,7 @@ class Form(object):
         carries any form data.  Note this does not check for errors -- combine
         with `has_errors` before acting on the input.
         """
-        request = get_request()
+        request = current_request()
         if self.method == 'post':
             if request.get_method() == 'POST':
                 return True
@@ -270,7 +268,7 @@ class Form(object):
         and reports whether any widget flagged an error.  Returns false when
         the form was not submitted.
         """
-        request = get_request()
+        request = current_request()
         has_errors = False
         if self.is_submitted():
             for widget in self.get_all_widgets():
@@ -282,7 +280,7 @@ class Form(object):
         """Ensure that all components of the form have parsed themselves.
         Clear any errors that might have occured during parsing.
         """
-        request = get_request()
+        request = current_request()
         for widget in self.get_all_widgets():
             widget.clear_error(request)
 
@@ -304,7 +302,7 @@ class Form(object):
         True; if it was not submitted at all, returns False.  Handy for
         dispatching when a form has several submit buttons.
         """
-        request = get_request()
+        request = current_request()
         for button in self.submit_widgets:
             if button.parse(request):
                 return button.name
@@ -509,7 +507,7 @@ class Form(object):
     def _render_finish(self) -> Rendered:
         r = TemplateIO(html=True)
         r += htmltext('</form><br class="quixoteform" />')
-        code = get_request().response.javascript_code
+        code = current_request().response.javascript_code
         if code:
             r += self._render_javascript(code)
         return r.getvalue()

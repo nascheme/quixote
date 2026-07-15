@@ -115,7 +115,7 @@ class TraversalError(PublishError):
         if path is None:
             import quixote
 
-            path = quixote.get_request().get_path()
+            path = quixote.current_request().get_path()
         self.path = path
 
     def format(self) -> Rendered:
@@ -195,7 +195,7 @@ class MethodNotAllowedError(PublishError):
         import quixote
 
         allowed_methods = ', '.join(self.allowed_methods)
-        quixote.get_response().set_header('Allow', allowed_methods)
+        quixote.current_response().set_header('Allow', allowed_methods)
         return 'Allowed methods are: %s' % allowed_methods
 
 

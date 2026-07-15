@@ -21,7 +21,13 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from quixote import get_field, get_session, get_session_manager, get_user
+from quixote import (
+    current_session,
+    current_session_manager,
+    get_field,
+    get_session,
+    get_user,
+)
 from quixote.directory import Directory
 from quixote.html import href, htmltext
 from quixote.publish import Publisher
@@ -72,7 +78,7 @@ class RootDirectory(Directory):
         else:
             content += htmltext('<p>Hello, %s.</p>') % get_user()
             content += htmltext('<p>%s</p>' % href('logout', 'logout'))
-        sessions = sorted([(s.id, s) for s in get_session_manager()])
+        sessions = sorted([(s.id, s) for s in current_session_manager()])
         if sessions:
             content += htmltext(
                 '<table><tr>'
@@ -107,8 +113,7 @@ class RootDirectory(Directory):
     def login(self) -> htmltext:
         content = htmltext('')
         if get_field("name"):
-            session = get_session()
-            assert session is not None
+            session = current_session()
             session.set_user(get_field("name"))  # This is the important part.
             content += (
                 htmltext('<p>Welcome, %s!  Thank you for logging in.</p>')
@@ -131,7 +136,8 @@ class RootDirectory(Directory):
         else:
             content = htmltext('<p>That would be redundant.</p>')
         content += href("..", "start over")
-        get_session_manager().expire_session()  # This is the important part.
+        # This is the important part.
+        current_session_manager().expire_session()
         return format_page("Quixote Session Demo: Logout", content)
 
 

@@ -71,6 +71,7 @@ def run(
     The server listens on `host`/`port` for SCGI requests (typically from a
     front-end web server) and forks up to `max_children` worker processes.
     """
+
     def create_handler(parent_fd: int) -> QuixoteHandler:
         return QuixoteHandler(parent_fd, create_publisher, script_name)
 

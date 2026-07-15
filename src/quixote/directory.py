@@ -198,7 +198,7 @@ class Directory(object, metaclass=DirectoryClass):
         redirects to the slash-terminated URL so relative links resolve
         correctly; otherwise it raises `TraversalError`.
         """
-        if '' in self._q_exports and not quixote.get_request().form:
+        if '' in self._q_exports and not quixote.current_request().form:
             # Fix missing trailing slash.
             path = quixote.get_path()
             if WARN_TRAILING_SLASH:

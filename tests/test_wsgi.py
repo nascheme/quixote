@@ -23,7 +23,7 @@ class Root(Directory):
         return 'hello, world'
 
     def echo(self) -> str:
-        return str(quixote.get_request().get_field('msg', ''))
+        return str(quixote.current_request().get_field('msg', ''))
 
 
 @pytest.fixture

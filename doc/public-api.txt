@@ -23,20 +23,42 @@ plus two module-level names.
 Publish helpers (re-exported from ``quixote.publish``)
 ------------------------------------------------------
 
-``get_request() -> HTTPRequest``
-    The current request object.
+The accessors come in two families.  The ``get_*`` functions return ``None``
+when the thing asked for does not exist (no publisher yet, no request being
+processed, no session, no user).  The ``current_*`` functions return the same
+objects but raise ``RuntimeError`` instead of returning ``None``; use them in
+code that only runs while a request is being handled.
 
-``get_response() -> HTTPResponse``
-    The current response object.
+``get_request() -> HTTPRequest | None``
+    The current request object, or ``None`` outside a request.
+
+``current_request() -> HTTPRequest``
+    The current request object; raises ``RuntimeError`` outside a request.
+
+``get_response() -> HTTPResponse | None``
+    The current response object, or ``None`` outside a request.
+
+``current_response() -> HTTPResponse``
+    The current response object; raises ``RuntimeError`` outside a request.
 
 ``get_session() -> Session | None``
     The current session, or ``None`` when session management is disabled.
 
-``get_publisher() -> Publisher``
-    The active ``Publisher`` instance.
+``current_session() -> Session``
+    The current session; raises ``RuntimeError`` when there is none.
+
+``get_publisher() -> Publisher | None``
+    The ``Publisher`` instance, or ``None`` if none has been created.
+
+``current_publisher() -> Publisher``
+    The ``Publisher`` instance; raises ``RuntimeError`` if none exists.
 
 ``get_user() -> object | None``
     The current session's user object, or ``None``.
+
+``current_user() -> object``
+    The current session's user object; raises ``RuntimeError`` when there
+    is no session or no user has been set.
 
 ``get_param(name, default=None) -> object``
     Thin wrapper over the current request's field accessor.
@@ -55,8 +77,12 @@ Publish helpers (re-exported from ``quixote.publish``)
     and return a short HTML body. The staple of post/redirect/get and auth
     flows.
 
-``get_session_manager() -> BaseSessionManager``
-    The active session manager.
+``get_session_manager() -> BaseSessionManager | None``
+    The active session manager, or ``None`` if there is no publisher.
+
+``current_session_manager() -> BaseSessionManager``
+    The active session manager; raises ``RuntimeError`` if there is no
+    publisher.
 
 ``get_wsgi_app() -> QWIP``
     The WSGI application wrapper for the current publisher.
@@ -655,7 +681,8 @@ Ranked by how central each area is to application code:
    (``_q_exports``, ``_q_index``, ``_q_lookup``, ``_q_traverse``) - the
    traversal core, used everywhere.
 2. Publish helpers (``get_request``, ``get_response``, ``get_session``,
-   ``get_user``, ``get_param``, ``get_path``, ``redirect``).
+   ``get_user``, their raising ``current_*`` counterparts, ``get_param``,
+   ``get_path``, ``redirect``).
 3. ``quixote.html`` primitives (``htmltext``, ``htmltag``, ``href``,
    ``htmlescape``, ``url_with_query``, ``url_quote``, ``js_escape``,
    ``TemplateIO``) and PTL (``ptl_html``, ``ptl_plain``, ``enable_ptl``).

@@ -269,8 +269,8 @@ class StaticFile:
             raise errors.TraversalError(
                 private_msg="Path %r is not a file" % self.path
             )
-        request = quixote.get_request()
-        response = quixote.get_response()
+        request = quixote.current_request()
+        response = quixote.current_response()
 
         if self.cache_time is None:
             response.set_expires(None)  # don't set the Expires header
@@ -484,7 +484,7 @@ class MemoryFile:
 
     def __call__(self) -> str:
         """Serve the in-memory data as the response body."""
-        response = quixote.get_response()
+        response = quixote.current_response()
         response.set_content_type(self.mime_type, self.encoding)
         if self.cache_time:
             response.set_expires(seconds=self.cache_time)
@@ -695,7 +695,7 @@ class Redirector:
 def dump_request(request: HTTPRequest | None = None) -> htmltext:
     """Dump an HTTPRequest object as HTML."""
     if request is None:
-        request = quixote.get_request()
+        request = quixote.current_request()
     row_fmt = htmltext('<tr><th>%s</th><td>%s</td></tr>')
     r = TemplateIO(html=True)
     r += htmltext('<h3>form</h3><table>')

@@ -151,9 +151,7 @@ def static_app(tmp_path: Path) -> Iterator[QWIP]:
         _q_exports = ['static', 'where']
 
         def __init__(self) -> None:
-            self.static = StaticDirectory(
-                str(tmp_path), list_directory=True
-            )
+            self.static = StaticDirectory(str(tmp_path), list_directory=True)
 
         def where(self) -> str:
             path = get_directory_path()

@@ -1,4 +1,5 @@
-"""Tests for the Publisher singleton and the quixote.get_* helpers."""
+"""Tests for the Publisher singleton and the quixote.get_*/current_*
+helpers."""
 
 from collections.abc import Iterator
 from typing import cast
@@ -55,21 +56,50 @@ class TestPublisherLifecycle:
         finally:
             quixote.cleanup()
 
-    def test_get_publisher_without_publisher_raises(self) -> None:
-        with pytest.raises(RuntimeError):
-            quixote.get_publisher()
+    def test_get_helpers_return_none_without_publisher(self) -> None:
+        assert quixote.get_publisher() is None
+        assert quixote.get_request() is None
+        assert quixote.get_response() is None
+        assert quixote.get_session() is None
+        assert quixote.get_user() is None
+        assert quixote.get_session_manager() is None
 
-    def test_get_request_between_requests_raises(
+    def test_current_helpers_raise_without_publisher(self) -> None:
+        with pytest.raises(RuntimeError):
+            quixote.current_publisher()
+        with pytest.raises(RuntimeError):
+            quixote.current_request()
+        with pytest.raises(RuntimeError):
+            quixote.current_response()
+        with pytest.raises(RuntimeError):
+            quixote.current_session()
+        with pytest.raises(RuntimeError):
+            quixote.current_user()
+        with pytest.raises(RuntimeError):
+            quixote.current_session_manager()
+
+    def test_get_request_between_requests_returns_none(
+        self, publisher: Publisher
+    ) -> None:
+        assert quixote.get_request() is None
+        assert quixote.get_response() is None
+        assert publisher.get_request() is None
+
+    def test_current_request_between_requests_raises(
         self, publisher: Publisher
     ) -> None:
         with pytest.raises(RuntimeError):
-            quixote.get_request()
+            quixote.current_request()
+        with pytest.raises(RuntimeError):
+            quixote.current_response()
 
     def test_get_request_returns_the_active_request(
         self, publisher: Publisher
     ) -> None:
         with request_context(publisher) as request:
             assert quixote.get_request() is request
+            assert quixote.current_request() is request
+            assert quixote.current_publisher() is publisher
 
 
 class TestRequestHelpers:
@@ -78,6 +108,7 @@ class TestRequestHelpers:
     ) -> None:
         with request_context(publisher) as request:
             assert quixote.get_response() is request.response
+            assert quixote.current_response() is request.response
 
     def test_get_field_returns_all_values_get_param_the_last(
         self, publisher: Publisher
@@ -119,7 +150,7 @@ class TestRedirect:
     ) -> None:
         with request_context(publisher, path='/foo/bar'):
             body = quixote.redirect('baz')
-            response = quixote.get_response()
+            response = quixote.current_response()
         assert response.get_status_code() == 302
         assert response.get_header('location') == 'http://example.com/foo/baz'
         assert 'http://example.com/foo/baz' in body
@@ -127,7 +158,7 @@ class TestRedirect:
     def test_permanent_redirect_is_301(self, publisher: Publisher) -> None:
         with request_context(publisher, path='/foo/bar'):
             quixote.redirect('http://elsewhere.org/', permanent=True)
-            response = quixote.get_response()
+            response = quixote.current_response()
         assert response.get_status_code() == 301
         assert response.get_header('location') == 'http://elsewhere.org/'
 
@@ -140,11 +171,21 @@ class TestSessionHelpers:
             assert quixote.get_session() is None
             assert quixote.get_user() is None
 
+    def test_current_session_and_user_raise_when_none(
+        self, publisher: Publisher
+    ) -> None:
+        with request_context(publisher):
+            with pytest.raises(RuntimeError):
+                quixote.current_session()
+            with pytest.raises(RuntimeError):
+                quixote.current_user()
+
     def test_get_session_manager_returns_the_publishers_manager(
         self, publisher: Publisher
     ) -> None:
         manager = quixote.get_session_manager()
         assert manager is publisher.session_manager
+        assert quixote.current_session_manager() is manager
 
 
 @pytest.fixture

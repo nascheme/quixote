@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from socketserver import ThreadingMixIn
 from typing import IO, Any, cast
 
-from quixote import get_publisher
+from quixote import current_publisher
 from quixote.http_request import Environ, HTTPRequest
 from quixote.server import simple_server
 
@@ -78,7 +78,7 @@ def _process(
 ) -> tuple[int, str, IO[bytes]]:
     """Process a single request, in background Quixote thread."""
     request = HTTPRequest(rfile, env, seekable=True)
-    response = get_publisher().process_request(request)
+    response = current_publisher().process_request(request)
     status, reason = response.get_status_code(), response.get_reason_phrase()
     # write response body to temporary file, this ensures that write() runs in
     # the correct thread and we are not blocked by slow clients.

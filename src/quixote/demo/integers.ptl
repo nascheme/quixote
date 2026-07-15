@@ -1,5 +1,5 @@
 import sys
-from quixote import get_response, redirect
+from quixote import current_response, redirect
 from quixote.directory import Directory, export
 from quixote.errors import TraversalError
 
@@ -26,7 +26,7 @@ class IntegerUI(Directory):
                 "warning: possible denial-of-service attack "
                 "(request for factorial(%d))\n" % self.n
             )
-        get_response().set_content_type("text/plain")
+        current_response().set_content_type("text/plain")
         return "%d! = %d\n" % (self.n, fact(self.n))
 
     @export(name='')

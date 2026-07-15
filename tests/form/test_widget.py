@@ -229,9 +229,7 @@ class TestRadiobuttonsWidget:
     def test_the_selected_option_is_checked(self) -> None:
         widget = RadiobuttonsWidget('w', value='b', options=['a', 'b'])
         html = str(widget.render_content())
-        checked = [
-            line for line in html.splitlines() if 'checked' in line
-        ]
+        checked = [line for line in html.splitlines() if 'checked' in line]
         assert len(checked) == 1
         assert 'value="b"' in checked[0]
 

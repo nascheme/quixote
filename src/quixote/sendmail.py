@@ -256,7 +256,9 @@ def sendmail(
     if config is None and not mail_server:
         from quixote import get_publisher
 
-        config = get_publisher().config
+        publisher = get_publisher()
+        if publisher is not None:
+            config = publisher.config
 
     if not from_addr and config is not None:
         from_addr = config.mail_from

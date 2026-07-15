@@ -8,6 +8,12 @@ from quixote._version import __version__  # noqa: F401
 # These are frequently needed by Quixote applications.
 from quixote.publish import (  # noqa: F401
     cleanup,
+    current_publisher,
+    current_request,
+    current_response,
+    current_session,
+    current_session_manager,
+    current_user,
     get_cookie,
     get_field,
     get_param,

@@ -100,7 +100,7 @@ class TestRequestContextErrors:
     ) -> None:
         with request_context(publisher):
             text = str(MethodNotAllowedError(['GET', 'POST']).format())
-            response = quixote.get_response()
+            response = quixote.current_response()
         assert text == 'Allowed methods are: GET, POST'
         assert response.get_header('allow') == 'GET, POST'
 

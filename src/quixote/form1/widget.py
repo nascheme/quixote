@@ -8,7 +8,7 @@ import struct
 from collections.abc import Callable, MutableMapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from quixote import get_request
+from quixote import current_request
 from quixote.html import htmlescape, htmltag, htmltext
 from quixote.http_request import FieldValue, Upload
 
@@ -652,7 +652,7 @@ class SubmitButtonWidget(Widget):
         return request.form.get(self.name)
 
     def is_submitted(self) -> object | None:
-        return self.parse(get_request())
+        return self.parse(current_request())
 
 
 class HiddenWidget(Widget):
@@ -674,13 +674,13 @@ class HiddenWidget(Widget):
 
     def set_current_value(self, value: object | None) -> None:
         self.value = value
-        request = get_request()
+        request = current_request()
         if request.form:
             form = cast(MutableMapping[str, FieldValue], request.form)
             form[str(self.name)] = cast(FieldValue, value)
 
     def get_current_value(self) -> object | None:
-        request = get_request()
+        request = current_request()
         if request.form:
             return self.parse(request)
         else:
@@ -773,7 +773,7 @@ class OptionSelectWidget(SingleSelectWidget):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         SingleSelectWidget.__init__(self, *args, **kwargs)
 
-        request = get_request()
+        request = current_request()
         if request.form:
             SingleSelectWidget.parse(self, request)
         if self.value is None:

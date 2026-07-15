@@ -14,7 +14,7 @@ from socketserver import BaseRequestHandler, BaseServer
 from typing import Any, Protocol, cast
 
 import quixote
-from quixote import get_publisher
+from quixote import current_publisher
 from quixote.http_request import Environ
 from quixote.publish import Publisher
 from quixote.util import import_object
@@ -119,7 +119,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         return env
 
     def process(self, env: Environ, include_body: bool = True) -> None:
-        response = get_publisher().process(cast(Any, self.rfile), env)
+        response = current_publisher().process(cast(Any, self.rfile), env)
         if self.protocol_version == 'HTTP/1.1':
             # single threaded server, persistent connections will block others
             response.set_header('connection', 'close')
