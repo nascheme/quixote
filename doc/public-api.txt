@@ -1,0 +1,675 @@
+Quixote Public API Reference
+============================
+
+This document is a module-by-module map of the public API that Quixote
+applications depend on: the classes, methods, and functions you use when
+building and maintaining an application on the framework.
+
+It is a map, not a full specification. For the exact contract of a callable
+(what it returns, what it raises), read its docstring in the source; this
+reference tells you what exists and how the pieces fit together. Symbols are
+grouped by the module that defines them, roughly in order of how central they
+are to everyday application code.
+
+A short priority guide appears at the end.
+
+
+1. Top-level package: ``quixote``
+=================================
+
+``quixote/__init__.py`` re-exports the most commonly needed publish helpers
+plus two module-level names.
+
+Publish helpers (re-exported from ``quixote.publish``)
+------------------------------------------------------
+
+``get_request() -> HTTPRequest``
+    The current request object.
+
+``get_response() -> HTTPResponse``
+    The current response object.
+
+``get_session() -> Session | None``
+    The current session, or ``None`` when session management is disabled.
+
+``get_publisher() -> Publisher``
+    The active ``Publisher`` instance.
+
+``get_user() -> object | None``
+    The current session's user object, or ``None``.
+
+``get_param(name, default=None) -> object``
+    Thin wrapper over the current request's field accessor.
+
+``get_path(n=0) -> str``
+    The request path, optionally trimmed of the last ``n`` components.
+
+``get_field(name, default=None)``
+    A single parsed request field.
+
+``get_cookie(name, default=None)``
+    A cookie value from the current request.
+
+``redirect(location, permanent=False) -> str``
+    Set a redirect (302, or 301 when ``permanent``) on the current response
+    and return a short HTML body. The staple of post/redirect/get and auth
+    flows.
+
+``get_session_manager() -> BaseSessionManager``
+    The active session manager.
+
+``get_wsgi_app() -> QWIP``
+    The WSGI application wrapper for the current publisher.
+
+``cleanup() -> None``
+    Tear down the per-request publisher state.
+
+``get_param`` / ``get_path`` / ``get_field`` / ``get_cookie`` are thin wrappers
+over the current ``HTTPRequest``; ``get_path(n)`` and ``get_field(name,
+default)`` map to the request methods of the same name.
+
+Module-level names
+------------------
+
+``enable_ptl()``
+    Install the PTL import hook so ``.ptl`` files import as modules. Must be
+    called before importing any PTL module (typically once, at package import).
+
+``DEFAULT_CHARSET``
+    ``'utf-8'``; default charset for request, response, logger, and sendmail.
+
+``__version__``
+    Package version string.
+
+
+2. ``quixote.directory`` - request traversal
+=============================================
+
+The central abstraction. URL path segments are resolved by walking a tree of
+``Directory`` instances. Applications subclass ``Directory`` heavily.
+
+class ``Directory``
+-------------------
+
+``_q_exports``
+    Class attribute: the list of names reachable through this directory. The
+    empty string ``''`` maps to ``_q_index``.
+
+``_q_index(self)``
+    The response for the trailing-slash / empty path segment.
+
+``_q_lookup(self, name)``
+    Dynamic child resolution; raise ``TraversalError`` on a miss.
+
+``_q_traverse(self, path)``
+    Full traversal override; the main extension point for cross-cutting
+    concerns (login gating, method checks, per-request setup). Overrides
+    normally delegate to the base implementation via
+    ``Directory._q_traverse(self, path)`` or ``super()._q_traverse(path)``.
+
+``__call__(self)``
+    Invoked when the directory itself is the endpoint of a URL.
+
+``_q_access(self)``
+    Access-control hook, called before traversal proceeds into the directory.
+
+``_q_exports`` formats:
+
+- Plain string list: ``['', 'modify', 'delete']``. The empty string ``''``
+  maps to ``_q_index``.
+- Tuple ``(external_name, attr_name)`` when the URL segment is not a valid
+  Python identifier: ``['', 'toa', ('robots.txt', 'robots_txt')]``,
+  ``['', 'filter', ('m.css', 'm_css')]``.
+- Dynamically computed lists: e.g. ``self._q_exports = [self.content_hash]``,
+  or a module-level constant assigned to ``_q_exports``.
+- It is also read at runtime by application code, e.g.
+  ``if name in self._q_exports: ...``.
+
+Exported members can be:
+
+- plain methods (``download``, ``modify``, ...),
+- ``property``-wrapped sub-directories (``log = property(_get_log_ui)``),
+- class-attribute sub-directory instances (``settings = SettingsDirectory()``).
+
+class ``Resolving``
+-------------------
+
+Mixin that adds resolving behavior; combined as
+``class X(Resolving, Directory)``.
+
+Decorators and metaclass
+------------------------
+
+``export(...)``
+    Decorator marking a method as exported (an alternative to listing it in
+    ``_q_exports``).
+
+``subdir(...)``
+    Decorator marking a sub-directory property.
+
+Also present: ``AccessControlled`` and ``DirectoryClass`` (the metaclass).
+
+
+3. ``quixote.errors`` - publish exceptions
+==========================================
+
+Exception hierarchy rooted at ``PublishError(Exception)``. Raising one aborts
+publishing and renders an error page (via ``format()``).
+
+``PublishError``
+    Base class. ``__init__(self, public_msg=None, ...)``; ``format()`` renders
+    the error page. Subclass it to define custom error responses.
+
+``TraversalError``
+    404; raised from ``_q_lookup`` / ``_q_traverse`` on a missing resource.
+
+``QueryError``
+    400; a bad request or malformed query.
+
+``AccessError``
+    403; access denied.
+
+``RequestError``
+    400; a malformed request.
+
+``MethodNotAllowedError(allowed_methods)``
+    405; adds an ``Allow`` header listing the permitted methods.
+
+``format_publish_error(exc)``
+    Render a ``PublishError`` to a complete error page. Publishers commonly
+    wrap this to customize error handling.
+
+Helper renderers ``format_page(title, body)`` and ``format_error_page(...)``
+back the rendering above.
+
+
+4. ``quixote.html`` - HTML generation
+=====================================
+
+The templating primitives. ``htmltext`` is a ``str`` subclass that is never
+auto-escaped; ``htmlescape`` / ``stringify`` convert untrusted values.
+
+``htmltext(s)``
+    Wrap trusted markup so it is emitted without escaping.
+
+``htmlescape(s) -> htmltext``
+    Escape untrusted text, returning an ``htmltext``.
+
+``stringify(value='')``
+    Coerce any value to ``str``, preserving ``htmltext`` where present.
+
+``htmltag(tag, xml_end=False, css_class=None, **attrs)``
+    Build a start tag (or a self-closing tag when ``xml_end``). Pass reserved
+    words via ``**{'class': ...}``.
+
+``href(url, text, ...)``
+    Build an ``<a>`` anchor.
+
+``url_with_query(path, **params) -> htmltext``
+    Build a URL with an encoded query string.
+
+``url_quote(value, fallback=None)``
+    Percent-quote a value for use in a URL.
+
+``js_escape(s)``
+    Escape a string for use inside a ``<script>`` context.
+
+``TemplateIO(html=True)``
+    Output accumulator; ``.getvalue()`` returns the joined result.
+
+``nl2br(value)``
+    Convert newlines to ``<br>``.
+
+class ``htmltext`` methods
+--------------------------
+
+``htmltext`` supports escaping-aware versions of common ``str`` methods for use
+inside templates: ``.join(items)``, ``.format(*args, **kwargs)``,
+``.replace(...)``, ``.startswith``, ``.endswith``, ``.lower``, ``.upper``,
+``.capitalize``. The ``htmltext('\n').join(parts)`` idiom is common.
+
+Notes:
+
+- There are two implementations: a C extension (``_c_htmltext``) and a
+  pure-Python fallback (``_py_htmltext``). ``quixote.html`` re-exports
+  ``htmltext``, ``stringify``, ``htmlescape``, and ``TemplateIO`` from whichever
+  is available; the two must stay behaviorally identical.
+- ``use_qpy()`` / ``cleanup_qpy()`` swap in the qpy templating variants.
+- PTL templates (section 11) accumulate output implicitly via the ``@ptl_html``
+  decorator rather than an explicit ``TemplateIO``.
+
+
+5. ``quixote.form`` - forms and widgets
+========================================
+
+Server-side form construction, parsing, and validation. Applications subclass
+``Form`` and individual widgets.
+
+class ``Form``
+--------------
+
+Imported directly (``from quixote.form import Form``) and subclassed.
+Constructor: ``Form(method=..., action=..., use_tokens=..., **attrs)``.
+
+Widget construction:
+
+``add(WidgetClass, name, value=..., **kw)``
+    Add an arbitrary widget.
+
+``add_hidden(name, value)``
+    Hidden field.
+
+``add_string(name, value=, title=, required=)``
+    Text input.
+
+``add_password(...)``
+    Password input.
+
+``add_text(...)``
+    Textarea.
+
+``add_single_select(...)`` / ``add_multiple_select(...)``
+    Single- and multi-select.
+
+``add_radiobuttons(...)`` / ``add_checkbox(...)``
+    Radio group / checkbox.
+
+``add_int(...)`` / ``add_float(...)``
+    Numeric inputs.
+
+``add_submit(name, label)`` / ``add_reset(...)``
+    Submit / reset buttons.
+
+Lifecycle and inspection:
+
+``is_submitted()``
+    Whether the form was submitted.
+
+``has_errors()`` / ``clear_errors()``
+    Test for / reset widget errors.
+
+``get_submit()``
+    Which submit button was pressed.
+
+``set_error(name, msg)``
+    Set a per-widget error.
+
+``get_widget(name)``
+    Fetch a widget by name.
+
+``get(name, default=None)`` / ``form[name]``
+    Parsed value access.
+
+``get_all_widgets()`` / ``get_submit_widgets()``
+    Introspection over the form's widgets.
+
+``force_value(name, value)``
+    Override a widget's value.
+
+``render()`` / ``render_error(error)``
+    Render the form / an error. Commonly overridden to customize markup.
+
+Attributes read by custom render styles: ``.method``, ``.action``,
+``.enctype``, ``.attrs``, ``.widgets``, ``.hidden_widgets``,
+``.submit_widgets``, and the class constants ``.TOKEN_NAME``,
+``.TOKEN_NOTICE``, ``.ERROR_NOTICE``. ``FormTokenWidget`` is part of the
+CSRF-token machinery.
+
+Widgets (``quixote.form.widget``)
+---------------------------------
+
+Imported as a module (``from quixote.form import widget``) and subclassed. The
+widget classes:
+
+``Widget`` (base), ``StringWidget``, ``PasswordWidget``, ``TextWidget``,
+``CheckboxWidget``, ``SingleSelectWidget``, ``MultipleSelectWidget``,
+``SelectWidget``, ``OptionSelectWidget``, ``RadiobuttonsWidget``,
+``FloatWidget``, ``IntWidget``, ``NumberWidget``, ``SubmitWidget``,
+``ButtonWidget``, ``ResetWidget``, ``HiddenWidget``, ``FileWidget``,
+``CompositeWidget``, ``WidgetList``, ``WidgetDict``. ``WidgetValueError`` is
+raised by widget validation; ``subname(...)`` is a naming helper.
+
+Widget instance API exercised by render/parse overrides: constructor
+``(name, value=..., **kw)``, ``.render()``, ``.render_content()``,
+``.parse(request)`` / ``._parse(request)``, ``.set_value(value)``,
+``.set_options(...)``, ``.get_allowed_values()``, ``.get_error()`` /
+``.has_error()``, ``.get_hint()``, ``.get_title()`` / ``.set_title(...)``,
+``.get_name()``, and attributes ``.name``, ``.value``, ``.attrs``, ``.title``,
+``.required``, ``.options``, ``.label``, ``.HTML_TYPE``.
+
+Custom render styles frequently dispatch on widget class name
+(``StringWidget``, ``SingleSelectWidget``, ``CheckboxWidget``,
+``ButtonWidget``, ``FormTokenWidget``, ...), so those class names are part of
+the depended-upon surface.
+
+There is a legacy ``quixote.form1`` package; new code should use
+``quixote.form``.
+
+
+6. ``quixote.http_request`` - the request object
+=================================================
+
+Obtained via ``get_request()``; can also be constructed directly as
+``HTTPRequest(stdin, environ)`` inside a publisher.
+
+class ``HTTPRequest``
+---------------------
+
+``.form``
+    Parsed-inputs mapping (attribute).
+
+``.get_field(name, default=None)`` / ``.get_fields()``
+    A single parsed field / all fields.
+
+``.get_query() -> str``
+    The raw query string.
+
+``.get_cookie(name, default=None)`` / ``.get_cookies()``
+    A cookie value / all cookies.
+
+``.get_method() -> str``
+    The HTTP method.
+
+``.get_header(name, default=None)``
+    A request header.
+
+``.get_path(n=0) -> str``
+    The path, optionally trimmed of the last ``n`` components.
+
+``.get_url(n=0)``
+    The reconstructed request URL.
+
+``.get_environ(key, default=None)`` / ``.environ``
+    A WSGI environ value / the raw environ (attribute).
+
+``.get_scheme()`` / ``.scheme``
+    The request scheme.
+
+``.dump()``
+    A debug dump of the request.
+
+``.process_inputs()``
+    Force input parsing.
+
+``.make_body_seekable()``
+    Make the request body rewindable.
+
+``.session`` / ``.response`` / ``.stdin``
+    The attached session, response, and request-body stream (attributes).
+
+Also: ``.get_server()``, ``.get_path_query()``, ``.get_encoding()``,
+``.get_accepted_types()``, ``.guess_browser_version()``, ``.formiter()``.
+
+Constructor: ``HTTPRequest(stdin, environ)``.
+
+Module-level functions
+----------------------
+
+``parse_header(line) -> (value, params)``
+    Parse a header value and its parameters.
+
+``parse_query(qs, charset) -> dict``
+    Parse a query string.
+
+Miscellaneous parsing helpers: ``get_content_type(environ)``,
+``parse_cookies(text)``, ``make_safe_filename(s)``.
+
+class ``Upload``
+----------------
+
+Represents an uploaded file. Methods: ``.receive(lines)``, ``.read(n=-1)``,
+``.readline()``, ``.readlines()``, ``.close()``, ``.get_size()``, plus
+iteration.
+
+``LineInput`` / ``MIMEInput`` are internal multipart parsing helpers.
+
+
+7. ``quixote.http_response`` - the response object
+==================================================
+
+Obtained via ``get_response()``; can also be constructed as ``HTTPResponse()``
+to reset the current response.
+
+class ``HTTPResponse``
+----------------------
+
+``set_content_type(type, charset=None)``
+    Set the ``Content-Type``.
+
+``set_header(name, value)``
+    Set an arbitrary response header.
+
+``set_status(status, reason=None)``
+    Set the HTTP status.
+
+``set_expires(...)``
+    Set the ``Expires`` header (``days=`` / ``seconds`` forms).
+
+``set_cookie(name, value, **attrs)`` / ``expire_cookie(name, **attrs)``
+    Set / expire a cookie.
+
+``add_javascript(code_id, code)`` / ``.javascript_code``
+    Register a JS snippet (dedup by ``code_id``) / the dict of registered
+    snippets (attribute).
+
+``set_body(body, compress=False)``
+    Set the response body.
+
+``set_charset(charset)``
+    Set the response charset.
+
+``get_header(name, default=None)``
+    Read a previously set header.
+
+``get_status_code()`` / ``.status_code``
+    The numeric status.
+
+``get_content_type()`` / ``.content_type``
+    The content type.
+
+``redirect(location, permanent=False)``
+    Set a redirect (backs the top-level ``redirect()`` helper).
+
+Wire-level methods: ``write(...)``, ``generate_headers()``,
+``generate_body_chunks()``, ``enable_transfer_chunked()``,
+``get_content_length()``, ``get_reason_phrase()``.
+
+class ``Stream``
+----------------
+
+Streamed / chunked response body. Constructor ``Stream(iterable,
+length=None)``; ``__iter__``, ``close()``. Application code often uses
+``isinstance(output, Stream)`` to distinguish streamed from buffered output.
+
+
+8. ``quixote.util`` - static content and utilities
+==================================================
+
+``StaticFile(path, mime_type=..., encoding=...)``
+    Serve a single file; call the instance to produce the response.
+
+``StaticDirectory(path, use_cache=..., cache_time=..., list_directory=..., follow_symlinks=...)``
+    A ``Directory`` that serves a filesystem tree.
+
+``StaticBundle(path, url_prefix)``
+    A bundle of static assets; ``.make_path(*files)`` builds URLs.
+
+``FileStream(fp, size=None)``
+    A ``Stream`` over an open file; used for file / PDF downloads.
+
+``get_directory_path() -> list``
+    The current traversal stack of ``Directory`` objects (useful for
+    breadcrumbs).
+
+``Redirector(location, permanent=False)``
+    A callable that redirects.
+
+``MemoryFile(...)``
+    An in-memory static file.
+
+``dump_request(request=None)``
+    A debug helper.
+
+Miscellaneous utilities: ``xmlrpc(...)``, ``import_object(name)``,
+``safe_str_cmp(a, b)``, ``randbytes(n=16)``.
+
+
+9. ``quixote.publish`` - the publisher
+======================================
+
+class ``Publisher``
+-------------------
+
+The request-processing engine. Applications commonly subclass it. Constructor:
+``Publisher(root_directory, logger=..., session_manager=..., config=...)``.
+
+Overridable hooks: ``start_request``, ``parse_request(request)``,
+``try_publish(request)`` / ``try_publish(request, path)``,
+``create_request(stdin, environ)``, ``format_publish_error(exc)``,
+``filter_output(request, output)``, ``finish_successful_request``.
+
+Members reached via ``get_publisher()``: ``.log(msg)``, ``.session_manager``,
+``.get_request()``.
+
+The module-level ``get_*`` helpers documented in section 1 live here.
+
+
+10. ``quixote.session`` - sessions and session management
+=========================================================
+
+Obtained via ``get_session()``. Applications commonly supply their own
+``Session`` / ``SessionManager`` subclasses (adding user identity, persistence,
+etc.), so a given application's session object typically carries methods beyond
+the framework surface listed here.
+
+class ``Session`` - framework members
+--------------------------------------
+
+``get_csrf_token()`` / ``valid_csrf_token(name=None)``
+    Issue / validate a CSRF token.
+
+``.id``
+    The session id (attribute).
+
+``get_user()`` / ``set_user(user)``
+    The associated user object.
+
+Session state and lifecycle: ``has_info()``, ``is_dirty()``,
+``dump(...)``, ``start_request()``, ``get_remote_address()``,
+``get_creation_time()``.
+
+Session management classes
+--------------------------
+
+``BaseSessionManager``, ``SessionManager``, ``NullSessionManager``,
+``SessionStore``, and ``Session`` are the framework building blocks. Key
+``SessionManager`` surface: ``get_session()``, ``commit_changes()``,
+``abort_changes()``, ``expire_session()``, ``maintain_session()``, and the
+mapping protocol (``__getitem__`` / ``__setitem__`` / ``__contains__`` /
+``keys`` / ``values`` / ``items``).
+
+
+11. ``quixote.ptl`` - Python Template Language
+==============================================
+
+``ptl_html``
+    Decorator: the function body accumulates HTML output, escaping
+    non-``htmltext`` values. The primary templating mechanism, applied to
+    template functions and to ``_q_index`` / exported methods.
+
+``ptl_plain``
+    Decorator: like ``ptl_html`` but with no HTML escaping (plain-text output).
+
+``enable_ptl()``
+    Re-exported at the top level; installs the import hook that lets ``.ptl``
+    files import as normal modules.
+
+``compile_package(...)``
+    Build-time PTL compilation.
+
+Internal machinery (``ptl_compile``, ``ptl_parse``, ``ptl_import``,
+``install``) is not called directly by applications.
+
+
+12. ``quixote.server.*`` - server adapters
+==========================================
+
+Each backend exposes a ``run(create_publisher, host='', port=..., ...)`` entry
+point, where ``create_publisher`` is a zero-arg factory returning a
+``Publisher``:
+
+- ``quixote.server.threaded_server``
+- ``quixote.server.simple_server``
+- ``quixote.server.scgi_server``
+- ``quixote.server.twisted_server``
+- ``quixote.server.wsgi_server``
+- ``quixote.server.cgi_server``, ``quixote.server.systemd_socket``,
+  ``quixote.server.util``
+
+A server module selects a backend at startup and calls its ``run(...)``.
+
+``quixote.wsgi.QWIP`` is the WSGI application wrapper (``get_wsgi_app()``
+returns one).
+
+
+13. ``quixote.logger`` - request logging
+=========================================
+
+class ``DefaultLogger``
+-----------------------
+
+``log(msg)``
+    Log an arbitrary message.
+
+``log_request(request, start_time)``
+    Log a completed request (commonly overridden).
+
+``log_internal_error(error_summary, error_msg)``
+    Log an unhandled internal error.
+
+The constructor takes error/access log configuration.
+
+
+14. ``quixote.config`` - configuration
+=======================================
+
+class ``Config``
+----------------
+
+Holds publisher configuration. Configuration is usually passed through to the
+``Publisher`` constructor rather than imported directly.
+
+Public attributes: ``error_email``, ``access_log``, ``error_log``,
+``display_exceptions``, ``compress_pages``, ``form_tokens``,
+``allowed_methods``, the ``session_cookie_*`` group, and the ``mail_*`` group.
+Methods: ``Config(**kwargs)``, ``set_from_dict(mapping)``,
+``read_file(filename)``.
+
+
+Priority guide
+==============
+
+Ranked by how central each area is to application code:
+
+1. ``quixote.directory.Directory`` and the ``_q_*`` protocol
+   (``_q_exports``, ``_q_index``, ``_q_lookup``, ``_q_traverse``) - the
+   traversal core, used everywhere.
+2. Publish helpers (``get_request``, ``get_response``, ``get_session``,
+   ``get_user``, ``get_param``, ``get_path``, ``redirect``).
+3. ``quixote.html`` primitives (``htmltext``, ``htmltag``, ``href``,
+   ``htmlescape``, ``url_with_query``, ``url_quote``, ``js_escape``,
+   ``TemplateIO``) and PTL (``ptl_html``, ``ptl_plain``, ``enable_ptl``).
+4. ``HTTPRequest`` / ``HTTPResponse`` accessor methods (the ``get_*`` /
+   ``set_*`` families).
+5. ``quixote.form.Form`` and the widget hierarchy - a large surface exercised
+   through subclassing and custom render styles.
+6. ``quixote.errors`` exception classes and their ``format()`` rendering.
+7. ``quixote.util`` static-content helpers (``StaticFile``,
+   ``StaticDirectory``, ``StaticBundle``, ``FileStream``,
+   ``get_directory_path``).
+8. ``Publisher``, session management, server adapters, logger, config - the
+   wiring layer; important but touched at a few well-defined extension points.
+
+Lower priority: the ``export`` / ``subdir`` decorators, ``quixote.form1``,
+``nl2br``, ``MemoryFile``, ``Redirector``, ``xmlrpc``, most wire-level
+``HTTPResponse`` methods, and the CGI / systemd server backends.
