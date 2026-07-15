@@ -252,7 +252,9 @@ class ``htmltext`` methods
 ``htmltext`` supports escaping-aware versions of common ``str`` methods for use
 inside templates: ``.join(items)``, ``.format(*args, **kwargs)``,
 ``.replace(...)``, ``.startswith``, ``.endswith``, ``.lower``, ``.upper``,
-``.capitalize``. The ``htmltext('\n').join(parts)`` idiom is common.
+``.capitalize``. The ``htmltext('\n').join(parts)`` idiom is common. Formatting
+rejects the ``c`` presentation type because it can turn an integer into an
+unescaped HTML markup character.
 
 Notes:
 
@@ -260,6 +262,10 @@ Notes:
   pure-Python fallback (``_py_htmltext``). ``quixote.html`` re-exports
   ``htmltext``, ``stringify``, ``htmlescape``, and ``TemplateIO`` from whichever
   is available; the two must stay behaviorally identical.
+- Escaping is a boundary for untrusted data, not a sandbox for hostile Python
+  objects. Application-defined subclasses of ``str``, ``int``, and ``float``
+  are trusted code and must not override conversion or formatting methods to
+  emit unsafe markup.
 - ``use_qpy()`` / ``cleanup_qpy()`` swap in the qpy templating variants.
 - PTL templates (section 11) accumulate output implicitly via the ``@ptl_html``
   decorator rather than an explicit ``TemplateIO``.

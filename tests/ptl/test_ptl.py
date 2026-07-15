@@ -2,6 +2,8 @@
 import sys
 from io import StringIO
 
+import pytest
+
 from quixote.html import TemplateIO, _q_format, _q_join, htmltext
 from quixote.ptl.ptl_compile import compile_template
 
@@ -100,11 +102,11 @@ def test_q_format() -> None:
     assert _q_format('\xff', ord('a')) == "'\\xff'"
     assert _q_format(1, -1, '_>2') == '_1'
     assert _q_format(1, -1, '_>2') == '_1'
-    assert _q_format(64, -1, 'c') == '@'
-    assert _q_format(38, -1, 'c') == '&'
+    with pytest.raises(ValueError):
+        _q_format(64, -1, 'c')
+    with pytest.raises(ValueError):
+        _q_format(38, -1, 'c')
 
 
 if __name__ == "__main__":
-    import pytest
-
     pytest.main([__file__])

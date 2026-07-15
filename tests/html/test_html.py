@@ -248,7 +248,15 @@ class TestHTMLTextFormat:
         )
         assert htmltext('%d') % 10 == "10"
         assert htmltext('%.1f') % 10 == "10.0"
+        assert htmltext('%*d') % (3, 1) == "  1"
+        assert htmltext('%.*f') % (1, 1.23) == "1.2"
         assert htmltext('%d') % 12300000000000000000 == "12300000000000000000"
+
+    def test_percent_c_format_raises(self, htmltext: Any) -> None:
+        with pytest.raises(ValueError):
+            htmltext('%c') % 38
+        with pytest.raises(ValueError):
+            htmltext('%(value)c') % {'value': 38}
 
     def test_format_broken_raises(self, htmltext: Any) -> None:
         with pytest.raises(BrokenError):
@@ -283,6 +291,14 @@ class TestHTMLTextFormatMethod:
         args = {'a': 'foo&', 'b': htmltext('bar&')}
         result = "foo&amp; bar&"
         assert htmltext('{a} {b}').format(**args) == result
+        assert htmltext('{:_>2}').format(1) == '_1'
+        assert htmltext('{:&>3}').format(1) == '&&1'
+
+    def test_format_method_c_format_raises(self, htmltext: Any) -> None:
+        with pytest.raises(ValueError):
+            htmltext('{:c}').format(38)
+        with pytest.raises(ValueError):
+            htmltext('{:{spec}}').format(38, spec='c')
 
     def test_format_method_index_error(self, htmltext: Any) -> None:
         with pytest.raises(IndexError):
@@ -533,6 +549,11 @@ if _HAVE_T_STRING:
             t = Template("val: ", _interp(3.14159, ".2f"), "")
             result = htmlformat(t)
             assert str(result) == "val: 3.14"
+
+        def test_format_spec_c_raises(self, htmlformat: Any) -> None:
+            t = Template("", _interp(38, "c"), "")
+            with pytest.raises(ValueError):
+                htmlformat(t)
 
         def test_format_spec_string(
             self, htmltext: Any, htmlformat: Any

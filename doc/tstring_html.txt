@@ -33,7 +33,17 @@ while interpolated values are automatically escaped::
     <htmltext '<h1>Dissertation on &lt;HEAD&gt;</h1>'>
 
 The ``htmlformat()`` function only accepts t-strings.  Passing a
-regular string will raise a ``TypeError``.
+regular string will raise a ``TypeError``.  The literal parts of a
+``Template`` are trusted, so do not manually construct one from
+untrusted strings; that is equivalent to wrapping the data in
+``htmltext``.
+
+The automatic escaping is for HTML text and ordinary double-quoted
+attribute values.  It is not sufficient for URLs, JavaScript, CSS,
+tag or attribute names, or single-quoted or unquoted attributes.  Use
+context-specific validation and escaping in those locations.  For
+example, HTML escaping does not reject a ``javascript:`` URL and does
+not make an interpolation inside a ``<script>`` element safe.
 
 
 Writing Template Functions

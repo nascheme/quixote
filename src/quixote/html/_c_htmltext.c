@@ -180,6 +180,35 @@ escape(PyObject *obj)
 	}
 }
 
+static int
+format_spec_uses_c(PyObject *format_spec)
+{
+	Py_ssize_t len;
+	Py_UCS4 ch;
+
+	if (!PyUnicode_Check(format_spec)) {
+		PyErr_SetString(PyExc_TypeError, "format specifier must be a string");
+		return -1;
+	}
+	if (PyUnicode_READY(format_spec) == -1)
+		return -1;
+	len = PyUnicode_GET_LENGTH(format_spec);
+	if (len == 0)
+		return 0;
+	ch = PyUnicode_ReadChar(format_spec, len - 1);
+	if (ch == (Py_UCS4)-1 && PyErr_Occurred())
+		return -1;
+	return ch == 'c';
+}
+
+static PyObject *
+unsupported_c_format_error(void)
+{
+	PyErr_SetString(PyExc_ValueError,
+		"htmltext formatting does not support the 'c' format code");
+	return NULL;
+}
+
 static PyObject *
 quote_wrapper_new(PyObject *o)
 {
@@ -193,18 +222,22 @@ quote_wrapper_new(PyObject *o)
 		/* pre-escape strings so format specs work */
 		return escape(o);
 	}
-	if (PyFloat_Check(o) ||
-	    PyLong_Check(o)) {
-		/* no need for wrapper */
-		Py_INCREF(o);
-		return o;
-	}
 	self = PyObject_New(QuoteWrapperObject, &QuoteWrapper_Type);
 	if (self == NULL)
 		return NULL;
 	Py_INCREF(o);
 	self->obj = o;
 	return (PyObject *)self;
+}
+
+static PyObject *
+quote_wrapper_new_percent(PyObject *o)
+{
+	if (PyLong_Check(o) || PyFloat_Check(o)) {
+		Py_INCREF(o);
+		return o;
+	}
+	return quote_wrapper_new(o);
 }
 
 static void
@@ -249,6 +282,42 @@ quote_wrapper_subscript(QuoteWrapperObject *self, PyObject *key)
 	w = quote_wrapper_new(v); 
 	Py_DECREF(v);
 	return w;
+}
+
+static PyObject *
+quote_wrapper_format(QuoteWrapperObject *self, PyObject *format_spec)
+{
+	int uses_c;
+
+	uses_c = format_spec_uses_c(format_spec);
+	if (uses_c < 0)
+		return NULL;
+	if (uses_c)
+		return unsupported_c_format_error();
+	if (PyLong_Check(self->obj) || PyFloat_Check(self->obj))
+		return PyObject_Format(self->obj, format_spec);
+	if (PyUnicode_GET_LENGTH(format_spec) != 0)
+		return type_error(
+			"unsupported format string passed to QuoteWrapper");
+	return quote_wrapper_str(self);
+}
+
+static PyObject *
+quote_wrapper_int(QuoteWrapperObject *self)
+{
+	return PyNumber_Long(self->obj);
+}
+
+static PyObject *
+quote_wrapper_float(QuoteWrapperObject *self)
+{
+	return PyNumber_Float(self->obj);
+}
+
+static PyObject *
+quote_wrapper_index(QuoteWrapperObject *self)
+{
+	return PyNumber_Index(self->obj);
 }
 
 static PyObject *
@@ -342,18 +411,94 @@ htmltext_length(htmltextObject *self)
 }
 
 
+static int
+percent_format_uses_c(PyObject *format_string)
+{
+	Py_ssize_t i, len;
+	int kind;
+	void *data;
+
+	if (PyUnicode_READY(format_string) == -1)
+		return -1;
+	len = PyUnicode_GET_LENGTH(format_string);
+	kind = PyUnicode_KIND(format_string);
+	data = PyUnicode_DATA(format_string);
+	for (i = 0; i < len; i++) {
+		Py_UCS4 ch = PyUnicode_READ(kind, data, i);
+		if (ch != '%')
+			continue;
+		i++;
+		if (i < len && PyUnicode_READ(kind, data, i) == '%')
+			continue;
+		if (i < len && PyUnicode_READ(kind, data, i) == '(') {
+			i++;
+			while (i < len && PyUnicode_READ(kind, data, i) != ')')
+				i++;
+			if (i >= len)
+				return 0;
+			i++;
+		}
+		while (i < len) {
+			ch = PyUnicode_READ(kind, data, i);
+			if (ch != '#' && ch != '0' && ch != '-' && ch != ' '
+			    && ch != '+')
+				break;
+			i++;
+		}
+		if (i < len && PyUnicode_READ(kind, data, i) == '*') {
+			i++;
+		}
+		else {
+			while (i < len) {
+				ch = PyUnicode_READ(kind, data, i);
+				if (ch < '0' || ch > '9')
+					break;
+				i++;
+			}
+		}
+		if (i < len && PyUnicode_READ(kind, data, i) == '.') {
+			i++;
+			if (i < len && PyUnicode_READ(kind, data, i) == '*') {
+				i++;
+			}
+			else {
+				while (i < len) {
+					ch = PyUnicode_READ(kind, data, i);
+					if (ch < '0' || ch > '9')
+						break;
+					i++;
+				}
+			}
+		}
+		if (i < len) {
+			ch = PyUnicode_READ(kind, data, i);
+			if (ch == 'h' || ch == 'l' || ch == 'L')
+				i++;
+		}
+		if (i < len && PyUnicode_READ(kind, data, i) == 'c')
+			return 1;
+	}
+	return 0;
+}
+
 static PyObject *
 htmltext_format(htmltextObject *self, PyObject *args)
 {
 	/* wrap the format arguments with QuoteWrapperObject */
 	PyObject *rv, *wargs;
+	int uses_c;
 	assert (PyUnicode_Check(self->s));
+	uses_c = percent_format_uses_c(self->s);
+	if (uses_c < 0)
+		return NULL;
+	if (uses_c)
+		return unsupported_c_format_error();
 	if (PyTuple_Check(args)) {
 		Py_ssize_t i, n = PyTuple_GET_SIZE(args);
 		wargs = PyTuple_New(n);
 		for (i=0; i < n; i++) {
 			PyObject *v = PyTuple_GET_ITEM(args, i);
-			v = quote_wrapper_new(v);
+			v = quote_wrapper_new_percent(v);
 			if (v == NULL) {
 				Py_DECREF(wargs);
 				return NULL;
@@ -362,7 +507,7 @@ htmltext_format(htmltextObject *self, PyObject *args)
 		}
 	}
 	else {
-		wargs = quote_wrapper_new(args);
+		wargs = quote_wrapper_new_percent(args);
 		if (wargs == NULL)
 			return NULL;
 	}
@@ -816,6 +961,16 @@ static PyMappingMethods quote_wrapper_as_mapping = {
 	0, /*mp_ass_subscript*/
 };
 
+static PyNumberMethods quote_wrapper_as_number = {
+	.nb_int = (unaryfunc)quote_wrapper_int,
+	.nb_float = (unaryfunc)quote_wrapper_float,
+	.nb_index = (unaryfunc)quote_wrapper_index,
+};
+
+static PyMethodDef quote_wrapper_methods[] = {
+	{"__format__", (PyCFunction)quote_wrapper_format, METH_O, ""},
+	{NULL, NULL}
+};
 
 static PyTypeObject QuoteWrapper_Type = {
 	PyVarObject_HEAD_INIT(&PyType_Type, 0)
@@ -828,7 +983,7 @@ static PyTypeObject QuoteWrapper_Type = {
 	0,                                          /* tp_setattr */
 	0,                                          /* tp_reserved */
 	(unaryfunc)quote_wrapper_repr,              /* tp_repr */
-	0,                                          /* tp_as_number */
+	&quote_wrapper_as_number,                   /* tp_as_number */
 	0,                                          /* tp_as_sequence */
 	&quote_wrapper_as_mapping,                  /* tp_as_mapping */
 	0,                                          /* tp_hash */
@@ -838,6 +993,14 @@ static PyTypeObject QuoteWrapper_Type = {
 	0,                                          /* tp_setattro */
 	0,                                          /* tp_as_buffer */
 	Py_TPFLAGS_DEFAULT,                         /* tp_flags */
+	0,                                          /* tp_doc */
+	0,                                          /* tp_traverse */
+	0,                                          /* tp_clear */
+	0,                                          /* tp_richcompare */
+	0,                                          /* tp_weaklistoffset */
+	0,                                          /* tp_iter */
+	0,                                          /* tp_iternext */
+	quote_wrapper_methods,                      /* tp_methods */
 };
 
 static PySequenceMethods template_io_as_seq = {

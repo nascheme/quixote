@@ -53,6 +53,11 @@ class htmltext(object):
     context-specific escaping in single-quoted or unquoted attributes and in
     non-HTML-text contexts.
 
+    This escaping protects against untrusted data, not hostile Python objects.
+    Application-defined subclasses of `str`, `int`, and `float` are trusted
+    code and are expected not to override conversion or formatting methods to
+    emit unsafe markup.
+
     >>> from quixote.html import htmltext
     >>> htmltext('<b>safe</b>')          # already-safe markup, left as-is
     <htmltext '<b>safe</b>'>
@@ -99,10 +104,11 @@ class htmltext(object):
         return hash(self.s)
 
     def __mod__(self, args: object) -> htmltext:
+        _check_no_percent_c_format(self.s)
         if isinstance(args, tuple):
-            return htmltext(self.s % tuple(map(_wraparg, args)))
+            return htmltext(self.s % tuple(map(_wraparg_for_percent, args)))
         else:
-            return htmltext(self.s % _wraparg(args))
+            return htmltext(self.s % _wraparg_for_percent(args))
 
     def format(self, *args: object, **kwargs: object) -> htmltext:
         """Format trusted markup with escaped arguments.
@@ -110,8 +116,8 @@ class htmltext(object):
         Plain `str` arguments are escaped before formatting, and `htmltext`
         arguments pass through unchanged.  Other objects are wrapped for
         simple string conversion and item lookup.  Integers and floats are
-        passed through unchanged to preserve numeric formatting.  A ``{:c}``
-        format can therefore emit markup characters.
+        wrapped to preserve numeric formatting, except that the ``c``
+        presentation type is rejected because it can emit markup characters.
 
         This method is not fully equivalent to ``str.format``: wrapped objects
         do not support normal attribute fields such as ``{0.name}``, and
@@ -216,20 +222,106 @@ class _QuoteWrapper(object):
     def __repr__(self) -> str:
         return _escape_string(repr(self.value))
 
-    def __getitem__(self, key: object) -> str | int | float | _QuoteWrapper:
+    def __getitem__(self, key: object) -> object:
         return _wraparg(self.value[key])
 
 
-def _wraparg(arg: object) -> str | int | float | _QuoteWrapper:
+class _NumericQuoteWrapper(object):
+    # helper for htmltext formatting of int and float values
+
+    __slots__ = ['value']
+
+    value: int | float
+
+    def __init__(self, value: int | float) -> None:
+        self.value = value
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    def __repr__(self) -> str:
+        return repr(self.value)
+
+    def __format__(self, format_spec: str) -> str:
+        _check_no_c_format(format_spec)
+        return format(self.value, format_spec)
+
+    def __int__(self) -> int:
+        return int(self.value)
+
+    def __float__(self) -> float:
+        return float(self.value)
+
+    def __index__(self) -> int:
+        if isinstance(self.value, int):
+            return self.value.__index__()
+        raise TypeError("'float' object cannot be interpreted as an integer")
+
+
+def _check_no_c_format(format_spec: str) -> None:
+    if format_spec.endswith('c'):
+        raise ValueError(
+            "htmltext formatting does not support the 'c' format code"
+        )
+
+
+def _check_no_percent_c_format(format_string: str) -> None:
+    i = 0
+    while True:
+        i = format_string.find('%', i)
+        if i < 0:
+            return
+        i += 1
+        if i < len(format_string) and format_string[i] == '%':
+            i += 1
+            continue
+        if i < len(format_string) and format_string[i] == '(':
+            end = format_string.find(')', i + 1)
+            if end < 0:
+                return
+            i = end + 1
+        while i < len(format_string) and format_string[i] in '#0- +':
+            i += 1
+        if i < len(format_string) and format_string[i] == '*':
+            i += 1
+        else:
+            while i < len(format_string) and format_string[i].isdigit():
+                i += 1
+        if i < len(format_string) and format_string[i] == '.':
+            i += 1
+            if i < len(format_string) and format_string[i] == '*':
+                i += 1
+            else:
+                while i < len(format_string) and format_string[i].isdigit():
+                    i += 1
+        if i < len(format_string) and format_string[i] in 'hlL':
+            i += 1
+        if i < len(format_string) and format_string[i] == 'c':
+            raise ValueError(
+                "htmltext formatting does not support the 'c' format code"
+            )
+        i += 1
+
+
+def _wraparg(arg: object) -> object:
     if isinstance(arg, htmltext):
         return str(arg)
     elif isinstance(arg, str):
         return _escape_string(arg)
     elif isinstance(arg, int) or isinstance(arg, float):
-        # ints, floats are okay
+        return _NumericQuoteWrapper(arg)
+    else:
+        return _QuoteWrapper(arg)
+
+
+def _wraparg_for_percent(arg: object) -> object:
+    if isinstance(arg, htmltext):
+        return str(arg)
+    elif isinstance(arg, str):
+        return _escape_string(arg)
+    elif isinstance(arg, int) or isinstance(arg, float):
         return arg
     else:
-        # everything is gets wrapped
         return _QuoteWrapper(arg)
 
 
@@ -314,7 +406,13 @@ class TemplateIO(object):
 if _HAVE_T_STRING:
 
     def htmlformat(template: Template) -> htmltext:
-        """Format htmltext using a t-string as input."""
+        """Format a t-string using HTML-text escaping.
+
+        Literal template parts and `htmltext` values are trusted.  Other
+        interpolated values are escaped for HTML text and ordinary
+        double-quoted attributes, not for URLs, JavaScript, CSS, or
+        single-quoted or unquoted attributes.
+        """
         if not isinstance(template, Template):
             raise TypeError(f'require t-string, got {template!r}')
         if (
