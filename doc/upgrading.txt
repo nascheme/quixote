@@ -12,7 +12,7 @@ Quixote 3.2 adds support for a new style of PTL code.  This new style is
 valid Python syntax.  The advantage of using valid Python syntax is that
 you may use linters and code formatting tools (like flake8 and black).
 Instead of using the [html] and [plain] annotation on functions, you can
-use decorators.  E.g.
+use decorators.  E.g.::
 
     from quixote.ptl import ptl_html, ptl_plain
 
@@ -120,12 +120,12 @@ find dulcinea/bin/unknown.py useful for identifying missing imports.
 
 Quixote 1's secure_errors configuration variable is not present in Quixote 2.
 
-Form.__init__ no longer has name or attrs keywords.  If your existing
-code calls Form.__init__ with 'attrs=foo', you'll need to change it to
-'**foo'.  Form instances no longer have a name attribute.  If your code
-looks for form.name, you can find it with form.attrs.get('name').
-The Form.__init__ keyword parameter (and attribute) 'action_url' is now 
-named 'action'.
+``Form.__init__`` no longer has name or attrs keywords.  If your existing code
+calls ``Form.__init__`` with ``attrs=foo``, you'll need to change it to
+``**foo``.  Form instances no longer have a name attribute.  If your code looks
+for form.name, you can find it with form.attrs.get('name'). The
+``Form.__init__`` keyword parameter (and attribute) 'action_url' is now named
+'action'.
 
 The SessionPublisher class is gone.  Use the Publisher class instead.
 Also, the 'session_mgr' keyword has been renamed to 'session_manager'.
