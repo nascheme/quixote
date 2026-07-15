@@ -1,27 +1,32 @@
 Installing Quixote
 ==================
 
-Quixote requires Python 3.5 or later.
+Quixote requires Python 3.13 or later.  The project is packaged with
+``pyproject.toml``; there is no ``setup.py``.
 
-If you have a previously installed quixote, we strongly recommend that
-you remove it before installing a new one.
-First, find out where your old Quixote installation is:
+To install into the current environment::
 
-  python3 -c "import os,quixote;print(os.path.dirname(quixote.__file__))"
+    python3 -m pip install .
 
-and then remove away the reported directory.  (If the import fails, then
-you don't have an existing Quixote installation.)
+Development is managed with ``uv``.  To set up a checkout for development
+(this creates a virtual environment and installs Quixote plus its dev
+dependencies)::
 
-Now install the new version by running (in the distribution directory),
+    uv sync
 
-  python3 setup.py install
+and run tools through ``uv run`` (for example ``uv run pytest``).
 
-and you're done.  
+If you have an older Quixote installed and want to find where, run::
+
+    python3 -c "import os,quixote;print(os.path.dirname(quixote.__file__))"
+
+(If the import fails, you have no existing installation.)
+
 
 Quick start
 ===========
 
-In a terminal window, run:
+In a terminal window, run::
 
     python3 -m quixote run
 

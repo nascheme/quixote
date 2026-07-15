@@ -1,157 +1,131 @@
 Quixote Programming Overview
 ============================
 
-This document explains how a Quixote application is structured. 
-The demo.txt file should probably be read before you read this file.
-There are three components to a Quixote application:
+This document explains how a Quixote application is structured.  Read
+demo.txt first to see a running example.  A Quixote application has three
+parts:
 
-1) A driver script, usually a CGI or FastCGI script.  This is the
-   interface between your web server (eg., Apache) and the bulk of your
-   application code.  The driver script is responsible for creating a
-   Quixote publisher customized for your application and invoking its
-   publishing loop.
+1) A *root directory* -- an instance of ``quixote.directory.Directory``
+   (usually a subclass).  URL traversal starts here; see AGENTS.md and
+   ``quixote/directory.py`` for the ``_q_*`` traversal protocol.
 
-2) A configuration file.  This file specifies various features of the
-   Publisher class, such as how errors are handled, the paths of
-   various log files, and various other things.  Read through
-   quixote/config.py for the full list of configuration settings.
-   
-   The most important configuration parameters are:
+2) A *Publisher* that wraps the root directory and turns HTTP requests into
+   responses.  Optional configuration and a logger are passed to it.
 
-      ``ERROR_EMAIL``
-        e-mail address to which errors will be mailed
-      ``ERROR_LOG``
-        file to which errors will be logged
+3) The bulk of your *application code*, reached when the Publisher calls the
+   root directory's ``_q_traverse()`` method with the request path.
 
-   For development/debugging, you should also set ``DISPLAY_EXCEPTIONS``
-   true; the default value is false, to favor security over convenience.
-
-3) Finally, the bulk of the code will be called through a call (by the
-   Publisher) to the _q_traverse() method of an instance designated as
-   the ``root_directory``.  Normally, the root_directory will be an 
-   instance of the Directory class.
+The smallest possible application is ``quixote/demo/mini_demo.py``; the rest
+of this document refers to it.
 
 
-Driver script
+The Publisher
 -------------
 
-The driver script is the interface between your web server and Quixote's
-"publishing loop", which in turn is the gateway to your application
-code.  Thus, there are two things that your Quixote driver script must
-do:
+You create a ``Publisher`` by giving it a root directory, plus optional
+configuration::
 
-* create a Quixote publisher -- that is, an instance of the Publisher
-  class provided by the quixote.publish module -- and customize it for
-  your application
+    from quixote.publish import Publisher
 
-* invoke the publisher's process_request() method as needed to get
-  responses for one or more requests, writing the responses back
-  to the client(s).
+    def create_publisher():
+        return Publisher(RootDirectory(), display_exceptions='plain')
 
-The publisher is responsible for translating URLs to Python objects and
-calling the appropriate function, method, or PTL template to retrieve
-the information and/or carry out the action requested by the URL.
-
-The most important application-specific customization done by the driver
-script is to set the root directory of your application. 
-
-The quixote.servers package includes driver modules for cgi, fastcgi,
-scgi, medusa, twisted, and the simple_server.  Each of these modules
-includes a ``run()`` function that you can use in a driver script that
-provides a function to create the publisher that you want.  For an example
-of this pattern, see the __main__ part of demo/mini_demo.py.  You could
-run the mini_demo.py with scgi by using the ``run()`` function imported
-from quixote.server.scgi_server instead of the one from 
-quixote.server.simple_server.  (You would also need your http server
-set up to use the scgi server.)
-
-That's almost the simplest possible case -- there's no
-application-specific configuration info apart from the root directory.
-
-Getting the driver script to actually run is between you and your web
-server.  See the web-server.txt document for help.
+The Publisher translates each request URL into a Python object and calls it
+(a method, function, or PTL template) to produce the response body.  The only
+required customization is the root directory.
 
 
-Configuration file
-------------------
+Serving the application
+-----------------------
 
-By default, the Publisher uses the configuration information from
-quixote/config.py.  You should never edit the default values in
-quixote/config.py, because your edits will be lost if you upgrade to a
-newer Quixote version.  You should certainly read it, though, to
-understand what all the configuration variables are.  If you want to
-customize any of the configuration variables, your driver script
-should provide your customized Config instance as an argument to the
-Publisher constructor.
+The Publisher does not talk to the network itself; a server adapter or WSGI
+server does.  There are three common ways to serve an application.
+
+* **Built-in server, for development.**  The ``quixote.server`` package
+  provides adapters (``simple_server``, ``threaded_server``, ``scgi_server``,
+  ``wsgi_server``, ...).  Each exposes a ``run(create_publisher, host, port)``
+  function that takes your zero-argument publisher factory::
+
+      from quixote.server.simple_server import run
+      run(create_publisher, host='localhost', port=8080)
+
+  ``python3 -m quixote run`` uses ``simple_server`` this way to serve the
+  demo.
+
+* **WSGI, for deployment.**  ``quixote.get_wsgi_app()`` returns a WSGI
+  application for the current publisher, so you can serve Quixote from any
+  WSGI server.  See wsgi.txt.
+
+* **SCGI behind a front-end web server, for production.**  Run
+  ``quixote.server.scgi_server.run(create_publisher, port=...)`` as a
+  long-running process and have a front-end server (e.g. Apache with
+  ``SCGIMount``, or nginx) forward requests to it.  This avoids paying
+  interpreter and application startup on every request.
+
+Switching backends is just a matter of importing ``run`` from a different
+server module; the publisher factory stays the same.
+
+
+Configuration
+-------------
+
+The Publisher uses defaults from ``quixote/config.py``.  Read that file for
+the full list of settings and their documentation -- do not edit it, since
+your edits would be lost on upgrade.  To customize, pass settings as keyword
+arguments to ``Publisher(...)`` (as ``mini_demo.py`` passes
+``display_exceptions``), or build a ``Config`` instance and pass it as the
+``config`` argument.
+
+The settings you are most likely to change:
+
+  ``error_email``
+    e-mail address to which error reports are sent
+  ``error_log``
+    file to which errors and tracebacks are written
+  ``display_exceptions``
+    set to ``'plain'`` (or ``'html'``) during development to render
+    tracebacks in the browser; the default is off, favoring security over
+    convenience
+
 
 Logging
 -------
 
-The publisher also accepts an optional ``logger`` keyword argument,
-that should, if provided, support the same methods as the
-default value, an instance of ``DefaultLogger``.  Even if you
-use the default logger, you can still customize the behavior
-by setting configuration values for ``access_log``, ``error_log``, and/or
-``error_email``.  These configuration variables are described
-more fully in config.py.
+The Publisher also accepts an optional ``logger`` argument; if omitted it
+uses a ``DefaultLogger`` (see ``quixote/logger.py``).  Even with the default
+logger you can control behavior through the ``access_log``, ``error_log``,
+and ``error_email`` settings.
 
-Quixote writes one (rather long) line to the access log for each request
-it handles; we have split that line up here to make it easier to read::
+Quixote writes one line to the access log per request; split up for
+readability, it looks like::
 
     127.0.0.1 - 2001-10-15 09:48:43
       2504 "GET /catalog/ HTTP/1.1"
       200 'Opera/6.0 (Linux; U)' 0.100s
 
-This line consists of:
+The fields are: client IP address; current user (per the session manager, or
+``-`` if none authenticates); request time in local time; process ID; the
+HTTP request line; response status code; the ``User-Agent`` header; and the
+time taken.  If ``access_log`` is ``None``, no access logging is done.
 
-* client IP address
-* current user (according to Quixote session management mechanism,
-  so this will be "-" unless you're using a session manager that
-  does authentication)
-* date and time of request in local timezone, as YYYY-MM-DD hh:mm:ss
-* process ID of the process serving the request (eg. your CGI/FastCGI
-  driver script)
-* the HTTP request line (request method, URI, and protocol)
-* response status code
-* HTTP user agent string (specifically, this is
-  ``repr(os.environ.get('HTTP_USER_AGENT', ''))``)
-* time to complete the request
-
-If no access log is configured (ie., ``ACCESS_LOG`` is ``None``), then
-Quixote will not do any access logging.
-
-The error log is used for three purposes:
-
-* application output to ``sys.stdout`` and ``sys.stderr`` goes to
-  Quixote's error log
-* application tracebacks will be written to Quixote's error log
-
-If no error log is configured (with ``ERROR_LOG``), then all output is
-redirected to the stderr supplied to Quixote for this request by your
-web server.  At least for CGI/FastCGI scripts under Apache, this winds
-up in Apache's error log.
-
-Having stdout redirected to the error log is useful for debugging.  You
-can just sprinkle ``print`` statements into your application and the
-output will wind up in the error log.
+The error log receives application output to ``sys.stdout`` / ``sys.stderr``
+and application tracebacks.  If ``error_log`` is not set, that output goes to
+the stderr provided by the serving environment.  Redirecting stdout to the
+error log is handy for debugging: ``print`` calls in your application show up
+there.
 
 
 Application code
 ----------------
 
-Finally, we reach the most complicated part of a Quixote application.
-However, thanks to Quixote's design, everything you've ever learned
-about designing and writing Python code is applicable, so there are no
-new hoops to jump through.  You may, optionally, wish to use PTL,
-which is simply Python with a novel way of generating function return
-values -- see PTL.txt for details.
+This is the bulk of the application, and thanks to Quixote's design it is
+ordinary Python -- there are no new hoops to jump through.  You may
+optionally use PTL, which is Python with a different way of producing
+function return values; see PTL.txt.
 
-Quixote's Publisher constructs a request, splits the path into a list
-of components, and calls the root directory's _q_traverse() method,
-giving the component list as an argument.  The _q_traverse() will either
-return a value that will become the content of the HTTPResponse, or
-else it may raise an Exception.  Exceptions are caught by the Publisher
-and handled as needed, depending on configuration variables and 
-whether or not the Exception is an instance of PublisherError.
-
-
+The Publisher constructs a request, splits the path into components, and
+calls the root directory's ``_q_traverse()`` with that list.  The traversal
+either returns a value that becomes the ``HTTPResponse`` body, or raises an
+exception.  Exceptions are caught by the Publisher and handled according to
+configuration and whether the exception is a ``PublishError`` (see
+``quixote/errors.py``).

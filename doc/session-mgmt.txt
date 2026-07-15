@@ -320,4 +320,21 @@ but inefficient implementation, making is_dirty an alias for
 ``has_info()`` will work -- that just means that once the session has
 been written once, it will be re-written on every request.
 
+Using a SessionStore
+~~~~~~~~~~~~~~~~~~~~~
+
+The mapping-based ``SessionManager`` described above is the simplest option,
+but for more control over persistence Quixote also offers the ``SessionStore``
+abstraction.  A ``SessionStore`` is a component that a session manager
+delegates storage to; instead of a mapping object it implements explicit
+``load_session()``, ``save_session()``, and ``delete_session()`` methods, plus
+``transaction_start()`` / ``transaction_commit()`` / ``transaction_abort()``
+hooks for transactional backends (ZODB, Durus, a relational database, ...).
+
+To use one, subclass ``BaseSessionManager`` (or ``SessionManager``) and pass
+your store as the ``session_store`` argument, or set the ``store`` attribute.
+The default store keeps sessions in memory only.  See the ``SessionStore`` and
+``BaseSessionManager`` classes in ``quixote/session.py`` for the full
+interface.
+
 

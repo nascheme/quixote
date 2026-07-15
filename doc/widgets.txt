@@ -265,7 +265,7 @@ Examples
 
     >>> colours = ["red", "green", "blue", "pink"]
     >>> widget = RadiobuttonsWidget("foo", allowed_values=colours)
-    >>> print widget.render()
+    >>> print(widget.render())
     <input name="foo" type="radio" value="0">red</input>
     <input name="foo" type="radio" value="1">green</input>
     <input name="foo" type="radio" value="2">blue</input>
@@ -288,7 +288,7 @@ converting ``"1"`` to ``1`` and looking up ``allowed_values[1]``.)
                      value=val3,
                      delim="<br>\n",
                      quote=0)
-    >>> print widget.render()
+    >>> print(widget.render())
     <input name="bar" type="radio" value="0">thing <b>1</b></input><br>
     <input name="bar" type="radio" value="1">thing <b>2</b></input><br>
     <input name="bar" type="radio" value="2" checked="checked">thing <b>3</b></input>
@@ -340,7 +340,7 @@ Examples
 
     >>> widget = SingleSelectWidget("foo",
                                     allowed_values=["abc", 123, 5.5])
-    >>> print widget.render()
+    >>> print(widget.render())
     <select name="foo">
     <option value="0">abc
     <option value="1">123
@@ -352,7 +352,7 @@ Examples
                                     allowed_values=[val1, val2, val3],
                                     descriptions=["foo", "bar", "foo & bar"],
                                     size=3)
-    >>> print widget.render()
+    >>> print(widget.render())
     <select name="bar" size="3">
     <option value="0">foo
     <option selected value="1">bar

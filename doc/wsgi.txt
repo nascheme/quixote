@@ -2,7 +2,7 @@ WSGI and Quixote
 ================
 
 "WSGI" stands for the Python Web Server Gateway Interface, defined in
-`PEP 333 <http://www.python.org/dev/peps/pep-0333/>`__.
+`PEP 3333 <https://peps.python.org/pep-3333/>`__.
 
 The function ``quixote.get_wsgi_app()`` returns a WSGI application
 object for the current publisher instance.

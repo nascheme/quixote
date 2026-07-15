@@ -5,12 +5,12 @@ Quixote comes with some demonstration applications in the demo directory.
 After quixote is installed (see INSTALL.txt for instructions),
 you can run the demos using the scripts located in the server directory.
 
-Each server script is written for a specific method of connecting a
-quixote publisher to a web server, and you will ultimately want to
-choose the one that matches your needs. More information about the
-different server scripts may be found in the scripts themselves and in
-web-server.txt.  To start, though, the easiest way to view the demos
-is as follows: in a terminal window, run::
+Each server module in ``quixote.server`` connects a quixote publisher to a
+web server in a different way, and you will ultimately want to choose the one
+that matches your needs. More information about the different server modules
+may be found in the modules themselves and in programming.txt.  To start,
+though, the easiest way to view the demos is as follows: in a terminal
+window, run::
 
     python3 -m quixote run
 
