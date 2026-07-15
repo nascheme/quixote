@@ -1,0 +1,48 @@
+# Bytecode and runtime caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test, lint, and type-check caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyrefly/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Compiled extension artifacts
+*.so
+*.pyd
+*.dll
+*.dylib
+*.o
+*.a
+
+# In-place build output from setuptools
+/quixote/
+
+# Local/editor files
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
