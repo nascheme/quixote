@@ -10,6 +10,7 @@ import email
 import io
 import os
 import re
+import sys
 import tempfile
 import urllib.error
 import urllib.parse
@@ -674,8 +675,6 @@ class HTTPRequest:
 
         m = _http_product_re.match(ua)
         if not m:
-            import sys
-
             sys.stderr.write("couldn't parse User-Agent header: %r\n" % ua)
             return (None, None)
 

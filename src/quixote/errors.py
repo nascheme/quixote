@@ -11,6 +11,7 @@ errors that need their own status code, title, or formatting.
 
 from collections.abc import Sequence
 
+import quixote
 from quixote.html import htmlescape, htmltext
 
 type Rendered = str | htmltext
@@ -115,8 +116,6 @@ class TraversalError(PublishError):
         """
         PublishError.__init__(self, public_msg, private_msg)
         if path is None:
-            import quixote
-
             path = quixote.current_request().get_path()
         self.path = path
 
@@ -198,8 +197,6 @@ class MethodNotAllowedError(PublishError):
         Requires an active request; otherwise `current_response` raises
         `RuntimeError`.
         """
-        import quixote
-
         allowed_methods = ', '.join(self.allowed_methods)
         quixote.current_response().set_header('Allow', allowed_methods)
         return 'Allowed methods are: %s' % allowed_methods

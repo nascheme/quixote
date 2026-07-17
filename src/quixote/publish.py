@@ -43,10 +43,12 @@ from quixote.errors import (
 )
 from quixote.http_request import Environ, FieldItem, FieldValue, HTTPRequest
 from quixote.http_response import HTTPResponse
-from quixote.logger import DefaultLogger
+from quixote.lazy import logger as _logger
+from quixote.lazy import session as _session
 
 if TYPE_CHECKING:
     from quixote.directory import Directory
+    from quixote.logger import DefaultLogger
     from quixote.session import BaseSessionManager, Session
     from quixote.wsgi import QWIP
 
@@ -125,7 +127,7 @@ class Publisher:
                 )
             self.config = config
         if logger is None:
-            self.logger = DefaultLogger(
+            self.logger = _logger.DefaultLogger(
                 error_log=self.config.error_log,
                 access_log=self.config.access_log,
                 error_email=self.config.error_email,
@@ -135,9 +137,7 @@ class Publisher:
         if session_manager is not None:
             self.session_manager = session_manager
         else:
-            from quixote.session import NullSessionManager
-
-            self.session_manager = NullSessionManager()
+            self.session_manager = _session.NullSessionManager()
 
         if self.config.display_exceptions:
             # Assume we are in "dev" mode and enable this warning.
@@ -516,12 +516,10 @@ def get_session() -> Session | None:
     the default `NullSessionManager` this returns None.  None is also returned
     if no request is stored.
     """
-    from quixote.session import Session
-
     request = get_request()
     if request is None:
         return None
-    return cast(Session | None, request.session)
+    return cast(_session.Session | None, request.session)
 
 
 def current_session() -> Session:
@@ -539,12 +537,10 @@ def current_session() -> Session:
 
 def get_session_manager() -> BaseSessionManager | None:
     """Return the publisher's session manager, or None if no publisher."""
-    from quixote.session import BaseSessionManager
-
     publisher = get_publisher()
     if publisher is None:
         return None
-    return cast(BaseSessionManager, publisher.session_manager)
+    return cast(_session.BaseSessionManager, publisher.session_manager)
 
 
 def current_session_manager() -> BaseSessionManager:
@@ -553,9 +549,9 @@ def current_session_manager() -> BaseSessionManager:
     Like `get_session_manager` but raises `RuntimeError` instead of
     returning None when there is no publisher.
     """
-    from quixote.session import BaseSessionManager
-
-    return cast(BaseSessionManager, current_publisher().session_manager)
+    return cast(
+        _session.BaseSessionManager, current_publisher().session_manager
+    )
 
 
 def get_user() -> object | None:

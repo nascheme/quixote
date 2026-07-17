@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from quixote import current_request
 from quixote.html import htmlescape, htmltag, htmltext
 from quixote.http_request import FieldValue, Upload
+from quixote.lazy import form1 as _form1
 
 if TYPE_CHECKING:
     from quixote.http_request import HTTPRequest
@@ -117,9 +118,7 @@ class Widget:
         value: object | None = None,
         **args: Any,
     ) -> Widget:
-        from quixote.form1 import form
-
-        klass = form.get_widget_class(widget_type)
+        klass = _form1.form.get_widget_class(widget_type)
         name = self.get_subwidget_name(widget_name)
         return cast(type[Widget], klass)(*(name, value), **args)
 

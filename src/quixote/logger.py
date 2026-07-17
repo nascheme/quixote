@@ -7,11 +7,11 @@ import time
 from typing import TYPE_CHECKING, TextIO, cast
 
 import quixote
+from quixote.lazy import session as _session
 from quixote.sendmail import sendmail
 
 if TYPE_CHECKING:
     from quixote.http_request import HTTPRequest
-    from quixote.session import Session
 
 
 class DefaultLogger:
@@ -112,7 +112,7 @@ class DefaultLogger:
         """Log a request in the access_log file."""
         if self.access_log is None:
             return
-        session = cast(Session | None, request.session)
+        session = cast(_session.Session | None, request.session)
         if session:
             user = session.user or "-"
         else:
