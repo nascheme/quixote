@@ -1,10 +1,11 @@
 import os
+
 from quixote import current_response
-from quixote.ptl import ptl_html
-from quixote.directory import Directory, Resolving
-from quixote.util import StaticDirectory, StaticBundle
 from quixote.demo.integers import IntegerUI
+from quixote.directory import Directory, Resolving
 from quixote.http_response import Stream
+from quixote.ptl import ptl_html
+from quixote.util import StaticBundle, StaticDirectory
 
 
 class ExtraDirectory(Resolving, Directory):
@@ -79,10 +80,18 @@ class ExtraDirectory(Resolving, Directory):
         <body>
         Demo of the StaticBundle() class.
         <ul style="max-width: 40em">
-          <li>Source code for only <a href="bundle_data/errors.py">errors.py</a>.  Note this does
-          not include a "cache busting" token since <tt>make_path()</tt> was not used.
-          <li>Source code for <a href="bundle_data{errors_path}">errors.py</a> with token.
-          <li>Concatenated code for <a href="bundle_data{code_path}">errors.py and session.py</a>.
+
+          <li>Source code for only <a
+          href="bundle_data/errors.py">errors.py</a>.  Note this does not
+          include a "cache busting" token since <tt>make_path()</tt> was not
+          used.
+
+          <li>Source code for <a href="bundle_data{errors_path}">errors.py</a>
+          with token.
+
+          <li>Concatenated code for <a href="bundle_data{code_path}">errors.py
+          and session.py</a>.
+
         </body>
         </html>
         """

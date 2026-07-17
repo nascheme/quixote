@@ -1,4 +1,5 @@
 import sys
+
 from quixote import current_response, redirect
 from quixote.directory import Directory, export
 from quixote.errors import TraversalError

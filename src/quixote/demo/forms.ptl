@@ -1,18 +1,19 @@
-"""Demonstrate the Quixote form class.
-"""
+"""Demonstrate the Quixote form class."""
+
 import time
-from quixote.ptl import ptl_html
+
 from quixote.form import (
+    CheckboxWidget,
+    FileWidget,
     Form,
-    StringWidget,
+    MultipleSelectWidget,
     PasswordWidget,
     RadiobuttonsWidget,
     SingleSelectWidget,
-    MultipleSelectWidget,
-    CheckboxWidget,
-    FileWidget,
+    StringWidget,
 )
 from quixote.form.css import BASIC_FORM_CSS
+from quixote.ptl import ptl_html
 from quixote.util import dump_request
 
 

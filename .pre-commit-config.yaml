@@ -1,20 +1,28 @@
 repos:
 -   repo: local
     hooks:
-    - id: black
-      name: black
-      entry: black
+    - id: format
+      name: format
+      description: "Run 'ruff format' to check code formatting"
+      entry: uv run ruff format
       language: system
-      files: '\.(py|ptl)$'
-      args: [--check, --fast]
+      files: '\.py$'
+      args: [--check]
       require_serial: true
     - id: ruff
       name: ruff
       description: "Run 'ruff' for extremely fast Python linting"
       language: system
-      entry: python3
-      args: [-m, ruff, check]
+      entry: uv run ruff
+      args: [check]
       files: '\.(py|ptl)$'
+      require_serial: true
+    - id: black
+      name: black
+      entry: uv run black
+      language: system
+      files: '\.ptl$'
+      args: [--check, --fast]
       require_serial: true
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.2.3

@@ -1,14 +1,14 @@
-"""The root directory for the Quixote demo.
-"""
-import time
+"""The root directory for the Quixote demo."""
+
 import base64
+import time
 
 from quixote import current_response
-from quixote.ptl import ptl_html
+from quixote.demo.extras import ExtraDirectory
 from quixote.directory import Directory, export, subdir
 from quixote.errors import PublishError
+from quixote.ptl import ptl_html
 from quixote.util import dump_request
-from quixote.demo.extras import ExtraDirectory
 
 
 class RootDirectory(Directory):
