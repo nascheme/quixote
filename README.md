@@ -44,7 +44,7 @@ Quixote applications. Details about [PTL](doc/PTL.txt) are provided.
 Quixote is copyrighted and made available under open source
 licensing terms. See [LICENSE.txt](LICENSE.txt) for the details. The
 [ACKS.txt](ACKS.txt) file lists people who have assisted in the development
-of Quixote. [RELEASE_NOTES.md](RELEASE_NOTES.md) summarizes the changes in
+of Quixote. [RELEASE_NOTES.md](doc/RELEASE_NOTES.md) summarizes the changes in
 the current release.
 
 The painting by Honoré Daumier was photographed by Wikipedia user
