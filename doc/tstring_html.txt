@@ -185,3 +185,17 @@ After running both conversion scripts, the result is::
         ht += H(t'  <link rel="stylesheet" href="{css_url}">\n')
         ht += H(t'</head>\n')
         return ht.getvalue()
+
+
+Checking code that uses htmlformat
+----------------------------------
+
+In order to avoid cross-site scripting bugs, it is good practice to always call
+``htmlformat`` with a literal t-string argument.  A linting tool in the form of
+the script ``quixote/html/check_htmlformat.py`` is provided.  An example
+command to run this check on all Python files known by git would be::
+
+     git ls-files | xargs uv run python -m quixote.html check
+
+Running this check in your CI or as part of your pre-commit hooks is suggested
+if you use the htmlformat templating feature.

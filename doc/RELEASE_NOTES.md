@@ -208,3 +208,11 @@ The package source moved from `quixote/` to `src/quixote/`. The import name is
 still `quixote`, so `import quixote` and all `from quixote... import ...`
 statements are unaffected. This only matters if you build or install Quixote
 from a source checkout, or if your tooling referenced the on-disk path.
+
+## HTML templates using t-strings
+
+Version 4 of Quxote includes the ``htmlformat()`` function.  See
+``doc/tstring_html.txt`` for information on how this is used and how ``.ptl``
+modules can be converted.  Quixote 4.x will continue to support `.ptl` modules.
+The t-string approach is provided as a way to get the security benefits of PTL
+while still using standard ``.py`` module syntax.
