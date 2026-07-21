@@ -24,7 +24,7 @@ Homepage = "https://github.com/nascheme/quixote"
 
 [dependency-groups]
 dev = [
-    "black==25.9.0+ptl1",
+    "black==26.5.1+ptl1",
     "pyrefly>=1.1.1",
     "pytest",
     "ruff>=0.15.9",
